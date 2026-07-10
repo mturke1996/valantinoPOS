@@ -1,0 +1,32 @@
+{
+  "name": "Valentino — Chocolate ERP + POS",
+  "short_name": "Valentino",
+  "description": "نظام إدارة محل شوكولاتة — جملة وقطاعي ومناسبات",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FBF7F2",
+  "theme_color": "#3D2B1F",
+  "orientation": "any",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    {
+      "src": "/icon",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
