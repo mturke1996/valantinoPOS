@@ -9,7 +9,31 @@ import { refreshSystemReminders } from "@/lib/data/store";
 import { flushOfflineSyncQueue } from "@/lib/offline/sync";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
-const DEBOUNCE_MS = 800;
+const DEBOUNCE_MS = 600;
+const SYNC_FLUSH_MS = 30_000;
+const REMINDER_MS = 60_000;
+
+const REALTIME_TABLES = [
+  "products",
+  "batches",
+  "orders",
+  "payments",
+  "shifts",
+  "customers",
+  "user_profiles",
+  "categories",
+  "events",
+  "returns",
+  "discounts",
+  "coupons",
+  "suppliers",
+  "expenses",
+  "purchase_orders",
+  "invoices",
+  "inventory_movements",
+  "loyalty_tiers",
+  "settings",
+] as const;
 
 export function useRealtimeSync(session: AuthSession | null, enabled: boolean) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -29,95 +53,45 @@ export function useRealtimeSync(session: AuthSession | null, enabled: boolean) {
         if (!current) return;
         void flushOfflineSyncQueue().then(async () => {
           const protectedIds = await getProtectedEntityIds();
-          await hydrateStoreFromSupabase(current, { protectedIds });
+          const ok = await hydrateStoreFromSupabase(current, { protectedIds });
+          if (!ok) {
+            console.warn("[realtime] hydrate failed — will retry on next event");
+          }
         });
       }, DEBOUNCE_MS);
     };
 
-    const channel = supabase
-      .channel(`branch-live-${session.branchId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "products",
-          filter: `branch_id=eq.${session.branchId}`,
-        },
-        refresh,
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "batches",
-          filter: `branch_id=eq.${session.branchId}`,
-        },
-        refresh,
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "orders",
-          filter: `branch_id=eq.${session.branchId}`,
-        },
-        refresh,
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "payments",
-          filter: `branch_id=eq.${session.branchId}`,
-        },
-        refresh,
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "shifts",
-          filter: `branch_id=eq.${session.branchId}`,
-        },
-        refresh,
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "customers",
-          filter: `branch_id=eq.${session.branchId}`,
-        },
-        refresh,
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "user_profiles",
-          filter: `branch_id=eq.${session.branchId}`,
-        },
-        refresh,
-      )
-      .subscribe();
+    let channel = supabase.channel(`branch-live-${session.branchId}`);
 
-    const fastFlush = window.setInterval(() => {
-      refreshSystemReminders();
+    for (const table of REALTIME_TABLES) {
+      channel = channel.on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table,
+          filter: `branch_id=eq.${session.branchId}`,
+        },
+        refresh,
+      );
+    }
+
+    channel.subscribe();
+
+    const syncFlush = window.setInterval(() => {
       void flushOfflineSyncQueue().catch(() => undefined);
-    }, 5_000);
+    }, SYNC_FLUSH_MS);
+
+    const reminderTick = window.setInterval(() => {
+      refreshSystemReminders();
+    }, REMINDER_MS);
 
     refreshSystemReminders();
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
-      window.clearInterval(fastFlush);
+      window.clearInterval(syncFlush);
+      window.clearInterval(reminderTick);
       void supabase.removeChannel(channel);
     };
   }, [enabled, session?.branchId]);

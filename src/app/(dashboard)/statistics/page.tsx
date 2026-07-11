@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ORDER_STATUSES } from "@/lib/constants/order-status";
 import { getDashboardStats } from "@/lib/services/dashboard.service";
 import { getState } from "@/lib/data/store";
+import { useStoreSubscription } from "@/hooks/use-store-subscription";
 import { formatCurrency } from "@/lib/utils";
 import type { DashboardStats } from "@/types";
 
@@ -32,11 +33,12 @@ export default function StatisticsPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const state = getState();
-    setStats(getDashboardStats(state));
+  const refresh = useCallback(() => {
+    setStats(getDashboardStats(getState()));
     setLoading(false);
   }, []);
+
+  useStoreSubscription(refresh);
 
   const statusData = useMemo(() => {
     if (!stats) return [];

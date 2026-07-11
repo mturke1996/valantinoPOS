@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -55,6 +56,7 @@ import {
 import { PosSalesActivityPanel } from "@/components/pos/pos-sales-activity-panel";
 import { PrintReceipt } from "@/components/pos/print-receipt";
 import { useCartStore } from "@/features/pos/stores/cart.store";
+import { useStoreSubscription } from "@/hooks/use-store-subscription";
 import {
   createOrder,
   deleteOrder,
@@ -75,6 +77,7 @@ import {
   getPosSessionStats,
   getTodayOperations,
 } from "@/lib/services/operations.service";
+import { calculateOrderTotals } from "@/lib/services/pricing.service";
 import type {
   Order,
   OrderType,
@@ -135,28 +138,38 @@ export default function PosPage() {
     [],
   );
 
-  const {
-    items,
-    heldCarts,
-    customerId,
-    couponCode,
-    saleContext,
-    addItem,
-    removeItem,
-    updateQuantity,
-    clear,
-    applyDiscount,
-    applyCoupon,
-    setCustomer,
-    setSaleContext,
-    getTotals,
-    holdCart,
-    resumeCart,
-    deleteHeldCart,
-  } = useCartStore();
+  const items = useCartStore((s) => s.items);
+  const heldCarts = useCartStore((s) => s.heldCarts);
+  const customerId = useCartStore((s) => s.customerId);
+  const couponCode = useCartStore((s) => s.couponCode);
+  const saleContext = useCartStore((s) => s.saleContext);
+  const discountAmount = useCartStore((s) => s.discountAmount);
+  const addItem = useCartStore((s) => s.addItem);
+  const removeItem = useCartStore((s) => s.removeItem);
+  const updateQuantity = useCartStore((s) => s.updateQuantity);
+  const clear = useCartStore((s) => s.clear);
+  const applyDiscount = useCartStore((s) => s.applyDiscount);
+  const applyCoupon = useCartStore((s) => s.applyCoupon);
+  const setCustomer = useCartStore((s) => s.setCustomer);
+  const setSaleContext = useCartStore((s) => s.setSaleContext);
+  const holdCart = useCartStore((s) => s.holdCart);
+  const resumeCart = useCartStore((s) => s.resumeCart);
+  const deleteHeldCart = useCartStore((s) => s.deleteHeldCart);
 
-  const totals = getTotals();
   const settings = getSettings();
+  const totals = useMemo(
+    () =>
+      calculateOrderTotals({
+        items: items.map((item) => ({
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          discount: item.discount,
+        })),
+        discountAmount,
+        taxRate: settings.taxRate,
+      }),
+    [items, discountAmount, settings.taxRate],
+  );
   const deferredSearch = useDeferredValue(search);
   const selectedCustomer = useMemo(
     () =>
@@ -170,27 +183,27 @@ export default function PosPage() {
     saleContext.mode === "walk_in" ? "pos" : saleContext.mode;
   const collectionAmount = getCollectionAmount(saleContext, totals.total);
 
-  useEffect(() => {
-    const load = async () => {
-      getState();
-      refreshSystemReminders();
-      const live = getProducts().filter((p) => p.isActive);
-      if (online) {
-        await cacheProducts(live);
-        setProducts(live);
-      } else {
-        const cached = await getCachedProducts();
-        setProducts(cached.length > 0 ? cached.filter((p) => p.isActive) : live);
-      }
-      setCategories(getCategories());
-      const currentShift = getOpenShift(getSettings().branchId) ?? null;
-      setShift(currentShift);
-      refreshSessionStats(currentShift);
-      setTodayOperations(getTodayOperations(getState()));
-      setLoading(false);
-    };
-    load();
+  const refreshPosData = useCallback(async () => {
+    refreshSystemReminders();
+    const live = getProducts().filter((p) => p.isActive);
+    if (online) {
+      await cacheProducts(live);
+      setProducts(live);
+    } else {
+      const cached = await getCachedProducts();
+      setProducts(cached.length > 0 ? cached.filter((p) => p.isActive) : live);
+    }
+    setCategories(getCategories());
+    const currentShift = getOpenShift(getSettings().branchId) ?? null;
+    setShift(currentShift);
+    refreshSessionStats(currentShift);
+    setTodayOperations(getTodayOperations(getState()));
+    setLoading(false);
   }, [online, refreshSessionStats]);
+
+  useStoreSubscription(() => {
+    void refreshPosData();
+  });
 
   const handleProductClick = (product: Product) => {
     if (product.unitType === "gram" || product.unitType === "kilo") {
@@ -824,10 +837,11 @@ export default function PosPage() {
       </div>
 
       <Dialog open={cartOpen} onOpenChange={setCartOpen}>
-        <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-md">
+        <DialogContent className="flex max-h-[90dvh] flex-col overflow-hidden sm:max-w-md">
           <DialogHeader>
             <DialogTitle>السلة ({items.length})</DialogTitle>
           </DialogHeader>
+          <DialogBody className="flex flex-col gap-3 pr-1">
           <button
             type="button"
             onClick={() => {
@@ -914,7 +928,8 @@ export default function PosPage() {
               </div>
             )}
           </ScrollArea>
-          <div className="flex items-center justify-between border-t border-cacao-800/8 pt-3">
+          </DialogBody>
+          <div className="flex shrink-0 items-center justify-between border-t border-cacao-800/8 pt-3">
             <span className="text-sm text-muted-foreground">الإجمالي</span>
             <CurrencyDisplay
               amount={totals.total}
@@ -1035,12 +1050,19 @@ export default function PosPage() {
 
       {/* Held carts modal */}
       <Dialog open={heldOpen} onOpenChange={setHeldOpen}>
-        <DialogContent>
+        <DialogContent className="flex max-h-[85dvh] flex-col overflow-hidden sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>السلات المعلّقة</DialogTitle>
+            <DialogTitle>السلات المعلّقة ({heldCarts.length})</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
-            {heldCarts.map((held) => (
+          <DialogBody className="space-y-2 pr-1">
+            {heldCarts.length === 0 ? (
+              <EmptyState
+                icon={Pause}
+                title="لا توجد سلات معلّقة"
+                description="علّق السلة الحالية من شريط الأدوات"
+              />
+            ) : (
+              heldCarts.map((held) => (
               <div
                 key={held.id}
                 className="flex items-center justify-between rounded-md border border-cacao-800/10 p-3"
@@ -1075,8 +1097,9 @@ export default function PosPage() {
                   </Button>
                 </div>
               </div>
-            ))}
-          </div>
+              ))
+            )}
+          </DialogBody>
         </DialogContent>
       </Dialog>
 

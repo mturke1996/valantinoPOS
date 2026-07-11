@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { Scale } from "lucide-react";
 
 import { CurrencyDisplay } from "@/components/shared/currency-display";
@@ -15,7 +16,10 @@ interface PosProductTileProps {
   onClick: () => void;
 }
 
-export function PosProductTile({ product, onClick }: PosProductTileProps) {
+export const PosProductTile = memo(function PosProductTile({
+  product,
+  onClick,
+}: PosProductTileProps) {
   const tracked = isStockTracked(product);
   const isWeight = product.unitType === "gram" || product.unitType === "kilo";
   const lowStock = tracked && product.stockQuantity <= product.minStock;
@@ -89,4 +93,4 @@ export function PosProductTile({ product, onClick }: PosProductTileProps) {
       </div>
     </button>
   );
-}
+});

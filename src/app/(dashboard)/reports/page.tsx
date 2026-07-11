@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   Download,
   FileBarChart,
@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getDashboardStats } from "@/lib/services/dashboard.service";
 import { exportReport } from "@/lib/export-reports";
 import { getState } from "@/lib/data/store";
+import { useStoreSubscription } from "@/hooks/use-store-subscription";
 import { formatCurrency } from "@/lib/utils";
 
 const REPORTS = [
@@ -57,7 +58,7 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<Record<string, string>>({});
 
-  useEffect(() => {
+  const refresh = useCallback(() => {
     const state = getState();
     const stats = getDashboardStats(state);
     setSummary({
@@ -71,6 +72,8 @@ export default function ReportsPage() {
     });
     setLoading(false);
   }, []);
+
+  useStoreSubscription(refresh);
 
   const handleExport = (reportId: string, format: "csv" | "xlsx") => {
     try {

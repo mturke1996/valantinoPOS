@@ -287,9 +287,29 @@ export const useCartStore = create<CartState>()(
     }),
     {
       name: "valentino-cart",
+      version: 2,
       partialize: (state) => ({
+        items: state.items,
+        discountAmount: state.discountAmount,
+        couponCode: state.couponCode,
+        customerId: state.customerId,
+        saleContext: state.saleContext,
         heldCarts: state.heldCarts,
       }),
+      migrate: (persisted, version) => {
+        const state = persisted as Partial<CartState>;
+        if (version < 2) {
+          return {
+            items: state.items ?? [],
+            discountAmount: state.discountAmount ?? 0,
+            couponCode: state.couponCode ?? null,
+            customerId: state.customerId ?? null,
+            saleContext: state.saleContext ?? { ...DEFAULT_POS_SALE_CONTEXT },
+            heldCarts: state.heldCarts ?? [],
+          };
+        }
+        return persisted as CartState;
+      },
     },
   ),
 );

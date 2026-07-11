@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getState } from "@/lib/data/store";
+import { useStoreSubscription } from "@/hooks/use-store-subscription";
 import { getDashboardStats } from "@/lib/services/dashboard.service";
 import { getTodayOperations } from "@/lib/services/operations.service";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
@@ -42,11 +43,12 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const state = getState();
-    setStats(getDashboardStats(state));
+  const refresh = useCallback(() => {
+    setStats(getDashboardStats(getState()));
     setLoading(false);
   }, []);
+
+  useStoreSubscription(refresh);
 
   const todayOperations = useMemo(() => {
     if (!stats) return [];

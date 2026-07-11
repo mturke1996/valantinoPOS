@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { CalendarDays, Plus } from "lucide-react";
 import { format, isSameDay, parseISO, startOfDay } from "date-fns";
@@ -18,7 +18,8 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getOrders, getState } from "@/lib/data/store";
+import { getOrders } from "@/lib/data/store";
+import { useStoreSubscription } from "@/hooks/use-store-subscription";
 import type { Order } from "@/types";
 
 export default function CalendarPage() {
@@ -30,8 +31,7 @@ export default function CalendarPage() {
   );
   const [createOpen, setCreateOpen] = useState(false);
 
-  const reload = () => {
-    getState();
+  const reload = useCallback(() => {
     const withDelivery = getOrders()
       .filter((o) => o.deliveryDate && o.status !== "cancelled")
       .sort(
@@ -40,12 +40,10 @@ export default function CalendarPage() {
           parseISO(b.deliveryDate!).getTime(),
       );
     setOrders(withDelivery);
-  };
-
-  useEffect(() => {
-    reload();
     setLoading(false);
   }, []);
+
+  useStoreSubscription(reload);
 
   const countsByDay = useMemo(() => {
     const map = new Map<string, number>();

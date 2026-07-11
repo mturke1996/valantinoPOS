@@ -7,6 +7,7 @@ import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -81,12 +82,12 @@ export function PosPaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="flex max-h-[90dvh] flex-col overflow-hidden sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-5 py-2">
+        <DialogBody className="space-y-5 py-2">
           <div className="rounded-xl border border-gold-400/20 bg-gradient-to-b from-gold-400/10 to-transparent p-5 text-center">
             <p className="text-sm text-muted-foreground">المبلغ المستحق</p>
             <CurrencyDisplay
@@ -232,7 +233,7 @@ export function PosPaymentDialog({
               ) : null}
             </div>
           ) : null}
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

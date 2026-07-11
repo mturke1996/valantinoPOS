@@ -179,6 +179,7 @@ function notify(state: AppState): void {
 function update(mutator: (state: AppState) => AppState): AppState {
   const current = getState();
   const next = mutator(current);
+  if (next === current) return current;
   setState(next);
   return next;
 }
@@ -2316,7 +2317,7 @@ export function refreshSystemReminders(): void {
       existingKeys.add(key);
     }
 
-    return next;
+    return next === state ? state : next;
   });
 }
 

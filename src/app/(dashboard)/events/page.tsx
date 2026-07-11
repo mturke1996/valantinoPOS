@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   CalendarClock,
@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getOrders, getState } from "@/lib/data/store";
+import { useStoreSubscription } from "@/hooks/use-store-subscription";
 import { cn, formatDate, formatNumber } from "@/lib/utils";
 import type { Event, Order, OrderStatus } from "@/types";
 
@@ -114,9 +115,7 @@ export default function EventsPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    loadEvents();
-  }, [loadEvents]);
+  useStoreSubscription(loadEvents);
 
   const today = startOfDay(new Date());
   const todayKey = format(today, "yyyy-MM-dd");
