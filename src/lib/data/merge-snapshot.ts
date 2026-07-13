@@ -24,7 +24,7 @@ function idsFromSyncItem(item: SyncQueueItem): string[] {
       if (payment?.id) ids.push(payment.id);
       if (payment?.orderId) ids.push(payment.orderId);
     }
-    if (item.action === "update_status") {
+    if (item.action === "update_status" || item.action === "delete_order") {
       if (typeof payload.orderId === "string") ids.push(payload.orderId);
     }
     if (
@@ -122,7 +122,7 @@ export async function getProtectedEntityIds(): Promise<Set<string>> {
   if (!db) return new Set();
 
   const items = await db.syncQueue
-    .filter((item) => item.status === "pending")
+    .filter((item) => item.status === "pending" || item.status === "failed")
     .toArray();
 
   const ids = new Set<string>();

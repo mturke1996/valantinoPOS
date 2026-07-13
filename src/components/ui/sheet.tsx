@@ -40,8 +40,9 @@ const SheetContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed inset-y-0 z-50 h-svh w-[min(19rem,88vw)] bg-background shadow-[0_20px_60px_-24px_hsl(24_33%_8%/0.45)]",
-        "data-[state=open]:animate-in data-[state=closed]:animate-out",
+        "fixed inset-y-0 z-50 flex h-[100dvh] w-[min(20rem,90vw)] flex-col overflow-hidden bg-background shadow-[0_20px_60px_-24px_hsl(24_33%_8%/0.45)]",
+        "pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
+        "overscroll-contain data-[state=open]:animate-in data-[state=closed]:animate-out",
         side === "right"
           ? "right-0 data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right"
           : "left-0 data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left",

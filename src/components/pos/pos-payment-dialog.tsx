@@ -82,12 +82,12 @@ export function PosPaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90dvh] flex-col overflow-hidden sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[min(94dvh,100svh)] flex-col overflow-hidden p-0 sm:max-w-lg">
+        <DialogHeader className="border-b border-border/60">
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
-        <DialogBody className="space-y-5 py-2">
+        <DialogBody className="space-y-5 py-4">
           <div className="rounded-xl border border-gold-400/20 bg-gradient-to-b from-gold-400/10 to-transparent p-5 text-center">
             <p className="text-sm text-muted-foreground">المبلغ المستحق</p>
             <CurrencyDisplay
@@ -236,13 +236,17 @@ export function PosPaymentDialog({
         </DialogBody>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            className="min-h-11 w-full sm:w-auto"
+            onClick={() => onOpenChange(false)}
+          >
             إلغاء
           </Button>
           <Button
             onClick={onConfirm}
             disabled={processing || validationMessage !== null}
-            className="min-w-28"
+            className="min-h-11 w-full min-w-28 sm:w-auto"
           >
             {processing ? "جاري..." : "تأكيد الدفع"}
           </Button>

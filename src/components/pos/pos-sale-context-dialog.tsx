@@ -17,6 +17,7 @@ import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -255,15 +256,15 @@ export function PosSaleContextDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92svh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[min(94dvh,100svh)] flex-col overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="border-b border-border/60">
           <DialogTitle className="flex items-center gap-2">
             <CalendarClock className="size-5 text-gold-400" />
             نوع البيع وبيانات التنفيذ
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 py-2">
+        <DialogBody className="space-y-6 py-4">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {SALE_MODES.map(({ value: mode, label, description, icon: Icon }) => {
               const active = draft.mode === mode;
@@ -544,13 +545,22 @@ export function PosSaleContextDialog({
               {error}
             </p>
           ) : null}
-        </div>
+        </DialogBody>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 w-full sm:w-auto"
+            onClick={() => onOpenChange(false)}
+          >
             إلغاء
           </Button>
-          <Button type="button" onClick={save}>
+          <Button
+            type="button"
+            className="min-h-11 w-full sm:w-auto"
+            onClick={save}
+          >
             حفظ نوع البيع
           </Button>
         </DialogFooter>

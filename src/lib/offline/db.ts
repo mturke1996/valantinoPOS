@@ -34,7 +34,8 @@ export interface SyncQueueItem {
     | "create_inventory_movement"
     | "create_audit_log"
     | "create_invoice"
-    | "update_invoice";
+    | "update_invoice"
+    | "delete_order";
   payload: string;
   createdAt: string;
   updatedAt: string;
@@ -78,8 +79,29 @@ class ValentinoOfflineDB extends Dexie {
 }
 
 const MAX_SYNC_RETRIES = 8;
-const INITIAL_RETRY_DELAY_MS = 1_000;
-const MAX_RETRY_DELAY_MS = 5 * 60_000;
+/** Fast first retries so online devices recover immediately. */
+const INITIAL_RETRY_DELAY_MS = 400;
+const MAX_RETRY_DELAY_MS = 30_000;
+
+type SyncQueueListener = () => void;
+const syncQueueListeners = new Set<SyncQueueListener>();
+
+export function subscribeSyncQueue(listener: SyncQueueListener): () => void {
+  syncQueueListeners.add(listener);
+  return () => {
+    syncQueueListeners.delete(listener);
+  };
+}
+
+export function notifySyncQueueChange(): void {
+  syncQueueListeners.forEach((listener) => {
+    try {
+      listener();
+    } catch {
+      // Listener errors must not break the queue.
+    }
+  });
+}
 
 export function getSyncRetryDelay(retries: number): number {
   const exponential = Math.min(
@@ -144,6 +166,7 @@ export async function enqueueSync(
     nextRetryAt: now,
     status: "pending",
   });
+  notifySyncQueueChange();
 }
 
 export async function getPendingSyncCount(): Promise<number> {
@@ -179,6 +202,21 @@ export async function retryFailedSyncItems(): Promise<void> {
       nextRetryAt: now,
       updatedAt: now,
     });
+  notifySyncQueueChange();
+}
+
+/** Make every pending item eligible for an immediate flush (e.g. on reconnect). */
+export async function wakePendingSyncItems(): Promise<void> {
+  const db = getOfflineDB();
+  if (!db) return;
+  const now = new Date().toISOString();
+  await db.syncQueue
+    .filter((item) => item.status === "pending")
+    .modify({
+      nextRetryAt: now,
+      updatedAt: now,
+    });
+  notifySyncQueueChange();
 }
 
 export async function processSyncQueue(
@@ -197,11 +235,13 @@ export async function processSyncQueue(
     )
     .sortBy("createdAt");
   let processed = 0;
+  let changed = false;
   for (const item of items) {
     try {
       await handler(item);
       await db.syncQueue.delete(item.id);
       processed++;
+      changed = true;
     } catch (err) {
       const retries = item.retries + 1;
       const failed = retries >= MAX_SYNC_RETRIES;
@@ -217,7 +257,9 @@ export async function processSyncQueue(
             ).toISOString(),
         updatedAt,
       });
+      changed = true;
     }
   }
+  if (changed) notifySyncQueueChange();
   return processed;
 }

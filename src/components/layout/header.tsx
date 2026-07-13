@@ -68,14 +68,14 @@ export function Header({
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 mx-4 mt-4 flex h-14 items-center justify-between gap-4 rounded-lg border border-cacao-800/8 bg-background/80 px-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/70",
+        "sticky top-0 z-40 mx-3 mt-[max(0.75rem,env(safe-area-inset-top))] flex h-14 items-center justify-between gap-3 rounded-lg border border-cacao-800/8 bg-background/80 px-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/70 sm:mx-4 sm:mt-4 sm:gap-4 sm:px-4",
         className,
       )}
     >
       <Button
         variant="ghost"
         size="icon"
-        className="size-9 shrink-0 text-cacao-800/70 lg:hidden dark:text-cream-100/70"
+        className="size-11 shrink-0 text-cacao-800/70 lg:hidden dark:text-cream-100/70"
         onClick={onMenuOpen}
         aria-label="فتح القائمة"
       >
@@ -84,7 +84,7 @@ export function Header({
 
       <Button
         variant="outline"
-        className="h-9 w-full max-w-sm justify-start gap-2 border-cacao-800/10 bg-cream-100/40 text-muted-foreground hover:bg-cream-100/80 dark:bg-cacao-800/20"
+        className="h-11 w-full max-w-sm justify-start gap-2 border-cacao-800/10 bg-cream-100/40 text-muted-foreground hover:bg-cream-100/80 dark:bg-cacao-800/20"
         onClick={onSearchOpen}
       >
         <Search className="size-4 shrink-0" />
@@ -94,17 +94,18 @@ export function Header({
         </kbd>
       </Button>
 
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
         <OfflineIndicator />
         <Button
           variant="ghost"
           size="icon"
-          className="relative size-9 text-cacao-800/70 hover:bg-cacao-800/[0.04] dark:text-cream-100/70"
+          className="relative size-11 text-cacao-800/70 hover:bg-cacao-800/[0.04] dark:text-cream-100/70"
           aria-label="الإشعارات"
+          onClick={() => router.push("/notifications")}
         >
           <Bell className="size-[18px]" />
           {notificationCount > 0 ? (
-            <Badge className="absolute -top-1 -end-1 flex size-4 items-center justify-center rounded-full border-0 bg-berry-500 p-0 text-[10px] text-white">
+            <Badge className="absolute -top-0.5 -end-0.5 flex size-5 items-center justify-center rounded-full border-0 bg-berry-500 p-0 text-[10px] text-white">
               {notificationCount > 9 ? "9+" : notificationCount}
             </Badge>
           ) : null}
@@ -113,7 +114,7 @@ export function Header({
         <Button
           variant="ghost"
           size="icon"
-          className="size-9 text-cacao-800/70 hover:bg-cacao-800/[0.04] dark:text-cream-100/70"
+          className="size-11 text-cacao-800/70 hover:bg-cacao-800/[0.04] dark:text-cream-100/70"
           onClick={() => setTheme(isDark ? "light" : "dark")}
           aria-label={isDark ? "الوضع الفاتح" : "الوضع الداكن"}
         >
@@ -133,7 +134,7 @@ export function Header({
             <Button
               variant="ghost"
               size="icon"
-              className="size-9 rounded-full p-0"
+              className="size-11 rounded-full p-0"
               aria-label="قائمة المستخدم"
             >
               <Avatar className="size-9 border border-cacao-800/10">

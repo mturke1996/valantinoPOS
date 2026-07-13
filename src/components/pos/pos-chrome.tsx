@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight, CalendarClock, Wifi, WifiOff } from "lucide-react";
 
 import { CurrencyDisplay } from "@/components/shared/currency-display";
+import { OfflineIndicator } from "@/components/shared/offline-indicator";
 import { ShiftPanel } from "@/components/pos/shift-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -106,6 +107,8 @@ export function PosChrome({
           )}
           {online ? "متصل" : "غير متصل"}
         </Badge>
+
+        <OfflineIndicator />
 
         {heldCount > 0 ? (
           <Button variant="outline" size="sm" className="gap-1.5" onClick={onHeldOpen}>

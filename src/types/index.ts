@@ -409,6 +409,8 @@ export interface Notification {
   readAt: string | null;
   channels: NotificationChannel[];
   createdAt: string;
+  /** Stable key so reminders are not duplicated across refreshes */
+  dedupKey?: string | null;
 }
 
 export interface AuditLog {

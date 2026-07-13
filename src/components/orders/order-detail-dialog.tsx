@@ -11,12 +11,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
   getNextOrderStatus,
@@ -34,6 +34,18 @@ const ORDER_TYPE_LABELS: Record<Order["type"], string> = {
   event: "مناسبة",
   reservation: "حجز",
   online: "إلكتروني",
+};
+
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  wedding: "زفاف",
+  engagement: "خطوبة",
+  birth: "مواليد",
+  success: "نجاح",
+  graduation: "تخرج",
+  birthday: "عيد ميلاد",
+  corporate: "شركات",
+  gift: "هدية",
+  other: "أخرى",
 };
 
 interface OrderDetailDialogProps {
@@ -101,8 +113,8 @@ export function OrderDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90svh] flex-col overflow-hidden p-0 sm:max-w-2xl">
-        <DialogHeader className="border-b border-cacao-800/8 px-6 py-5">
+      <DialogContent className="flex max-h-[min(94dvh,100svh)] flex-col overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="border-b border-cacao-800/8">
           <DialogTitle className="flex flex-wrap items-center gap-2">
             {order.orderNumber}
             <StatusBadge status={order.status} type="order" />
@@ -110,8 +122,7 @@ export function OrderDetailDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="space-y-5 px-6 py-5">
+        <DialogBody className="space-y-5 py-5">
             <ChocolateBarProgress
               currentStage={toPipelineStage(order.status)}
               size="md"
@@ -154,30 +165,90 @@ export function OrderDetailDialog({
             </div>
 
             {event ? (
-              <div className="grid gap-3 rounded-xl border border-gold-400/15 bg-gold-400/[0.05] p-4 sm:grid-cols-2">
-                <div>
-                  <p className="text-xs text-muted-foreground">
-                    {order.type === "reservation"
-                      ? "تفاصيل الحجز"
-                      : "تفاصيل المناسبة"}
-                  </p>
-                  <p className="mt-1 text-sm font-medium">
-                    {formatNumber(event.guestCount)} ضيف/قطعة
-                  </p>
-                </div>
-                {event.giftCardMessage ? (
+              <div className="space-y-3 rounded-xl border border-gold-400/15 bg-gold-400/[0.05] p-4">
+                <div className="grid gap-3 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs text-muted-foreground">بطاقة الإهداء</p>
-                    <p className="mt-1 text-sm">{event.giftCardMessage}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {order.type === "delivery"
+                        ? "تفاصيل التوصيل"
+                        : order.type === "reservation"
+                          ? "تفاصيل الحجز"
+                          : "تفاصيل المناسبة"}
+                    </p>
+                    <p className="mt-1 text-sm font-medium">
+                      {EVENT_TYPE_LABELS[event.eventType] ?? event.eventType}
+                      {" · "}
+                      {formatNumber(event.guestCount)} ضيف/قطعة
+                    </p>
+                  </div>
+                  {event.giftCardMessage ? (
+                    <div>
+                      <p className="text-xs text-muted-foreground">بطاقة الإهداء</p>
+                      <p className="mt-1 text-sm">{event.giftCardMessage}</p>
+                    </div>
+                  ) : null}
+                  {event.giftCardPhrase ? (
+                    <div>
+                      <p className="text-xs text-muted-foreground">عبارة البطاقة</p>
+                      <p className="mt-1 text-sm">{event.giftCardPhrase}</p>
+                    </div>
+                  ) : null}
+                </div>
+                {event.packagingColors.length > 0 ? (
+                  <div>
+                    <p className="text-xs text-muted-foreground">ألوان التغليف</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {event.packagingColors.map((color) => {
+                        const isHex = color.startsWith("#");
+                        return (
+                          <span
+                            key={color}
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-md border border-black/10 px-2 py-1 text-xs",
+                              !isHex && "bg-cacao-800/5",
+                            )}
+                            title={color}
+                          >
+                            {isHex ? (
+                              <span
+                                className="size-3.5 rounded-sm border border-black/10"
+                                style={{ backgroundColor: color }}
+                              />
+                            ) : null}
+                            {color}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+                {event.specialNotes ? (
+                  <div>
+                    <p className="text-xs text-muted-foreground">ملاحظات المناسبة</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {event.specialNotes}
+                    </p>
                   </div>
                 ) : null}
               </div>
             ) : null}
 
             <section>
-              <h3 className="mb-2 text-sm font-semibold">محتويات الطلب</h3>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold">محتويات الطلب</h3>
+                <p className="text-xs text-muted-foreground">
+                  {formatNumber(order.items.length)} أصناف ·{" "}
+                  {formatNumber(
+                    order.items.reduce((sum, item) => sum + item.quantity, 0),
+                  )}{" "}
+                  قطعة
+                </p>
+              </div>
               <div className="divide-y divide-cacao-800/8 rounded-xl border border-cacao-800/8">
-                {order.items.map((item) => (
+                {(order.items.length > 8
+                  ? order.items.slice(0, 6)
+                  : order.items
+                ).map((item) => (
                   <div
                     key={item.id}
                     className="flex items-center justify-between gap-3 px-4 py-3"
@@ -197,6 +268,36 @@ export function OrderDetailDialog({
                     />
                   </div>
                 ))}
+                {order.items.length > 8 ? (
+                  <details className="group">
+                    <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-gold-500 marker:content-none [&::-webkit-details-marker]:hidden">
+                      عرض باقي الأصناف (
+                      {formatNumber(order.items.length - 6)})
+                    </summary>
+                    <div className="divide-y divide-cacao-800/8 border-t border-cacao-800/8">
+                      {order.items.slice(6).map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between gap-3 px-4 py-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">
+                              {item.productNameAr}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatNumber(item.quantity)} ×{" "}
+                              <CurrencyDisplay amount={item.unitPrice} />
+                            </p>
+                          </div>
+                          <CurrencyDisplay
+                            amount={item.total}
+                            className="shrink-0 text-sm font-semibold"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                ) : null}
               </div>
             </section>
 
@@ -268,21 +369,28 @@ export function OrderDetailDialog({
                 </p>
               </section>
             ) : null}
-          </div>
-        </ScrollArea>
+        </DialogBody>
 
-        <DialogFooter className="border-t border-cacao-800/8 bg-card px-6 py-4">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="flex-col gap-2 border-t border-cacao-800/8 bg-card sm:flex-row">
+          <Button
+            variant="ghost"
+            className="min-h-11 w-full sm:w-auto"
+            onClick={() => onOpenChange(false)}
+          >
             إغلاق
           </Button>
           {balance > 0 ? (
-            <Button variant="outline" onClick={collectBalance}>
+            <Button
+              variant="outline"
+              className="min-h-11 w-full sm:w-auto"
+              onClick={collectBalance}
+            >
               <Wallet className="size-4" />
               تحصيل المتبقي
             </Button>
           ) : null}
           {nextStatus ? (
-            <Button onClick={advanceOrder}>
+            <Button className="min-h-11 w-full sm:w-auto" onClick={advanceOrder}>
               نقل إلى {nextConfig?.labelAr ?? nextStatus}
             </Button>
           ) : null}

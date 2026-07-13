@@ -119,6 +119,7 @@ function customerRow(customer: Customer, branchId: string) {
 }
 
 let activeFlush: Promise<number> | null = null;
+let flushAgain = false;
 
 async function runOfflineSyncQueue(): Promise<number> {
   const supabase = isSupabaseConfigured() ? createClient() : null;
@@ -256,6 +257,19 @@ async function runOfflineSyncQueue(): Promise<number> {
         .from("orders")
         .update({
           status: payload.status,
+          updated_at: payload.updatedAt,
+        })
+        .eq("id", payload.orderId)
+        .eq("branch_id", syncBranchId);
+      if (error) throw error;
+      return;
+    }
+
+    if (item.action === "delete_order") {
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          deleted_at: payload.deletedAt,
           updated_at: payload.updatedAt,
         })
         .eq("id", payload.orderId)
@@ -713,10 +727,28 @@ async function runOfflineSyncQueue(): Promise<number> {
   });
 }
 
+/**
+ * Push the outbound queue to Supabase.
+ * Concurrent callers mark a follow-up pass so items enqueued mid-flush
+ * are processed immediately instead of waiting for the next interval.
+ */
 export function flushOfflineSyncQueue(): Promise<number> {
+  flushAgain = true;
   if (activeFlush) return activeFlush;
-  activeFlush = runOfflineSyncQueue().finally(() => {
+
+  activeFlush = (async () => {
+    let total = 0;
+    do {
+      flushAgain = false;
+      total += await runOfflineSyncQueue();
+    } while (flushAgain);
+    return total;
+  })().finally(() => {
     activeFlush = null;
+    if (flushAgain) {
+      void flushOfflineSyncQueue().catch(() => undefined);
+    }
   });
+
   return activeFlush;
 }

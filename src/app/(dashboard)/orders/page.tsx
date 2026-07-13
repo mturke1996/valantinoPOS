@@ -148,7 +148,7 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-  const [view, setView] = useState<"kanban" | "tabs">("kanban");
+  const [view, setView] = useState<"kanban" | "tabs">("tabs");
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -166,6 +166,9 @@ export default function OrdersPage() {
       "highlight",
     );
     if (highlighted) setSelectedOrderId(highlighted);
+    if (window.matchMedia("(min-width: 1024px)").matches) {
+      setView("kanban");
+    }
   }, []);
 
   const ordersByStatus = useMemo(() => {

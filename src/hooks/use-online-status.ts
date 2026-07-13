@@ -36,6 +36,8 @@ async function probeConnectivity() {
 }
 
 function handleBrowserOnline() {
+  // Optimistic: treat reconnect as online immediately so writes flush now.
+  publish(true);
   void probeConnectivity();
 }
 
@@ -89,6 +91,14 @@ function getSnapshot() {
 
 function getServerSnapshot() {
   return true;
+}
+
+/** Imperative online check for non-React callers (store queue flush). */
+export function isAppOnline(): boolean {
+  if (typeof window === "undefined") return true;
+  startConnectivityMonitor();
+  // Prefer live browser signal for write-triggered flush; probe may lag.
+  return navigator.onLine || online;
 }
 
 export function useOnlineStatus(): boolean {

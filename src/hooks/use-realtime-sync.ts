@@ -9,8 +9,8 @@ import { refreshSystemReminders } from "@/lib/data/store";
 import { flushOfflineSyncQueue } from "@/lib/offline/sync";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
-const DEBOUNCE_MS = 600;
-const SYNC_FLUSH_MS = 30_000;
+const DEBOUNCE_MS = 400;
+const SYNC_FLUSH_MS = 5_000;
 const REMINDER_MS = 60_000;
 
 const REALTIME_TABLES = [

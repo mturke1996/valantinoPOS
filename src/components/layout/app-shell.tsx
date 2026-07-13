@@ -46,8 +46,13 @@ export function AppShell({
 
   if (fullscreen) {
     return (
-      <div className={cn("flex h-svh flex-col bg-background", className)}>
-        <main className="flex-1 overflow-hidden">{children}</main>
+      <div
+        className={cn(
+          "flex h-[100dvh] flex-col bg-background pt-[env(safe-area-inset-top)]",
+          className,
+        )}
+      >
+        <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
         <CommandPalette
           open={commandOpen}
           onOpenChange={setCommandOpen}
@@ -58,7 +63,7 @@ export function AppShell({
   }
 
   return (
-    <div className={cn("flex h-svh bg-background", className)}>
+    <div className={cn("flex h-[100dvh] bg-background", className)}>
       <Sidebar
         userRole={userRole}
         collapsed={sidebarCollapsed}
@@ -75,7 +80,7 @@ export function AppShell({
           userAvatarUrl={userAvatarUrl}
         />
 
-        <main className="flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2">
+        <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2 sm:px-4">
           <div className="mx-auto w-full max-w-[1600px] animate-fade-up">
             {children}
           </div>

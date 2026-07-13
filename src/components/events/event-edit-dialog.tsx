@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -154,8 +155,8 @@ export function EventEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[92svh] flex-col overflow-hidden p-0 sm:max-w-2xl">
-        <DialogHeader className="border-b border-cacao-800/8 px-6 py-5">
+      <DialogContent className="flex max-h-[min(94dvh,100svh)] flex-col overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="border-b border-cacao-800/8">
           <DialogTitle className="flex items-center gap-2">
             <Pencil className="size-5 text-gold-400" />
             تعديل المناسبة — {order.orderNumber}
@@ -165,7 +166,7 @@ export function EventEditDialog({
           ) : null}
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5">
+        <DialogBody className="space-y-6 py-5">
           <section className="space-y-3">
             <div className="flex items-center gap-2">
               <PartyPopper className="size-4 text-gold-400" />
@@ -301,13 +302,21 @@ export function EventEditDialog({
               />
             </div>
           </section>
-        </div>
+        </DialogBody>
 
-        <DialogFooter className="border-t border-cacao-800/8 bg-card px-6 py-4">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="flex-col gap-2 border-t border-cacao-800/8 bg-card sm:flex-row">
+          <Button
+            variant="ghost"
+            className="min-h-11 w-full sm:w-auto"
+            onClick={() => onOpenChange(false)}
+          >
             إلغاء
           </Button>
-          <Button onClick={handleSubmit} disabled={saving}>
+          <Button
+            className="min-h-11 w-full sm:w-auto"
+            onClick={handleSubmit}
+            disabled={saving}
+          >
             {saving ? "جاري الحفظ..." : "حفظ التعديلات"}
           </Button>
         </DialogFooter>

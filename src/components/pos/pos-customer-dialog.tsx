@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -15,7 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { createCustomer, getState } from "@/lib/data/store";
 import { cn, formatNumber } from "@/lib/utils";
 import type { Customer } from "@/types";
@@ -79,7 +79,7 @@ export function PosCustomerDialog({
       [...state.loyaltyTiers].sort((a, b) => a.minPoints - b.minPoints)[0] ??
       null;
     if (!defaultTier) {
-      toast.error("لا توجد فئة ولاء افتراضية");
+      toast.error("لا توجد فئات ولاء جاهزة");
       return;
     }
 
@@ -95,7 +95,7 @@ export function PosCustomerDialog({
       wholesalePricing: false,
     });
 
-    forceRefresh((value) => value + 1);
+    forceRefresh((n) => n + 1);
     setName("");
     setPhone("");
     toast.success("تم حفظ العميل وربطه بالسلة");
@@ -104,55 +104,53 @@ export function PosCustomerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85svh] flex-col sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[min(94dvh,100svh)] flex-col overflow-hidden p-0 sm:max-w-lg">
+        <DialogHeader className="border-b border-border/60">
           <DialogTitle className="flex items-center gap-2">
             <UserRound className="size-5 text-gold-400" />
             عميل الفاتورة
           </DialogTitle>
         </DialogHeader>
 
-        {creating ? (
-          <div className="grid gap-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="pos-customer-name">الاسم</Label>
-              <Input
-                id="pos-customer-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                autoFocus
-                autoComplete="name"
-                placeholder="اسم العميل"
-              />
+        <DialogBody className="flex flex-col gap-3 py-4">
+          {creating ? (
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="pos-customer-name">الاسم</Label>
+                <Input
+                  id="pos-customer-name"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  autoComplete="name"
+                  placeholder="اسم العميل"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pos-customer-phone">رقم الهاتف</Label>
+                <Input
+                  id="pos-customer-phone"
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  inputMode="tel"
+                  autoComplete="tel"
+                  dir="ltr"
+                  placeholder="05xxxxxxxx"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="pos-customer-phone">رقم الهاتف</Label>
-              <Input
-                id="pos-customer-phone"
-                value={phone}
-                onChange={(event) => setPhone(event.target.value)}
-                inputMode="tel"
-                autoComplete="tel"
-                dir="ltr"
-                placeholder="05xxxxxxxx"
-              />
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="relative">
-              <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                className="ps-9"
-                placeholder="ابحث بالاسم أو الهاتف"
-                autoFocus
-              />
-            </div>
+          ) : (
+            <>
+              <div className="relative shrink-0">
+                <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  className="min-h-11 ps-9"
+                  placeholder="ابحث بالاسم أو الهاتف"
+                />
+              </div>
 
-            <ScrollArea className="min-h-0 flex-1">
-              <div className="space-y-1 py-3">
+              <div className="space-y-1">
                 <button
                   type="button"
                   onClick={() => selectCustomer(null)}
@@ -229,15 +227,16 @@ export function PosCustomerDialog({
                   </div>
                 ) : null}
               </div>
-            </ScrollArea>
-          </>
-        )}
+            </>
+          )}
+        </DialogBody>
 
         <DialogFooter className="gap-2 sm:justify-between">
           {creating ? (
             <>
               <Button
                 variant="ghost"
+                className="min-h-11 w-full sm:w-auto"
                 onClick={() => {
                   setCreating(false);
                   setName("");
@@ -247,12 +246,14 @@ export function PosCustomerDialog({
                 <X className="size-4" />
                 رجوع
               </Button>
-              <Button onClick={handleCreate}>حفظ العميل</Button>
+              <Button className="min-h-11 w-full sm:w-auto" onClick={handleCreate}>
+                حفظ العميل
+              </Button>
             </>
           ) : (
             <Button
               variant="outline"
-              className="w-full gap-2"
+              className="min-h-11 w-full gap-2"
               onClick={() => setCreating(true)}
             >
               <Plus className="size-4" />

@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Gift, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { addDays, format } from "date-fns";
 
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -47,10 +49,18 @@ export function GiftBoxBuilder({
   const [items, setItems] = useState<GiftBoxItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
+  const [deliveryDate, setDeliveryDate] = useState(() =>
+    format(addDays(new Date(), 1), "yyyy-MM-dd"),
+  );
+  const [deliveryTime, setDeliveryTime] = useState("12:00");
+  const [giftMessage, setGiftMessage] = useState("");
 
   useEffect(() => {
     if (open) {
       setProducts(getProducts().filter((p) => p.isActive && !p.isBundle));
+      setDeliveryDate(format(addDays(new Date(), 1), "yyyy-MM-dd"));
+      setDeliveryTime("12:00");
+      setGiftMessage("");
     }
   }, [open]);
   const boxProducts = products.filter((p) => p.unitType === "box");
@@ -94,6 +104,10 @@ export function GiftBoxBuilder({
       toast.error("اختر العلبة وأضف منتجات");
       return;
     }
+    if (!deliveryDate) {
+      toast.error("حدد موعد التسليم لحفظ العلبة في التقويم");
+      return;
+    }
     const settings = getSettings();
     const session = getAuthSession();
     const orderItems = [
@@ -108,18 +122,22 @@ export function GiftBoxBuilder({
         branchId: settings.branchId,
         type: "event",
         items: orderItems,
+        deliveryDate,
+        deliveryTime: deliveryTime || null,
         notes: `علبة هدايا مخصصة — هامش ${formatMoneyLabel(totals.margin, settings)}`,
         createdBy: session?.userId ?? null,
         event: {
-          eventType: "other",
+          eventType: "gift",
           guestCount: 1,
           packagingColors: [],
-          giftCardMessage: null,
+          giftCardMessage: giftMessage.trim() || null,
           giftCardPhrase: null,
           specialNotes: "علبة هدايا مخصصة",
         },
       });
-      toast.success(`تم تسجيل الطلب ${order.orderNumber}`);
+      toast.success(
+        `تم تسجيل ${order.orderNumber} في المناسبات والتقويم مع تنبيه التجهيز`,
+      );
       onSaved?.();
       onOpenChange(false);
       setBoxProductId("");
@@ -131,15 +149,15 @@ export function GiftBoxBuilder({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[min(94dvh,100svh)] flex-col overflow-hidden p-0 sm:max-w-lg">
+        <DialogHeader className="border-b border-cacao-800/8">
           <DialogTitle className="flex items-center gap-2">
             <Gift className="size-5" />
             منشئ علب الهدايا
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <DialogBody className="space-y-4 py-4">
           <div className="space-y-2">
             <Label>نوع العلبة</Label>
             <Select value={boxProductId} onValueChange={setBoxProductId}>
@@ -158,6 +176,38 @@ export function GiftBoxBuilder({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="gift-delivery-date">موعد التسليم</Label>
+              <Input
+                id="gift-delivery-date"
+                type="date"
+                value={deliveryDate}
+                onChange={(e) => setDeliveryDate(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="gift-delivery-time">الوقت</Label>
+              <Input
+                id="gift-delivery-time"
+                type="time"
+                value={deliveryTime}
+                onChange={(e) => setDeliveryTime(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="gift-card-message">رسالة بطاقة الإهداء</Label>
+            <Input
+              id="gift-card-message"
+              value={giftMessage}
+              onChange={(e) => setGiftMessage(e.target.value)}
+              placeholder="اختياري"
+            />
           </div>
 
           <div className="flex gap-2">
@@ -181,7 +231,7 @@ export function GiftBoxBuilder({
           </div>
 
           {items.length > 0 ? (
-            <div className="space-y-2 rounded-lg border border-cacao-800/10 p-3">
+            <div className="max-h-48 space-y-2 overflow-y-auto overscroll-y-contain touch-pan-y rounded-lg border border-cacao-800/10 p-3 [-webkit-overflow-scrolling:touch]">
               {items.map((item) => {
                 const p = products.find((x) => x.id === item.productId);
                 if (!p) return null;
@@ -212,7 +262,7 @@ export function GiftBoxBuilder({
             </div>
           ) : null}
 
-          <div className="rounded-lg bg-cacao-800/5 p-3 space-y-1 text-sm">
+          <div className="space-y-1 rounded-lg bg-cacao-800/5 p-3 text-sm">
             <div className="flex justify-between">
               <span>التكلفة</span>
               <CurrencyDisplay amount={totals.cost} />
@@ -226,7 +276,7 @@ export function GiftBoxBuilder({
               <CurrencyDisplay amount={totals.margin} />
             </div>
           </div>
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

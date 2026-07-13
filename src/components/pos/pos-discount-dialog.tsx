@@ -8,6 +8,7 @@ import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -101,17 +102,17 @@ export function PosDiscountDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[min(94dvh,100svh)] flex-col overflow-hidden p-0 sm:max-w-sm">
+        <DialogHeader className="border-b border-border/60">
           <DialogTitle>خصم الفاتورة</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <DialogBody className="space-y-4 py-4">
           <div className="grid grid-cols-3 gap-2">
             <Button
               type="button"
               variant={mode === "fixed" ? "default" : "outline"}
-              className="h-auto flex-col gap-1.5 py-3"
+              className="h-auto min-h-16 flex-col gap-1.5 py-3"
               onClick={() => setMode("fixed")}
             >
               <Banknote className="size-4" />
@@ -197,12 +198,13 @@ export function PosDiscountDialog({
             <span className="text-muted-foreground">الخصم المطبق</span>
             <CurrencyDisplay amount={preview} className="font-semibold" />
           </div>
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           {currentDiscount > 0 ? (
             <Button
               variant="ghost"
+              className="min-h-11 w-full sm:w-auto"
               onClick={() => {
                 onApply(0);
                 onOpenChange(false);
@@ -211,7 +213,11 @@ export function PosDiscountDialog({
               إزالة الخصم
             </Button>
           ) : null}
-          <Button onClick={apply} disabled={preview <= 0 || invalidPercentage}>
+          <Button
+            className="min-h-11 w-full sm:w-auto"
+            onClick={apply}
+            disabled={preview <= 0 || invalidPercentage}
+          >
             تطبيق الخصم
           </Button>
         </DialogFooter>

@@ -89,7 +89,8 @@ type StoreSyncAction =
   | "create_inventory_movement"
   | "create_audit_log"
   | "create_invoice"
-  | "update_invoice";
+  | "update_invoice"
+  | "delete_order";
 
 function queueMovementsSync(
   movements: InventoryMovement | InventoryMovement[],
@@ -105,7 +106,8 @@ function queueStoreSync(action: StoreSyncAction, payload: unknown): void {
   void import("@/lib/offline/db")
     .then(async ({ enqueueSync }) => {
       await enqueueSync(action, payload);
-      if (navigator.onLine) {
+      const { isAppOnline } = await import("@/hooks/use-online-status");
+      if (isAppOnline()) {
         const { flushOfflineSyncQueue } = await import("@/lib/offline/sync");
         void flushOfflineSyncQueue().catch(() => undefined);
       }
@@ -982,6 +984,33 @@ export function createOrder(input: CreateOrderInput): Order {
       createdAt: nowISO(),
     };
     newState = { ...newState, events: [...newState.events, event] };
+  } else if (
+    order.deliveryDate &&
+    (order.type === "delivery" ||
+      order.type === "event" ||
+      order.type === "reservation")
+  ) {
+    // Auto-link scheduled orders to Events + Calendar pipeline
+    const event: Event = {
+      id: generateId(),
+      orderId,
+      eventType:
+        order.type === "delivery"
+          ? "gift"
+          : order.type === "event"
+            ? "other"
+            : "other",
+      guestCount: Math.max(
+        1,
+        Math.round(items.reduce((sum, item) => sum + item.quantity, 0)),
+      ),
+      packagingColors: [],
+      giftCardMessage: null,
+      giftCardPhrase: null,
+      specialNotes: order.notes,
+      createdAt: nowISO(),
+    };
+    newState = { ...newState, events: [...newState.events, event] };
   }
 
   if (input.couponCode) {
@@ -1007,23 +1036,36 @@ export function createOrder(input: CreateOrderInput): Order {
     newValues: { orderNumber: order.orderNumber, total: order.total },
   });
 
+  const customerName = customer?.name ?? "عميل نقدي";
+  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const typeLabel =
+    order.type === "event"
+      ? "مناسبة"
+      : order.type === "delivery"
+        ? "توصيل"
+        : order.type === "reservation"
+          ? "حجز"
+          : "طلب";
+
   newState = pushNotificationToState(newState, {
     userId: "system",
     type: "order",
-    title: "طلب جديد",
-    body: `${order.orderNumber} — ${formatMoneyLabel(order.total, newState.settings)}`,
-    link: `/orders`,
+    title: `${typeLabel} جديد`,
+    body: `${order.orderNumber} · ${customerName} · ${itemCount} صنف · ${formatMoneyLabel(order.total, newState.settings)}`,
+    link: `/orders?highlight=${order.id}`,
     channels: ["in_app"],
+    dedupKey: `order-created:${order.id}`,
   });
 
   if (order.deliveryDate) {
     newState = pushNotificationToState(newState, {
       userId: "system",
       type: "event",
-      title: "تذكير تسليم",
-      body: `${order.orderNumber} مجدول في ${order.deliveryDate}${order.deliveryTime ? ` ${order.deliveryTime}` : ""}`,
+      title: "موعد مجدول في التقويم",
+      body: `${order.orderNumber} · ${customerName} · ${order.deliveryDate}${order.deliveryTime ? ` ${order.deliveryTime}` : ""}${order.deliveryAddress ? ` · ${order.deliveryAddress}` : ""}`,
       link: `/calendar`,
       channels: ["in_app"],
+      dedupKey: `schedule-created:${order.id}`,
     });
   }
 
@@ -1032,6 +1074,12 @@ export function createOrder(input: CreateOrderInput): Order {
     order,
     event: newState.events.find((event) => event.orderId === order.id) ?? null,
   });
+
+  // Generate upcoming prep reminders immediately for scheduled work
+  if (order.deliveryDate) {
+    refreshSystemReminders();
+  }
+
   return order;
 }
 
@@ -1315,13 +1363,23 @@ function deductInventoryForOrder(
 }
 
 export function deleteOrder(id: string): boolean {
+  const deletedAt = nowISO();
   const result = update((s) => ({
     ...s,
     orders: s.orders.map((o) =>
-      o.id === id ? { ...o, deletedAt: nowISO(), updatedAt: nowISO() } : o,
+      o.id === id ? { ...o, deletedAt, updatedAt: deletedAt } : o,
     ),
   }));
-  return result.orders.some((o) => o.id === id && o.deletedAt !== null);
+  const deleted = result.orders.find((o) => o.id === id && o.deletedAt !== null);
+  if (deleted) {
+    queueStoreSync("delete_order", {
+      orderId: deleted.id,
+      branchId: deleted.branchId,
+      deletedAt: deleted.deletedAt,
+      updatedAt: deleted.updatedAt,
+    });
+  }
+  return Boolean(deleted);
 }
 
 // ─── Payments ──────────────────────────────────────────────────────────────────
@@ -2189,6 +2247,7 @@ function pushNotificationToState(
 ): AppState {
   const notification: Notification = {
     ...input,
+    dedupKey: input.dedupKey ?? null,
     id: generateId(),
     readAt: null,
     createdAt: nowISO(),
@@ -2248,15 +2307,17 @@ export function refreshSystemReminders(): void {
     const today = new Date().toISOString().slice(0, 10);
     const now = Date.now();
     const existingKeys = new Set(
-      state.notifications.map((n) => `${n.type}:${n.body}`),
+      state.notifications.map(
+        (n) => n.dedupKey ?? `${n.type}:${n.body}`,
+      ),
     );
 
     const reminderOffsets = [
-      { key: "7d", label: "بعد 7 أيام", msBefore: 7 * 24 * 60 * 60 * 1000 },
-      { key: "3d", label: "بعد 3 أيام", msBefore: 3 * 24 * 60 * 60 * 1000 },
-      { key: "1d", label: "غداً", msBefore: 24 * 60 * 60 * 1000 },
-      { key: "2h", label: "بعد ساعتين", msBefore: 2 * 60 * 60 * 1000 },
-      { key: "30m", label: "بعد 30 دقيقة", msBefore: 30 * 60 * 1000 },
+      { key: "7d", label: "بعد 7 أيام — ابدأ التجهيز", msBefore: 7 * 24 * 60 * 60 * 1000 },
+      { key: "3d", label: "بعد 3 أيام — راجع المخزون", msBefore: 3 * 24 * 60 * 60 * 1000 },
+      { key: "1d", label: "غداً — جهّز الطلب", msBefore: 24 * 60 * 60 * 1000 },
+      { key: "2h", label: "بعد ساعتين — أوشك الموعد", msBefore: 2 * 60 * 60 * 1000 },
+      { key: "30m", label: "بعد 30 دقيقة — استعد للتسليم", msBefore: 30 * 60 * 1000 },
     ] as const;
 
     for (const product of state.products) {
@@ -2264,7 +2325,7 @@ export function refreshSystemReminders(): void {
       if (product.trackStock === false) continue;
       if (product.stockQuantity > product.minStock) continue;
       const body = `${product.nameAr} — المخزون ${product.stockQuantity} (الحد ${product.minStock})`;
-      const key = `stock:${body}`;
+      const key = `stock:${product.id}`;
       if (existingKeys.has(key)) continue;
       next = pushNotificationToState(next, {
         userId: "system",
@@ -2273,6 +2334,7 @@ export function refreshSystemReminders(): void {
         body,
         link: "/inventory",
         channels: ["in_app"],
+        dedupKey: key,
       });
       existingKeys.add(key);
     }
@@ -2281,40 +2343,53 @@ export function refreshSystemReminders(): void {
       if (order.deletedAt || !order.deliveryDate) continue;
       if (order.status === "cancelled" || order.status === "completed") continue;
 
+      const customer = order.customerId
+        ? state.customers.find((c) => c.id === order.customerId)
+        : null;
+      const customerName = customer?.name ?? "عميل نقدي";
+      const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
+      const balance = Math.max(0, order.total - order.paidAmount);
       const timePart = order.deliveryTime ?? "12:00";
       const target = new Date(`${order.deliveryDate}T${timePart}`).getTime();
       if (Number.isNaN(target)) continue;
 
+      // Grace window: keep reminder visible until 2h after target
+      const graceUntil = target + 2 * 60 * 60 * 1000;
+
       for (const offset of reminderOffsets) {
         const reminderAt = target - offset.msBefore;
-        if (now < reminderAt || now > target) continue;
-        const body = `${order.orderNumber} — تذكير ${offset.label}${order.deliveryTime ? ` (${order.deliveryTime})` : ""}`;
+        if (now < reminderAt || now > graceUntil) continue;
         const key = `reminder:${order.id}:${offset.key}`;
         if (existingKeys.has(key)) continue;
+        const body = `${order.orderNumber} · ${customerName} · ${offset.label} · ${itemCount} صنف${balance > 0 ? ` · متبقي ${balance}` : ""}`;
         next = pushNotificationToState(next, {
           userId: "system",
           type: "event",
-          title: "تذكير موعد",
+          title:
+            offset.key === "30m" || offset.key === "2h"
+              ? "عاجل — قرب الموعد"
+              : "تذكير تجهيز طلب",
           body,
-          link: "/calendar",
+          link: `/orders?highlight=${order.id}`,
           channels: ["in_app"],
+          dedupKey: key,
         });
         existingKeys.add(key);
       }
 
       if (order.deliveryDate !== today) continue;
-      const body = `${order.orderNumber} — تسليم اليوم${order.deliveryTime ? ` ${order.deliveryTime}` : ""}`;
-      const key = `event:${body}`;
-      if (existingKeys.has(key)) continue;
+      const todayKey = `delivery-today:${order.id}`;
+      if (existingKeys.has(todayKey)) continue;
       next = pushNotificationToState(next, {
         userId: "system",
         type: "event",
         title: "تسليم اليوم",
-        body,
-        link: "/calendar",
+        body: `${order.orderNumber} · ${customerName} · اليوم${order.deliveryTime ? ` ${order.deliveryTime}` : ""}${order.deliveryAddress ? ` · ${order.deliveryAddress}` : ""}`,
+        link: `/orders?highlight=${order.id}`,
         channels: ["in_app"],
+        dedupKey: todayKey,
       });
-      existingKeys.add(key);
+      existingKeys.add(todayKey);
     }
 
     return next === state ? state : next;

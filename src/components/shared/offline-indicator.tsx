@@ -7,15 +7,17 @@ import {
   getFailedSyncCount,
   getPendingSyncCount,
   retryFailedSyncItems,
+  subscribeSyncQueue,
 } from "@/lib/offline/db";
 import { flushOfflineSyncQueue } from "@/lib/offline/sync";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { cn } from "@/lib/utils";
 
-export function OfflineIndicator() {
+export function OfflineIndicator({ className }: { className?: string }) {
   const online = useOnlineStatus();
   const [pending, setPending] = useState(0);
   const [failed, setFailed] = useState(0);
+  const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     const [pendingCount, failedCount] = await Promise.all([
@@ -28,26 +30,37 @@ export function OfflineIndicator() {
 
   useEffect(() => {
     void refresh();
+    const unsubscribe = subscribeSyncQueue(() => {
+      void refresh();
+    });
     const id = window.setInterval(() => {
       void refresh();
-    }, 5_000);
-    return () => window.clearInterval(id);
+    }, 2_000);
+    return () => {
+      unsubscribe();
+      window.clearInterval(id);
+    };
   }, [online, refresh]);
 
   if (online && pending === 0 && failed === 0) return null;
 
   const retry = async () => {
-    if (!online) return;
-    if (failed > 0) await retryFailedSyncItems();
-    await flushOfflineSyncQueue().catch(() => 0);
-    await refresh();
+    if (!online || busy) return;
+    setBusy(true);
+    try {
+      if (failed > 0) await retryFailedSyncItems();
+      await flushOfflineSyncQueue().catch(() => 0);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <button
       type="button"
       onClick={() => void retry()}
-      disabled={!online}
+      disabled={!online || busy}
       aria-label={
         failed > 0
           ? `إعادة محاولة ${failed} عملية مزامنة`
@@ -59,20 +72,23 @@ export function OfflineIndicator() {
         failed > 0
           ? "bg-destructive/10 text-destructive"
           : online
-          ? "bg-pistachio-400/15 text-pistachio-400"
-          : "bg-caramel-500/15 text-caramel-500",
+            ? "bg-pistachio-400/15 text-pistachio-400"
+            : "bg-caramel-500/15 text-caramel-500",
+        className,
       )}
       role="status"
     >
       {failed > 0 ? (
         <>
-          <RotateCcw className="size-3.5" />
+          <RotateCcw className={cn("size-3.5", busy && "animate-spin")} />
           <span>تعذرت المزامنة ({failed})</span>
         </>
       ) : online ? (
         <>
-          <CloudUpload className="size-3.5" />
-          <span>مزامنة ({pending})</span>
+          <CloudUpload className={cn("size-3.5", busy && "animate-pulse")} />
+          <span>
+            {busy ? "جاري المزامنة" : "مزامنة"} ({pending})
+          </span>
         </>
       ) : (
         <>

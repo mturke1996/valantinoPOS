@@ -1,8 +1,14 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { Bell } from "lucide-react";
+import {
+  Bell,
+  CalendarClock,
+  CheckCheck,
+  Package,
+  ShoppingBag,
+} from "lucide-react";
 
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
@@ -15,19 +21,29 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "@/lib/data/store";
-import { formatDateTime } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
 import type { Notification } from "@/types";
 
 const TYPE_LABELS: Record<string, string> = {
   order: "طلب",
   stock: "مخزون",
-  event: "مناسبة / تذكير",
+  event: "مناسبة / توصيل",
   system: "نظام",
 };
+
+const TYPE_ICONS = {
+  order: ShoppingBag,
+  stock: Package,
+  event: CalendarClock,
+  system: Bell,
+} as const;
+
+type FilterKey = "all" | "unread" | "order" | "event" | "stock";
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<FilterKey>("all");
 
   const sync = useCallback(() => {
     setNotifications(getNotifications());
@@ -46,6 +62,14 @@ export default function NotificationsPage() {
 
   const unreadCount = notifications.filter((n) => !n.readAt).length;
 
+  const filtered = useMemo(() => {
+    return notifications.filter((n) => {
+      if (filter === "unread") return !n.readAt;
+      if (filter === "all") return true;
+      return n.type === filter;
+    });
+  }, [notifications, filter]);
+
   if (loading) {
     return (
       <div className="space-y-4 py-4">
@@ -56,68 +80,127 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="space-y-6 py-4">
+    <div className="space-y-5 py-4">
       <PageHeader
-        title="الإشعارات والتذكيرات"
-        description={`${unreadCount} غير مقروء — تذكيرات 7 أيام / 3 أيام / غداً / ساعتين / 30 دقيقة قبل الموعد`}
+        title="الإشعارات"
+        description={
+          unreadCount > 0
+            ? `${unreadCount} غير مقروء`
+            : "كل الإشعارات مقروءة"
+        }
         actions={
           unreadCount > 0 ? (
-            <Button variant="outline" size="sm" onClick={markAllRead}>
-              تعليم الكل كمقروء
+            <Button
+              variant="outline"
+              className="min-h-11 gap-2"
+              onClick={markAllRead}
+            >
+              <CheckCheck className="size-4" />
+              تعليم الكل
             </Button>
           ) : undefined
         }
       />
 
-      {notifications.length === 0 ? (
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {(
+          [
+            { key: "all", label: "الكل" },
+            { key: "unread", label: "غير مقروء" },
+            { key: "event", label: "مناسبات" },
+            { key: "order", label: "طلبات" },
+            { key: "stock", label: "مخزون" },
+          ] as const
+        ).map(({ key, label }) => (
+          <Button
+            key={key}
+            type="button"
+            size="sm"
+            variant={filter === key ? "default" : "outline"}
+            className="min-h-10 shrink-0"
+            onClick={() => setFilter(key)}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
         <EmptyState
           icon={Bell}
           title="لا توجد إشعارات"
-          description="ستظهر هنا تنبيهات الطلبات الجديدة والمخزون المنخفض وتذكيرات التسليم"
+          description="ستظهر هنا تنبيهات الطلبات والمناسبات والتوصيل والمخزون"
         />
       ) : (
         <div className="space-y-2">
-          {notifications.map((n) => (
-            <div
-              key={n.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => !n.readAt && markRead(n.id)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !n.readAt) markRead(n.id);
-              }}
-              className={`flex items-start gap-4 rounded-lg border px-4 py-3 transition-colors ${
-                n.readAt
-                  ? "border-cacao-800/6 opacity-70"
-                  : "cursor-pointer border-gold-400/20 bg-gold-400/5 hover:bg-gold-400/10"
-              }`}
-            >
-              <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-cacao-800/8">
-                <Bell className="size-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-medium">{n.title}</p>
-                  <Badge variant="outline" className="text-[10px]">
-                    {TYPE_LABELS[n.type] ?? n.type}
-                  </Badge>
+          {filtered.map((n) => {
+            const Icon = TYPE_ICONS[n.type as keyof typeof TYPE_ICONS] ?? Bell;
+            const content = (
+              <div
+                className={cn(
+                  "flex min-h-[4.5rem] items-start gap-3 rounded-xl border px-3 py-3 transition-colors active:bg-cacao-800/5 sm:gap-4 sm:px-4",
+                  n.readAt
+                    ? "border-cacao-800/6 opacity-75"
+                    : "border-gold-400/25 bg-gold-400/5",
+                )}
+              >
+                <div
+                  className={cn(
+                    "mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-lg",
+                    n.readAt ? "bg-cacao-800/8" : "bg-gold-400/15 text-gold-500",
+                  )}
+                >
+                  <Icon className="size-5" />
                 </div>
-                <p className="mt-0.5 text-sm text-muted-foreground">{n.body}</p>
-                <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                  <span>{formatDateTime(n.createdAt)}</span>
-                  {n.link ? (
-                    <Link
-                      href={n.link}
-                      className="text-gold-500 hover:underline"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      عرض التفاصيل
-                    </Link>
-                  ) : null}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium leading-snug">{n.title}</p>
+                    <Badge variant="outline" className="text-[10px]">
+                      {TYPE_LABELS[n.type] ?? n.type}
+                    </Badge>
+                    {!n.readAt ? (
+                      <span className="size-2 rounded-full bg-gold-400" />
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground text-pretty">
+                    {n.body}
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {formatDateTime(n.createdAt)}
+                    {n.link ? " · اضغط للفتح" : ""}
+                  </p>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+
+            if (n.link) {
+              return (
+                <Link
+                  key={n.id}
+                  href={n.link}
+                  onClick={() => {
+                    if (!n.readAt) markRead(n.id);
+                  }}
+                  className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {content}
+                </Link>
+              );
+            }
+
+            return (
+              <button
+                key={n.id}
+                type="button"
+                className="w-full text-start"
+                onClick={() => {
+                  if (!n.readAt) markRead(n.id);
+                }}
+              >
+                {content}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

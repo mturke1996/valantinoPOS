@@ -7,6 +7,7 @@ import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -120,11 +121,11 @@ export function ReturnCreateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[min(94dvh,100svh)] flex-col overflow-hidden p-0 sm:max-w-lg">
+        <DialogHeader className="border-b border-border/60">
           <DialogTitle>مرتجع جديد</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-2">
+        <DialogBody className="space-y-4 py-4">
           <div className="space-y-2">
             <Label>الطلب</Label>
             <Select value={orderId} onValueChange={setOrderId}>
@@ -203,12 +204,20 @@ export function ReturnCreateDialog({
             <Label>ملاحظات</Label>
             <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
-        </div>
+        </DialogBody>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            className="min-h-11 w-full sm:w-auto"
+            onClick={() => onOpenChange(false)}
+          >
             إلغاء
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button
+            className="min-h-11 w-full sm:w-auto"
+            onClick={handleSave}
+            disabled={saving}
+          >
             {saving ? "جاري..." : "تسجيل المرتجع"}
           </Button>
         </DialogFooter>

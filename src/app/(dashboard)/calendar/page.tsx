@@ -15,6 +15,7 @@ import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -125,13 +126,28 @@ export default function CalendarPage() {
                   <Link
                     key={order.id}
                     href={`/orders?highlight=${order.id}`}
-                    className="flex items-center justify-between rounded-lg border border-cacao-800/8 px-4 py-3 transition-colors hover:border-gold-400/25 hover:bg-cream-50/40 dark:hover:bg-cacao-800/20"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-cacao-800/8 px-4 py-3.5 transition-colors active:bg-cacao-800/5 hover:border-gold-400/25 hover:bg-cream-50/40 dark:hover:bg-cacao-800/20"
                   >
-                    <div className="space-y-1">
-                      <p className="font-medium">{order.orderNumber}</p>
+                    <div className="min-w-0 space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium">{order.orderNumber}</p>
+                        <Badge variant="outline" className="text-[10px]">
+                          {order.type === "event"
+                            ? "مناسبة"
+                            : order.type === "delivery"
+                              ? "توصيل"
+                              : order.type === "reservation"
+                                ? "حجز"
+                                : order.type}
+                        </Badge>
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {order.deliveryTime ?? "—"} ·{" "}
                         {order.deliveryAddress ?? "استلام من المتجر"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {order.items.length} أصناف ·{" "}
+                        {order.items.reduce((s, i) => s + i.quantity, 0)} قطعة
                       </p>
                       {order.paidAmount < order.total ? (
                         <p className="text-xs text-caramel-500">
@@ -143,7 +159,7 @@ export default function CalendarPage() {
                         </p>
                       ) : null}
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex shrink-0 flex-col items-end gap-2">
                       <StatusBadge status={order.status} type="order" />
                       <CurrencyDisplay
                         amount={order.total}

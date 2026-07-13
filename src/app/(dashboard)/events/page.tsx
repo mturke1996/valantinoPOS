@@ -79,32 +79,52 @@ export default function EventsPage() {
 
   const loadEvents = useCallback(() => {
     const state = getState();
-    const orderMap = new Map(
-      getOrders()
-        .filter(
-          (order) =>
-            order.type === "event" || order.type === "reservation",
-        )
-        .map((order) => [order.id, order]),
+    const scheduledOrders = getOrders().filter(
+      (order) =>
+        !order.deletedAt &&
+        order.status !== "cancelled" &&
+        (order.type === "event" ||
+          order.type === "reservation" ||
+          order.type === "delivery") &&
+        (order.deliveryDate || state.events.some((e) => e.orderId === order.id)),
     );
+    const orderMap = new Map(scheduledOrders.map((order) => [order.id, order]));
     const customerMap = new Map(
       state.customers.map((customer) => [customer.id, customer.name]),
     );
 
-    const mapped = state.events
-      .flatMap((event) => {
-        const order = orderMap.get(event.orderId);
-        if (!order) return [];
-        return [
-          {
-            event,
-            order,
-            customerName: order.customerId
-              ? customerMap.get(order.customerId) ?? "عميل"
-              : "عميل نقدي",
-          },
-        ];
+    const byOrderId = new Map(state.events.map((event) => [event.orderId, event]));
+
+    const mapped = scheduledOrders
+      .map((order) => {
+        const event =
+          byOrderId.get(order.id) ??
+          ({
+            id: `synthetic-${order.id}`,
+            orderId: order.id,
+            eventType: order.type === "delivery" ? "gift" : "other",
+            guestCount: Math.max(
+              1,
+              Math.round(
+                order.items.reduce((sum, item) => sum + item.quantity, 0),
+              ),
+            ),
+            packagingColors: [],
+            giftCardMessage: null,
+            giftCardPhrase: null,
+            specialNotes: order.notes,
+            createdAt: order.createdAt,
+          } satisfies Event);
+
+        return {
+          event,
+          order,
+          customerName: order.customerId
+            ? customerMap.get(order.customerId) ?? "عميل"
+            : "عميل نقدي",
+        };
       })
+      .filter(({ order }) => orderMap.has(order.id))
       .sort((a, b) => {
         const left = `${a.order.deliveryDate ?? "9999-12-31"} ${a.order.deliveryTime ?? "23:59"}`;
         const right = `${b.order.deliveryDate ?? "9999-12-31"} ${b.order.deliveryTime ?? "23:59"}`;
@@ -288,10 +308,10 @@ export default function EventsPage() {
         {filteredEvents.length === 0 ? (
           <EmptyState
             icon={PartyPopper}
-            title={events.length === 0 ? "لا توجد مناسبات" : "لا توجد نتائج"}
+            title={events.length === 0 ? "لا توجد مناسبات أو توصيل" : "لا توجد نتائج"}
             description={
               events.length === 0
-                ? "أنشئ أول حجز مناسبة مع موعد وعربون"
+                ? "احجز مناسبة أو توصيل بموعد — يظهر تلقائياً في التقويم والتنبيهات"
                 : "غيّر البحث أو مرشح العرض"
             }
             action={
@@ -325,9 +345,11 @@ export default function EventsPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-semibold">{order.orderNumber}</p>
                         <Badge variant="outline">
-                          {order.type === "reservation"
-                            ? "حجز"
-                            : EVENT_LABELS[event.eventType] ?? event.eventType}
+                          {order.type === "delivery"
+                            ? "توصيل"
+                            : order.type === "reservation"
+                              ? "حجز"
+                              : EVENT_LABELS[event.eventType] ?? event.eventType}
                         </Badge>
                         <StatusBadge status={order.status} type="order" />
                       </div>

@@ -325,6 +325,7 @@ export default function PosPage() {
       const isDelivery =
         saleContext.mode === "delivery" ||
         saleContext.fulfillment === "delivery";
+      const isScheduled = saleContext.mode !== "walk_in";
       const order = createOrder({
         branchId: state.settings.branchId,
         customerId,
@@ -337,35 +338,31 @@ export default function PosPage() {
         })),
         discountAmount: totals.discountAmount,
         couponCode: couponCode ?? null,
-        deliveryDate:
-          saleContext.mode === "walk_in"
-            ? null
-            : saleContext.scheduledDate,
-        deliveryTime:
-          saleContext.mode === "walk_in"
-            ? null
-            : saleContext.scheduledTime,
+        deliveryDate: isScheduled ? saleContext.scheduledDate : null,
+        deliveryTime: isScheduled ? saleContext.scheduledTime : null,
         deliveryAddress: isDelivery
           ? saleContext.deliveryAddress.trim()
-          : null,
+          : isScheduled
+            ? "استلام من المتجر"
+            : null,
         notes: saleContext.notes || null,
         shiftId: shift?.id ?? null,
         createdBy: authSession?.userId ?? state.users[0]?.id ?? null,
-        event:
-          saleContext.mode === "event" ||
-          saleContext.mode === "reservation"
-            ? {
-                eventType:
-                  saleContext.mode === "event"
-                    ? saleContext.eventType
+        event: isScheduled
+          ? {
+              eventType:
+                saleContext.mode === "event"
+                  ? saleContext.eventType
+                  : saleContext.mode === "delivery"
+                    ? "gift"
                     : "other",
-                guestCount: saleContext.guestCount,
-                packagingColors: [],
-                giftCardMessage: null,
-                giftCardPhrase: null,
-                specialNotes: saleContext.notes || null,
-              }
-            : undefined,
+              guestCount: Math.max(1, saleContext.guestCount || 1),
+              packagingColors: [],
+              giftCardMessage: null,
+              giftCardPhrase: null,
+              specialNotes: saleContext.notes || null,
+            }
+          : undefined,
       });
       createdOrderId = order.id;
 
@@ -818,10 +815,10 @@ export default function PosPage() {
       </div>
 
       {/* Mobile cart bar */}
-      <div className="flex items-center justify-between gap-3 border-t border-cacao-800/10 bg-card px-4 py-3 md:hidden">
+      <div className="flex items-center justify-between gap-3 border-t border-cacao-800/10 bg-card px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
         <Button
           variant="outline"
-          className="gap-2"
+          className="min-h-11 gap-2"
           onClick={() => setCartOpen(true)}
         >
           <ShoppingCart className="size-4" />
@@ -829,6 +826,7 @@ export default function PosPage() {
         </Button>
         <CurrencyDisplay amount={totals.total} className="font-semibold" />
         <Button
+          className="min-h-11 min-w-20"
           disabled={items.length === 0}
           onClick={startCheckout}
         >
@@ -837,11 +835,11 @@ export default function PosPage() {
       </div>
 
       <Dialog open={cartOpen} onOpenChange={setCartOpen}>
-        <DialogContent className="flex max-h-[90dvh] flex-col overflow-hidden sm:max-w-md">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[min(94dvh,100svh)] flex-col overflow-hidden p-0 sm:max-w-md">
+          <DialogHeader className="border-b border-border/60">
             <DialogTitle>السلة ({items.length})</DialogTitle>
           </DialogHeader>
-          <DialogBody className="flex flex-col gap-3 pr-1">
+          <DialogBody className="flex flex-col gap-3 py-4">
           <button
             type="button"
             onClick={() => {
@@ -865,8 +863,7 @@ export default function PosPage() {
             }}
             className="rounded-lg border border-cacao-800/10"
           />
-          <ScrollArea className="flex-1 pr-2">
-            {items.length === 0 ? (
+          {items.length === 0 ? (
               <EmptyState
                 icon={ShoppingCart}
                 title="السلة فارغة"
@@ -882,11 +879,11 @@ export default function PosPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="size-7"
+                          className="size-11"
                           onClick={() => removeItem(item.id)}
                           aria-label={`حذف ${item.nameAr}`}
                         >
-                          <X className="size-3.5" />
+                          <X className="size-4" />
                         </Button>
                       </div>
                       <div className="mt-2 flex items-center justify-between">
@@ -894,27 +891,27 @@ export default function PosPage() {
                           <Button
                             variant="outline"
                             size="icon"
-                            className="size-7"
+                            className="size-11"
                             onClick={() =>
                               updateQuantity(item.id, item.quantity - 1)
                             }
                             aria-label={`تقليل كمية ${item.nameAr}`}
                           >
-                            <Minus className="size-3" />
+                            <Minus className="size-4" />
                           </Button>
-                          <span className="w-8 text-center text-sm tabular-nums">
+                          <span className="w-10 text-center text-base tabular-nums">
                             {item.quantity}
                           </span>
                           <Button
                             variant="outline"
                             size="icon"
-                            className="size-7"
+                            className="size-11"
                             onClick={() =>
                               updateQuantity(item.id, item.quantity + 1)
                             }
                             aria-label={`زيادة كمية ${item.nameAr}`}
                           >
-                            <Plus className="size-3" />
+                            <Plus className="size-4" />
                           </Button>
                         </div>
                         <CurrencyDisplay
@@ -927,9 +924,8 @@ export default function PosPage() {
                 ))}
               </div>
             )}
-          </ScrollArea>
           </DialogBody>
-          <div className="flex shrink-0 items-center justify-between border-t border-cacao-800/8 pt-3">
+          <div className="flex shrink-0 items-center justify-between border-t border-cacao-800/8 px-4 pt-3 sm:px-6">
             <span className="text-sm text-muted-foreground">الإجمالي</span>
             <CurrencyDisplay
               amount={totals.total}
@@ -939,6 +935,7 @@ export default function PosPage() {
           <DialogFooter className="grid grid-cols-[auto_1fr] gap-2 sm:grid">
             <Button
               variant="outline"
+              className="min-h-11"
               disabled={items.length === 0}
               onClick={() => {
                 setCartOpen(false);
@@ -949,7 +946,7 @@ export default function PosPage() {
               <BadgePercent className="size-4" />
             </Button>
             <Button
-              className="w-full"
+              className="min-h-11 w-full"
               disabled={items.length === 0}
               onClick={() => {
                 setCartOpen(false);
@@ -1108,20 +1105,22 @@ export default function PosPage() {
         open={!!weightProduct}
         onOpenChange={(o) => !o && setWeightProduct(null)}
       >
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[min(94dvh,100svh)] flex-col overflow-hidden p-0 sm:max-w-sm">
+          <DialogHeader className="border-b border-border/60">
             <DialogTitle>البيع بالوزن</DialogTitle>
           </DialogHeader>
           {weightProduct ? (
-            <div className="space-y-4 py-2">
+            <DialogBody className="space-y-4 py-4">
               <p className="text-sm font-medium">{weightProduct.nameAr}</p>
               <div className="space-y-2">
                 <label className="text-sm">الوزن (غرام)</label>
                 <Input
                   type="number"
+                  inputMode="decimal"
                   value={weightGrams}
                   onChange={(e) => setWeightGrams(e.target.value)}
                   dir="ltr"
+                  className="min-h-11 text-base"
                 />
               </div>
               <p className="text-sm text-muted-foreground">
@@ -1134,20 +1133,26 @@ export default function PosPage() {
                   }
                 />
               </p>
-            </div>
+            </DialogBody>
           ) : null}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setWeightProduct(null)}>
+            <Button
+              variant="outline"
+              className="min-h-11 w-full sm:w-auto"
+              onClick={() => setWeightProduct(null)}
+            >
               إلغاء
             </Button>
-            <Button onClick={handleWeightAdd}>إضافة للسلة</Button>
+            <Button className="min-h-11 w-full sm:w-auto" onClick={handleWeightAdd}>
+              إضافة للسلة
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {lastOrder ? (
-        <div className="fixed bottom-4 start-4 z-50 flex items-center gap-2 rounded-lg border border-cacao-800/10 bg-card p-3 shadow-lg no-print">
-          <span className="text-sm">آخر فاتورة: {lastOrder.orderNumber}</span>
+        <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] start-3 z-40 flex max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-lg border border-cacao-800/10 bg-card p-3 shadow-lg no-print md:bottom-4 md:start-4">
+          <span className="truncate text-sm">آخر فاتورة: {lastOrder.orderNumber}</span>
           <PrintReceipt
             order={lastOrder}
             payment={lastPayment}
@@ -1156,7 +1161,7 @@ export default function PosPage() {
           <Button
             variant="ghost"
             size="icon"
-            className="size-7"
+            className="size-11 shrink-0"
             onClick={() => setLastOrder(null)}
             aria-label="إخفاء آخر فاتورة"
           >
