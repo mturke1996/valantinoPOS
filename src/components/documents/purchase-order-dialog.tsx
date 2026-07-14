@@ -5,7 +5,11 @@ import { ClipboardList, Download, Printer } from "lucide-react";
 import { toast } from "sonner";
 
 import { PurchaseOrderTemplate } from "@/components/documents/purchase-order-template";
-import { createDocumentPdf, downloadBlob } from "@/components/documents/pdf-export";
+import {
+  createPurchaseOrderPdf,
+  downloadBlob,
+  fetchLogoDataUri,
+} from "@/components/documents/pdf";
 import {
   a4PrintStyles,
   openPrintWindow,
@@ -56,11 +60,18 @@ export function PurchaseOrderDialog({
   };
 
   const handlePdf = async () => {
-    const content = printRef.current;
-    if (!content) return;
     setWorking(true);
     try {
-      const { blob } = await createDocumentPdf(content, fileName, "a4");
+      const logoUri = await fetchLogoDataUri(settings);
+      const { blob } = await createPurchaseOrderPdf(
+        {
+          purchaseOrder,
+          supplier,
+          settings,
+          logoUri,
+        },
+        fileName,
+      );
       downloadBlob(blob, fileName);
       toast.success("تم تنزيل أمر الشراء");
     } catch (error) {

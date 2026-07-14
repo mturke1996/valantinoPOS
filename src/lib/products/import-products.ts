@@ -48,7 +48,22 @@ export function parseProductImportFile(
   buffer: ArrayBuffer,
   filename: string,
 ): ProductImportResult {
-  const workbook = XLSX.read(buffer, { type: "array" });
+  const MAX_BYTES = 2 * 1024 * 1024;
+  const MAX_ROWS = 2_000;
+  if (buffer.byteLength > MAX_BYTES) {
+    return {
+      rows: [],
+      errors: ["حجم الملف كبير جداً (الحد 2 ميجابايت)"],
+    };
+  }
+
+  const workbook = XLSX.read(buffer, {
+    type: "array",
+    // Mitigate prototype-pollution / ReDoS surface from untrusted workbooks.
+    cellDates: false,
+    cellNF: false,
+    cellStyles: false,
+  });
   const sheetName = workbook.SheetNames[0];
   if (!sheetName) {
     return { rows: [], errors: ["الملف لا يحتوي على أوراق"] };
@@ -57,7 +72,12 @@ export function parseProductImportFile(
   const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
     defval: "",
   });
-
+  if (json.length > MAX_ROWS) {
+    return {
+      rows: [],
+      errors: [`عدد الصفوف يتجاوز الحد (${MAX_ROWS})`],
+    };
+  }
   const rows: ProductImportRow[] = [];
   const errors: string[] = [];
 

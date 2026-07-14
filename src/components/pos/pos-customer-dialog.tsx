@@ -147,6 +147,7 @@ export function PosCustomerDialog({
                   onChange={(event) => setSearch(event.target.value)}
                   className="min-h-11 ps-9"
                   placeholder="ابحث بالاسم أو الهاتف"
+                  aria-label="ابحث بالاسم أو الهاتف"
                 />
               </div>
 

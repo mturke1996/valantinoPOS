@@ -259,6 +259,7 @@ export default function ProductsPage() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="بحث بالاسم أو SKU أو الباركود..."
+            aria-label="بحث بالاسم أو SKU أو الباركود"
             className="ps-9"
           />
         </div>

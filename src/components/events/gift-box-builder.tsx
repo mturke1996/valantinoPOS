@@ -159,9 +159,9 @@ export function GiftBoxBuilder({
 
         <DialogBody className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>نوع العلبة</Label>
+            <Label htmlFor="gift-box-type">نوع العلبة</Label>
             <Select value={boxProductId} onValueChange={setBoxProductId}>
-              <SelectTrigger>
+              <SelectTrigger id="gift-box-type" aria-label="نوع العلبة">
                 <SelectValue placeholder="اختر العلبة" />
               </SelectTrigger>
               <SelectContent>
@@ -212,7 +212,7 @@ export function GiftBoxBuilder({
 
           <div className="flex gap-2">
             <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-              <SelectTrigger className="flex-1">
+              <SelectTrigger className="flex-1" aria-label="إضافة منتج للعلبة">
                 <SelectValue placeholder="إضافة منتج" />
               </SelectTrigger>
               <SelectContent>
@@ -225,8 +225,12 @@ export function GiftBoxBuilder({
                   ))}
               </SelectContent>
             </Select>
-            <Button size="icon" onClick={addItem}>
-              <Plus className="size-4" />
+            <Button
+              size="icon"
+              onClick={addItem}
+              aria-label="إضافة المنتج للعلبة"
+            >
+              <Plus className="size-4" aria-hidden />
             </Button>
           </div>
 
@@ -246,14 +250,15 @@ export function GiftBoxBuilder({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-7"
+                        className="size-8 min-h-8 min-w-8"
+                        aria-label={`حذف ${p.nameAr}`}
                         onClick={() =>
                           setItems((prev) =>
                             prev.filter((i) => i.productId !== item.productId),
                           )
                         }
                       >
-                        <Trash2 className="size-3.5" />
+                        <Trash2 className="size-3.5" aria-hidden />
                       </Button>
                     </div>
                   </div>

@@ -265,6 +265,7 @@ export default function EventsPage() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="بحث برقم الطلب أو العميل أو المناسبة"
+          aria-label="بحث في المناسبات"
           className="h-11 min-w-0 flex-1"
         />
         <div className="flex items-center gap-2 rounded-xl border border-cacao-800/10 bg-white px-3 py-2 text-sm sm:shrink-0">

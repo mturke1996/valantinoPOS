@@ -54,9 +54,16 @@ export async function POST(request: Request) {
   const roleKey = body.roleKey ?? "cashier";
   const phone = body.phone?.trim() || null;
 
-  if (!email || !password || password.length < 6 || !fullName) {
+  if (!email || !password || password.length < 10 || !fullName) {
     return NextResponse.json(
-      { error: "أدخل البريد والاسم وكلمة مرور (6 أحرف على الأقل)" },
+      { error: "أدخل البريد والاسم وكلمة مرور (10 أحرف على الأقل)" },
+      { status: 400 },
+    );
+  }
+
+  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    return NextResponse.json(
+      { error: "كلمة المرور يجب أن تحتوي حروفاً وأرقاماً" },
       { status: 400 },
     );
   }

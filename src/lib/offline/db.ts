@@ -258,6 +258,9 @@ export async function processSyncQueue(
         updatedAt,
       });
       changed = true;
+      // Stop the flush so dependents (payment after create_order, etc.)
+      // do not run out of order while an earlier item is failing.
+      break;
     }
   }
   if (changed) notifySyncQueueChange();

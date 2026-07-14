@@ -175,37 +175,47 @@ export default function StaffPage() {
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-2">
-              <Label>الاسم</Label>
-              <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
+              <Label htmlFor="staff-full-name">الاسم</Label>
+              <Input
+                id="staff-full-name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                autoComplete="name"
+              />
             </div>
             <div className="space-y-2">
-              <Label>البريد</Label>
+              <Label htmlFor="staff-email">البريد</Label>
               <Input
+                id="staff-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 dir="ltr"
                 className="text-start"
+                autoComplete="email"
               />
             </div>
             <div className="space-y-2">
-              <Label>كلمة المرور</Label>
+              <Label htmlFor="staff-password">كلمة المرور</Label>
               <Input
+                id="staff-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 dir="ltr"
                 className="text-start"
-                minLength={6}
+                placeholder="10 أحرف · حروف وأرقام"
+                minLength={10}
+                autoComplete="new-password"
               />
             </div>
             <div className="space-y-2">
-              <Label>الدور</Label>
+              <Label htmlFor="staff-role">الدور</Label>
               <Select
                 value={roleKey}
                 onValueChange={(v) => setRoleKey(v as RoleKey)}
               >
-                <SelectTrigger>
+                <SelectTrigger id="staff-role" aria-label="الدور">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -218,12 +228,14 @@ export default function StaffPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>الهاتف</Label>
+              <Label htmlFor="staff-phone">الهاتف</Label>
               <Input
+                id="staff-phone"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 dir="ltr"
                 className="text-start"
+                autoComplete="tel"
               />
             </div>
           </div>

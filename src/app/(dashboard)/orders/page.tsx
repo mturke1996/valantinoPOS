@@ -186,6 +186,7 @@ export default function OrdersPage() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="بحث برقم الطلب أو العميل أو المنطقة"
+                aria-label="بحث في الطلبات"
                 className="h-11"
               />
             </div>

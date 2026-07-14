@@ -229,13 +229,19 @@ export default function DiscountsPage() {
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-2">
-              <Label>الاسم</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
+              <Label htmlFor="discount-name">الاسم</Label>
+              <Input
+                id="discount-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
-              <Label>النوع</Label>
+              <Label htmlFor="discount-type">النوع</Label>
               <Select value={type} onValueChange={(v) => setType(v as DiscountType)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="discount-type" aria-label="نوع الخصم">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="percentage">نسبة</SelectItem>
                   <SelectItem value="fixed">مبلغ ثابت</SelectItem>
@@ -243,8 +249,14 @@ export default function DiscountsPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>القيمة</Label>
-              <Input type="number" value={value} onChange={(e) => setValue(e.target.value)} dir="ltr" />
+              <Label htmlFor="discount-value">القيمة</Label>
+              <Input
+                id="discount-value"
+                type="number"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                dir="ltr"
+              />
             </div>
           </div>
           <DialogFooter>
@@ -260,13 +272,21 @@ export default function DiscountsPage() {
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-2">
-              <Label>الكود</Label>
-              <Input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} dir="ltr" className="font-mono uppercase" />
+              <Label htmlFor="coupon-code">الكود</Label>
+              <Input
+                id="coupon-code"
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                dir="ltr"
+                className="font-mono uppercase"
+              />
             </div>
             <div className="space-y-2">
-              <Label>النوع</Label>
+              <Label htmlFor="coupon-type">النوع</Label>
               <Select value={couponType} onValueChange={(v) => setCouponType(v as CouponType)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="coupon-type" aria-label="نوع الكوبون">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="percentage">نسبة</SelectItem>
                   <SelectItem value="fixed">مبلغ ثابت</SelectItem>
@@ -274,8 +294,14 @@ export default function DiscountsPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>القيمة</Label>
-              <Input type="number" value={value} onChange={(e) => setValue(e.target.value)} dir="ltr" />
+              <Label htmlFor="coupon-value">القيمة</Label>
+              <Input
+                id="coupon-value"
+                type="number"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                dir="ltr"
+              />
             </div>
           </div>
           <DialogFooter>

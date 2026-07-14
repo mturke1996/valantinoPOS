@@ -84,11 +84,18 @@ export function PosChrome({
           size="sm"
           className="gap-1.5"
           onClick={onOperationsOpen}
+          aria-label={
+            operationCount > 0
+              ? `جدول اليوم، ${operationCount} عملية`
+              : "جدول اليوم"
+          }
         >
-          <CalendarClock className="size-3.5" />
+          <CalendarClock className="size-3.5" aria-hidden />
           <span className="hidden lg:inline">جدول اليوم</span>
           {operationCount > 0 ? (
-            <span className="font-mono tabular-nums">{operationCount}</span>
+            <span className="font-mono tabular-nums" aria-hidden>
+              {operationCount}
+            </span>
           ) : null}
         </Button>
 

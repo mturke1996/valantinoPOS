@@ -5,7 +5,7 @@ import { forwardRef } from "react";
 import {
   DOC_FONT_STACK,
   DOC_INK,
-  DOC_PAGE,
+  DOC_PAGE_A5,
   formatDocMoney,
 } from "@/components/documents/brand";
 import { DocBrandHeader, DocTitleBand } from "@/components/documents/doc-chrome";
@@ -84,8 +84,8 @@ export const ZReportTemplate = forwardRef<HTMLDivElement, ZReportTemplateProps>(
         ref={ref}
         className="doc-shell overflow-hidden bg-white text-[12px]"
         style={{
-          width: DOC_PAGE.width,
-          minHeight: DOC_PAGE.minHeight,
+          width: DOC_PAGE_A5.width,
+          minHeight: DOC_PAGE_A5.minHeight,
           color: DOC_INK.text,
           fontFamily: DOC_FONT_STACK,
         }}

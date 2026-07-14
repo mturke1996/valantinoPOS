@@ -173,6 +173,10 @@ export function PosDiscountDialog({
                 onChange={(event) => setValue(event.target.value)}
                 dir="ltr"
                 autoFocus
+                aria-invalid={invalidPercentage || undefined}
+                aria-describedby={
+                  invalidPercentage ? "pos-discount-error" : undefined
+                }
                 className={cn(
                   "pe-12 font-mono text-lg tabular-nums",
                   invalidPercentage &&
@@ -188,7 +192,11 @@ export function PosDiscountDialog({
               </span>
             </div>
             {invalidPercentage ? (
-              <p className="text-xs text-destructive">
+              <p
+                id="pos-discount-error"
+                role="alert"
+                className="text-xs text-destructive"
+              >
                 نسبة الخصم لا يمكن أن تتجاوز 100%
               </p>
             ) : null}

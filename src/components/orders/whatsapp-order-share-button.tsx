@@ -1,21 +1,25 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { flushSync } from "react-dom";
+import { useState } from "react";
 import { MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 
-import { InvoiceA5Template } from "@/components/documents/invoice-a5-template";
-import { createDocumentPdf, downloadBlob } from "@/components/documents/pdf-export";
+import {
+  buildQrDataUri,
+  createInvoicePdf,
+  downloadBlob,
+  fetchLogoDataUri,
+} from "@/components/documents/pdf";
 import { Button } from "@/components/ui/button";
 import { ensureInvoiceForOrder, getState } from "@/lib/data/store";
+import { buildInvoiceQrPayload } from "@/lib/services/invoice.service";
 import {
   buildOrderWhatsAppMessage,
   resolveOrderWhatsAppPhone,
   shareOrderPdfOnWhatsApp,
 } from "@/lib/whatsapp/order-share";
 import { cn } from "@/lib/utils";
-import type { Invoice, Order } from "@/types";
+import type { Order } from "@/types";
 
 interface WhatsAppOrderShareButtonProps {
   order: Order;
@@ -26,16 +30,8 @@ interface WhatsAppOrderShareButtonProps {
   onBeforeShare?: () => void;
 }
 
-function waitForPaint(ms = 160): Promise<void> {
-  return new Promise((resolve) => {
-    requestAnimationFrame(() => {
-      window.setTimeout(resolve, ms);
-    });
-  });
-}
-
 /**
- * High-quality A4 PDF + detailed WhatsApp message (no system links).
+ * High-quality A4 vector PDF + detailed WhatsApp message (no system links).
  */
 export function WhatsAppOrderShareButton({
   order,
@@ -45,9 +41,7 @@ export function WhatsAppOrderShareButton({
   label = "واتساب + PDF",
   onBeforeShare,
 }: WhatsAppOrderShareButtonProps) {
-  const pageRef = useRef<HTMLDivElement>(null);
   const [working, setWorking] = useState(false);
-  const [captureInvoice, setCaptureInvoice] = useState<Invoice | null>(null);
 
   const state = getState();
   const settings = state.settings;
@@ -65,18 +59,29 @@ export function WhatsAppOrderShareButton({
     onBeforeShare?.();
     try {
       const ensured = ensureInvoiceForOrder(order.id);
-      flushSync(() => {
-        setCaptureInvoice(ensured);
-      });
-      await waitForPaint(140);
-
-      const content = pageRef.current;
-      if (!content) throw new Error("تعذر تجهيز ملف PDF");
-
-      await waitForPaint(60);
+      const qrPayload =
+        ensured.qrPayload ??
+        buildInvoiceQrPayload({ invoice: ensured, order, settings });
+      const [logoUri, qrUri] = await Promise.all([
+        fetchLogoDataUri(settings),
+        buildQrDataUri(qrPayload),
+      ]);
 
       const fileName = `${ensured.invoiceNumber}.pdf`;
-      const { file } = await createDocumentPdf(content, fileName, "a4");
+      const { file } = await createInvoicePdf(
+        {
+          invoice: ensured,
+          order,
+          settings,
+          customer,
+          payments,
+          event,
+          paperSize: "A4",
+          logoUri,
+          qrUri,
+        },
+        fileName,
+      );
 
       const message = buildOrderWhatsAppMessage({
         order,
@@ -101,7 +106,7 @@ export function WhatsAppOrderShareButton({
       });
 
       if (result === "shared") {
-        toast.success("تم إرسال الفاتورة ورسالة الطلب عبر واتساب");
+        toast.success("تمت المشاركة — اختر واتساب من ورقة المشاركة");
       } else if (result === "whatsapp_text") {
         toast.success(
           "تم تنزيل PDF وفتح واتساب — أرفق الملف من التنزيلات في المحادثة",
@@ -118,41 +123,20 @@ export function WhatsAppOrderShareButton({
       );
     } finally {
       setWorking(false);
-      setCaptureInvoice(null);
     }
   };
 
   return (
-    <>
-      <Button
-        type="button"
-        variant={variant}
-        size={size}
-        disabled={working}
-        onClick={handleClick}
-        className={cn("gap-2", className)}
-      >
-        <MessageCircle className="size-4" />
-        {working ? "جاري التجهيز..." : label}
-      </Button>
-
-      <div
-        aria-hidden
-        className="pointer-events-none fixed -left-[9999px] top-0 w-[210mm] opacity-0"
-      >
-        {captureInvoice ? (
-          <InvoiceA5Template
-            ref={pageRef}
-            invoice={captureInvoice}
-            order={order}
-            settings={settings}
-            customer={customer}
-            payments={payments}
-            qrPayload={captureInvoice.qrPayload}
-            paperSize="a4"
-          />
-        ) : null}
-      </div>
-    </>
+    <Button
+      type="button"
+      variant={variant}
+      size={size}
+      disabled={working}
+      onClick={handleClick}
+      className={cn("gap-2", className)}
+    >
+      <MessageCircle className="size-4" />
+      {working ? "جاري التجهيز..." : label}
+    </Button>
   );
 }

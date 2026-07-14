@@ -199,12 +199,20 @@ export function canAccessPath(
 ): boolean {
   if (!userRole) return false;
   const normalizedPath = pathname === "/" ? "/dashboard" : pathname;
+  // Legacy alias — page redirects to purchases.
+  if (
+    normalizedPath === "/suppliers" ||
+    normalizedPath.startsWith("/suppliers/")
+  ) {
+    return canAccessPath("/purchases", userRole);
+  }
   const item = NAV_ITEMS.find(
     (candidate) =>
       normalizedPath === candidate.href ||
       normalizedPath.startsWith(`${candidate.href}/`),
   );
-  return item ? canAccessNavItem(item, userRole) : true;
+  // Default deny — unknown dashboard routes must be added to NAV_ITEMS.
+  return item ? canAccessNavItem(item, userRole) : false;
 }
 
 export function getDefaultPathForRole(

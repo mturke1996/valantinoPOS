@@ -1,6 +1,21 @@
 export { DOC_INK, formatDocMoney, resolveDocLogoUrl } from "./brand";
 export { createDocumentPdf, downloadBlob } from "./pdf-export";
 export {
+  createReactPdf,
+  createInvoicePdf,
+  createZReportPdf,
+  createDeliveryReceiptPdf,
+  createPurchaseOrderPdf,
+  generatePdfBlob,
+  InvoicePDF,
+  ZReportPDF,
+  DeliveryReceiptPDF,
+  PurchaseOrderPDF,
+  fetchLogoDataUri,
+  buildQrDataUri,
+  toPdfPaperSize,
+} from "./pdf";
+export {
   a4PrintStyles,
   a5PrintStyles,
   openPrintWindow,

@@ -87,8 +87,8 @@ async function getSupabaseSession(
   });
 
   try {
-    const { data, error } = await supabase.auth.getClaims();
-    const userId = data?.claims?.sub ?? null;
+    const { data, error } = await supabase.auth.getUser();
+    const userId = data?.user?.id ?? null;
     return {
       authenticated: !error && Boolean(userId),
       response,
@@ -122,6 +122,21 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname.startsWith("/api/")) {
+    // Public/health already returned above. Remaining API routes still need an
+    // active profile (upload and other handlers may not re-check is_active).
+    if (session.supabase && session.userId) {
+      const { data: profile } = await session.supabase
+        .from("user_profiles")
+        .select("role_key, is_active")
+        .eq("id", session.userId)
+        .maybeSingle();
+      if (!profile || profile.is_active === false || !mapProfileRole(profile.role_key)) {
+        return withSessionCookies(
+          NextResponse.json({ error: "inactive_profile" }, { status: 403 }),
+          session.response,
+        );
+      }
+    }
     return session.response;
   }
 

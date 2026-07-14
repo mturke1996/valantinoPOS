@@ -119,16 +119,30 @@ export default function ExpensesPage() {
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-2">
-              <Label>الفئة</Label>
-              <Input value={category} onChange={(e) => setCategory(e.target.value)} />
+              <Label htmlFor="expense-category">الفئة</Label>
+              <Input
+                id="expense-category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
-              <Label>الوصف</Label>
-              <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+              <Label htmlFor="expense-description">الوصف</Label>
+              <Input
+                id="expense-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
-              <Label>المبلغ</Label>
-              <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} dir="ltr" />
+              <Label htmlFor="expense-amount">المبلغ</Label>
+              <Input
+                id="expense-amount"
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                dir="ltr"
+              />
             </div>
           </div>
           <DialogFooter>

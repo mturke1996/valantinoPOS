@@ -5,7 +5,11 @@ import { Download, Printer, Truck } from "lucide-react";
 import { toast } from "sonner";
 
 import { DeliveryReceiptTemplate } from "@/components/documents/delivery-receipt-template";
-import { createDocumentPdf, downloadBlob } from "@/components/documents/pdf-export";
+import {
+  createDeliveryReceiptPdf,
+  downloadBlob,
+  fetchLogoDataUri,
+} from "@/components/documents/pdf";
 import {
   a4PrintStyles,
   openPrintWindow,
@@ -59,11 +63,19 @@ export function DeliveryReceiptDialog({
   };
 
   const handlePdf = async () => {
-    const content = printRef.current;
-    if (!content) return;
     setWorking(true);
     try {
-      const { blob } = await createDocumentPdf(content, fileName, "a4");
+      const logoUri = await fetchLogoDataUri(settings);
+      const { blob } = await createDeliveryReceiptPdf(
+        {
+          order,
+          settings,
+          customer,
+          hidePrices,
+          logoUri,
+        },
+        fileName,
+      );
       downloadBlob(blob, fileName);
       toast.success("تم تنزيل إيصال التسليم");
     } catch (error) {

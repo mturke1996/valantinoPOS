@@ -14,7 +14,7 @@ import { flushOfflineSyncQueue } from "@/lib/offline/sync";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { setRealtimeSyncStatus } from "@/hooks/use-realtime-status";
 
-const DEBOUNCE_MS = 3_000;
+const DEBOUNCE_MS = 5_000;
 const SYNC_FLUSH_MS = 8_000;
 const REMINDER_MS = 60_000;
 const FOCUS_MIN_GAP_MS = 60_000;

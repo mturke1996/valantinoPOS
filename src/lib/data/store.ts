@@ -384,18 +384,24 @@ function appendAudit(
   };
 }
 
+function nextDocumentSeqSuffix(): string {
+  // Collision-resistant across multi-terminal local counters (UUID suffix).
+  const id = generateId().replace(/-/g, "");
+  return id.slice(0, 6).toUpperCase();
+}
+
 function nextOrderNumber(state: AppState): string {
   const prefix = state.settings.orderNumberPrefix;
   const year = new Date().getFullYear();
   const count = state.orders.length + 1;
-  return `${prefix}-${year}-${String(count).padStart(4, "0")}`;
+  return `${prefix}-${year}-${String(count).padStart(4, "0")}-${nextDocumentSeqSuffix()}`;
 }
 
 function nextInvoiceNumber(state: AppState): string {
   const prefix = state.settings.invoiceNumberPrefix;
   const year = new Date().getFullYear();
   const count = state.invoices.length + 1;
-  return `${prefix}-${year}-${String(count).padStart(4, "0")}`;
+  return `${prefix}-${year}-${String(count).padStart(4, "0")}-${nextDocumentSeqSuffix()}`;
 }
 
 function resolvePaymentStatus(
@@ -1450,10 +1456,9 @@ function deductInventoryForOrder(
       return !previous || previous.quantity !== batch.quantity;
     });
     if (changedBatches.length > 0) {
-      queueStoreSync("update_batches", {
-        batches: changedBatches,
-        branchId: order.branchId,
-      });
+      // Do not upsert absolute batch quantities after sales — multi-terminal
+      // last-write-wins would overwrite concurrent deductions. Cloud stock is
+      // adjusted atomically via inventory_movements + DB trigger.
       queueStoreSync("sync_order_items", {
         orderId: order.id,
         branchId: order.branchId,
@@ -1950,22 +1955,16 @@ export function closeShift(
   update((s) => {
     const shifts = s.shifts.map((sh) => {
       if (sh.id !== shiftId) return sh;
-      const cashPayments = s.payments
-        .filter((p) => {
-          const order = s.orders.find((o) => o.id === p.orderId);
-          return (
-            (p.shiftId ?? order?.shiftId) === shiftId &&
-            (p.method === "cash" || p.method === "mixed")
-          );
-        })
-        .reduce((sum, p) => sum + (p.cashAmount ?? p.amount), 0);
-      const expectedCash = sh.openingFloat + cashPayments;
+      // Trust the live expectedCash maintained by payments, handovers, and cash
+      // refunds — recomputing from openingFloat + all payments double-counts
+      // pre-handover cash and ignores refunds.
+      const expectedCash = roundMoney(sh.expectedCash);
       updated = {
         ...sh,
         closedAt: nowISO(),
         closingCount,
         expectedCash,
-        variance: closingCount - expectedCash,
+        variance: roundMoney(closingCount - expectedCash),
         status: "closed",
         updatedAt: nowISO(),
       };
@@ -2177,10 +2176,19 @@ export function createReturn(input: CreateReturnInput): Return {
     if (item.restock) {
       const product = state.products.find((p) => p.id === item.productId);
       if (product?.trackStock !== false) {
-        const existingBatch = batches.find(
-          (b) =>
-            b.productId === item.productId && b.branchId === input.branchId,
-        );
+        const preferredBatchId = orderItem.batchId;
+        const existingBatch =
+          (preferredBatchId
+            ? batches.find(
+                (b) =>
+                  b.id === preferredBatchId &&
+                  b.branchId === input.branchId,
+              )
+            : null) ??
+          batches.find(
+            (b) =>
+              b.productId === item.productId && b.branchId === input.branchId,
+          );
         if (existingBatch) {
           batches = batches.map((b) =>
             b.id === existingBatch.id
@@ -2279,12 +2287,7 @@ export function createReturn(input: CreateReturnInput): Return {
   });
 
   setState(newState);
-  if (batches.length > 0) {
-    queueStoreSync("update_batches", {
-      batches,
-      branchId: input.branchId,
-    });
-  }
+  // Restock applies via inventory_movements + DB trigger (avoid absolute LWW).
   const newMovements = movements.slice(state.inventoryMovements.length);
   queueMovementsSync(newMovements);
   queueStoreSync("create_return", { returnRecord });

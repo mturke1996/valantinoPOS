@@ -142,6 +142,7 @@ export default function CustomersPage() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="بحث بالاسم أو الهاتف أو واتساب أو البريد..."
+          aria-label="بحث عن عميل"
           className="ps-9"
         />
       </div>

@@ -158,18 +158,24 @@ export function OpsSearch({
   value,
   onChange,
   placeholder,
+  "aria-label": ariaLabel,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
+  "aria-label"?: string;
 }) {
   return (
     <div className="relative">
-      <Search className="pointer-events-none absolute start-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <Search
+        className="pointer-events-none absolute start-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+        aria-hidden
+      />
       <Input
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
+        aria-label={ariaLabel ?? placeholder}
         className="h-11 rounded-xl border-cacao-800/10 bg-white ps-10 shadow-none"
       />
     </div>

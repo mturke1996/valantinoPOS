@@ -181,9 +181,12 @@ export default function RegisterPage() {
                   placeholder="+218"
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full" disabled={loading} aria-busy={loading}>
                 {loading ? (
-                  <Loader2 className="size-4 animate-spin" />
+                  <>
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    <span>جاري إنشاء الحساب...</span>
+                  </>
                 ) : (
                   "إنشاء حساب المدير"
                 )}

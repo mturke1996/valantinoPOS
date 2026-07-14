@@ -148,6 +148,7 @@ export function CommandPalette({
             <Search className="size-4 shrink-0 text-muted-foreground" />
             <Command.Input
               placeholder="ابحث عن صفحات، منتجات، عملاء، طلبات..."
+              aria-label="بحث سريع في النظام"
               className="flex h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
           </div>

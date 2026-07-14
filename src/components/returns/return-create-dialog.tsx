@@ -127,9 +127,9 @@ export function ReturnCreateDialog({
         </DialogHeader>
         <DialogBody className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>الطلب</Label>
+            <Label htmlFor="return-order">الطلب</Label>
             <Select value={orderId} onValueChange={setOrderId}>
-              <SelectTrigger>
+              <SelectTrigger id="return-order" aria-label="اختر الطلب">
                 <SelectValue placeholder="اختر الطلب" />
               </SelectTrigger>
               <SelectContent>
@@ -165,9 +165,11 @@ export function ReturnCreateDialog({
                       }))
                     }
                     dir="ltr"
+                    aria-label={`كمية مرتجع ${item.productNameAr}`}
                   />
                   <div className="flex items-center gap-2 text-xs">
                     <Switch
+                      id={`restock-${item.id}`}
                       checked={restockMap[item.id] ?? true}
                       onCheckedChange={(checked) =>
                         setRestockMap((prev) => ({
@@ -175,8 +177,11 @@ export function ReturnCreateDialog({
                           [item.id]: checked,
                         }))
                       }
+                      aria-label={`إعادة ${item.productNameAr} للمخزون`}
                     />
-                    إعادة للمخزون
+                    <Label htmlFor={`restock-${item.id}`} className="cursor-pointer">
+                      إعادة للمخزون
+                    </Label>
                   </div>
                 </div>
               ))}
@@ -184,12 +189,12 @@ export function ReturnCreateDialog({
           ) : null}
 
           <div className="space-y-2">
-            <Label>طريقة الاسترداد</Label>
+            <Label htmlFor="return-refund-method">طريقة الاسترداد</Label>
             <Select
               value={refundMethod}
               onValueChange={(v) => setRefundMethod(v as RefundMethod)}
             >
-              <SelectTrigger>
+              <SelectTrigger id="return-refund-method" aria-label="طريقة الاسترداد">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -201,8 +206,12 @@ export function ReturnCreateDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>ملاحظات</Label>
-            <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <Label htmlFor="return-notes">ملاحظات</Label>
+            <Input
+              id="return-notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
           </div>
         </DialogBody>
         <DialogFooter>

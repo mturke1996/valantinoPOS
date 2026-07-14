@@ -235,6 +235,7 @@ export default function PublicCatalogPage() {
                     size="icon"
                     variant="ghost"
                     className="size-8"
+                    aria-label={`تقليل كمية ${line.product.nameAr}`}
                     onClick={() =>
                       setCart((prev) =>
                         prev
@@ -247,30 +248,37 @@ export default function PublicCatalogPage() {
                       )
                     }
                   >
-                    <Minus className="size-3.5" />
+                    <Minus className="size-3.5" aria-hidden />
                   </Button>
-                  <span className="w-6 text-center font-mono">{line.quantity}</span>
+                  <span
+                    className="w-6 text-center font-mono"
+                    aria-label={`كمية ${line.product.nameAr}: ${line.quantity}`}
+                  >
+                    {line.quantity}
+                  </span>
                   <Button
                     type="button"
                     size="icon"
                     variant="ghost"
                     className="size-8"
+                    aria-label={`زيادة كمية ${line.product.nameAr}`}
                     onClick={() => addProduct(line.product)}
                   >
-                    <Plus className="size-3.5" />
+                    <Plus className="size-3.5" aria-hidden />
                   </Button>
                   <Button
                     type="button"
                     size="icon"
                     variant="ghost"
                     className="size-8 text-destructive"
+                    aria-label={`حذف ${line.product.nameAr}`}
                     onClick={() =>
                       setCart((prev) =>
                         prev.filter((l) => l.product.id !== line.product.id),
                       )
                     }
                   >
-                    <Trash2 className="size-3.5" />
+                    <Trash2 className="size-3.5" aria-hidden />
                   </Button>
                 </li>
               ))}
@@ -279,22 +287,31 @@ export default function PublicCatalogPage() {
 
           <div className="space-y-3 border-t border-[#3d2914]/10 pt-3">
             <div className="space-y-2">
-              <Label>الاسم</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
+              <Label htmlFor="catalog-name">الاسم</Label>
+              <Input
+                id="catalog-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="name"
+              />
             </div>
             <div className="space-y-2">
-              <Label>الهاتف / واتساب</Label>
+              <Label htmlFor="catalog-phone">الهاتف / واتساب</Label>
               <Input
+                id="catalog-phone"
                 dir="ltr"
                 className="text-start"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="09xxxxxxxx"
+                autoComplete="tel"
               />
             </div>
             <div className="space-y-2">
-              <Label>منطقة التوصيل</Label>
+              <Label htmlFor="catalog-zone">منطقة التوصيل</Label>
               <DeliveryZoneSelect
+                id="catalog-zone"
+                aria-label="منطقة التوصيل"
                 value={zoneId}
                 zones={zones}
                 onChange={(id, fee) => {
@@ -304,12 +321,18 @@ export default function PublicCatalogPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>العنوان</Label>
-              <Input value={address} onChange={(e) => setAddress(e.target.value)} />
+              <Label htmlFor="catalog-address">العنوان</Label>
+              <Input
+                id="catalog-address"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                autoComplete="street-address"
+              />
             </div>
             <div className="space-y-2">
-              <Label>ملاحظات</Label>
+              <Label htmlFor="catalog-notes">ملاحظات</Label>
               <Textarea
+                id="catalog-notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}

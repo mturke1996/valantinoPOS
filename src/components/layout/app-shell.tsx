@@ -52,7 +52,16 @@ export function AppShell({
           className,
         )}
       >
-        <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
+        <a href="#main-content" className="skip-link">
+          تخطّي إلى المحتوى
+        </a>
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="min-h-0 flex-1 overflow-hidden outline-none"
+        >
+          {children}
+        </main>
         <CommandPalette
           open={commandOpen}
           onOpenChange={setCommandOpen}
@@ -64,6 +73,9 @@ export function AppShell({
 
   return (
     <div className={cn("flex h-[100dvh] bg-background", className)}>
+      <a href="#main-content" className="skip-link">
+        تخطّي إلى المحتوى
+      </a>
       <Sidebar
         userRole={userRole}
         collapsed={sidebarCollapsed}
@@ -80,7 +92,11 @@ export function AppShell({
           userAvatarUrl={userAvatarUrl}
         />
 
-        <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2 sm:px-4">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2 outline-none sm:px-4"
+        >
           <div className="mx-auto w-full max-w-[1600px]">
             {children}
           </div>

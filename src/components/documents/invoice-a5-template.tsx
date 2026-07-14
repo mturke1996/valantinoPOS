@@ -9,6 +9,7 @@ import {
   PAYMENT_LABELS,
   formatDocMoney,
   getDocPage,
+  invoicePaymentStatusMeta,
   type DocPaperSize,
 } from "@/components/documents/brand";
 import { DocBrandHeader, DocTitleBand } from "@/components/documents/doc-chrome";
@@ -58,7 +59,7 @@ export const InvoiceA5Template = forwardRef<
   const page = getDocPage(paperSize);
   const compact = paperSize === "a5";
   const balance = Math.max(0, order.total - order.paidAmount);
-  const isPaid = balance <= 0;
+  const paymentMeta = invoicePaymentStatusMeta(order.paymentStatus);
   const customerName =
     customer?.name ?? order.deliveryRecipientName ?? "عميل نقدي";
   const customerPhone = customer?.phone ?? order.deliveryPhone ?? null;
@@ -81,8 +82,14 @@ export const InvoiceA5Template = forwardRef<
         titleEn="INVOICE"
         titleAr="فاتورة رسمية"
         refLine={`#${invoice.invoiceNumber}`}
-        statusLabel={isPaid ? "مدفوعة" : "دفعة جزئية"}
-        statusTone={isPaid ? "success" : "warning"}
+        statusLabel={paymentMeta.label}
+        statusTone={
+          paymentMeta.tone === "success"
+            ? "success"
+            : paymentMeta.tone === "muted"
+              ? "neutral"
+              : "warning"
+        }
         compact={compact}
       />
 
@@ -109,8 +116,14 @@ export const InvoiceA5Template = forwardRef<
             />
             <MetaRow
               label="الحالة"
-              value={isPaid ? "مدفوعة" : "جزئية"}
-              valueColor={isPaid ? DOC_INK.success : DOC_INK.goldDeep}
+              value={paymentMeta.short}
+              valueColor={
+                paymentMeta.tone === "success"
+                  ? DOC_INK.success
+                  : paymentMeta.tone === "danger"
+                    ? DOC_INK.danger
+                    : DOC_INK.goldDeep
+              }
             />
             <MetaRow label="العملة" value={settings.currencySymbol} />
             <MetaRow label="نوع الطلب" value={typeLabel} />

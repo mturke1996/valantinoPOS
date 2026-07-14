@@ -5,12 +5,18 @@ import { Download, FileDown, Printer } from "lucide-react";
 import { toast } from "sonner";
 
 import {
-  createDocumentPdf,
   downloadBlob,
   ZReportTemplate,
   type ZReportStats,
 } from "@/components/documents";
-import { openPrintWindow, a5PrintStyles } from "@/components/documents/print-window";
+import {
+  createZReportPdf,
+  fetchLogoDataUri,
+} from "@/components/documents/pdf";
+import {
+  openPrintWindow,
+  a5PrintStyles,
+} from "@/components/documents/print-window";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { Button } from "@/components/ui/button";
 import {
@@ -84,19 +90,26 @@ export function ZReportDialog({
   };
 
   const downloadPdf = async () => {
-    const node = printRef.current;
-    if (!node) return;
     setBusy(true);
     try {
-      const { blob } = await createDocumentPdf(
-        node,
-        `z-report-${shift.id.slice(0, 8)}.pdf`,
-        "a5",
+      const fileName = `z-report-${shift.id.slice(0, 8)}.pdf`;
+      const logoUri = await fetchLogoDataUri(settings);
+      const { blob } = await createZReportPdf(
+        {
+          shift,
+          report,
+          settings,
+          cashierName,
+          logoUri,
+        },
+        fileName,
       );
-      downloadBlob(blob, `z-report-${shift.id.slice(0, 8)}.pdf`);
+      downloadBlob(blob, fileName);
       toast.success("تم تنزيل تقرير Z");
-    } catch {
-      toast.error("تعذر إنشاء ملف PDF");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "تعذر إنشاء ملف PDF",
+      );
     } finally {
       setBusy(false);
     }
@@ -133,14 +146,22 @@ export function ZReportDialog({
             </div>
             <div className="flex justify-between">
               <span>العد الفعلي</span>
-              <CurrencyDisplay amount={shift.closingCount ?? 0} />
+              {shift.closingCount == null ? (
+                <span className="tabular-nums">—</span>
+              ) : (
+                <CurrencyDisplay amount={shift.closingCount} />
+              )}
             </div>
             <div className="flex justify-between font-semibold">
               <span>الفرق</span>
-              <CurrencyDisplay
-                amount={shift.variance ?? 0}
-                className={(shift.variance ?? 0) < 0 ? "text-destructive" : ""}
-              />
+              {shift.variance == null ? (
+                <span className="tabular-nums">—</span>
+              ) : (
+                <CurrencyDisplay
+                  amount={shift.variance}
+                  className={shift.variance < 0 ? "text-destructive" : ""}
+                />
+              )}
             </div>
           </div>
           <Separator />
@@ -168,7 +189,7 @@ export function ZReportDialog({
           </div>
         </div>
 
-        {/* Off-screen branded template for print/PDF */}
+        {/* Off-screen branded template for print */}
         <div className="pointer-events-none fixed start-[-10000px] top-0 w-[148mm]">
           <div ref={printRef}>
             <ZReportTemplate

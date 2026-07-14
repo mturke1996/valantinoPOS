@@ -62,6 +62,12 @@ export function DocBrandHeader({
             alt=""
             crossOrigin="anonymous"
             className={`w-auto object-contain ${compact ? "h-11 max-w-[140px]" : "h-14 max-w-[180px]"}`}
+            onError={(event) => {
+              const img = event.currentTarget;
+              if (img.dataset.fallback === "1") return;
+              img.dataset.fallback = "1";
+              img.src = "/images/valentino-logo.png";
+            }}
           />
           <div
             className="min-w-0 border-s ps-4"

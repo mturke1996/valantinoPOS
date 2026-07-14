@@ -79,17 +79,21 @@ export function Header({
         onClick={onMenuOpen}
         aria-label="فتح القائمة"
       >
-        <Menu className="size-[18px]" />
+        <Menu className="size-[18px]" aria-hidden />
       </Button>
 
       <Button
         variant="outline"
         className="h-11 w-full max-w-sm justify-start gap-2 border-cacao-800/10 bg-cream-100/40 text-muted-foreground hover:bg-cream-100/80 dark:bg-cacao-800/20"
         onClick={onSearchOpen}
+        aria-label="بحث في النظام (Ctrl+K)"
       >
-        <Search className="size-4 shrink-0" />
+        <Search className="size-4 shrink-0" aria-hidden />
         <span className="flex-1 text-start text-sm">بحث...</span>
-        <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded border border-cacao-800/10 bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex">
+        <kbd
+          aria-hidden
+          className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded border border-cacao-800/10 bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex"
+        >
           <span className="text-xs">Ctrl</span>+K
         </kbd>
       </Button>
@@ -100,12 +104,19 @@ export function Header({
           variant="ghost"
           size="icon"
           className="relative size-11 text-cacao-800/70 hover:bg-cacao-800/[0.04] dark:text-cream-100/70"
-          aria-label="الإشعارات"
+          aria-label={
+            notificationCount > 0
+              ? `الإشعارات، ${notificationCount} غير مقروء`
+              : "الإشعارات"
+          }
           onClick={() => router.push("/notifications")}
         >
-          <Bell className="size-[18px]" />
+          <Bell className="size-[18px]" aria-hidden />
           {notificationCount > 0 ? (
-            <Badge className="absolute -top-0.5 -end-0.5 flex size-5 items-center justify-center rounded-full border-0 bg-berry-500 p-0 text-[10px] text-white">
+            <Badge
+              aria-hidden
+              className="absolute -top-0.5 -end-0.5 flex size-5 items-center justify-center rounded-full border-0 bg-berry-500 p-0 text-[10px] text-white"
+            >
               {notificationCount > 9 ? "9+" : notificationCount}
             </Badge>
           ) : null}
@@ -116,16 +127,16 @@ export function Header({
           size="icon"
           className="size-11 text-cacao-800/70 hover:bg-cacao-800/[0.04] dark:text-cream-100/70"
           onClick={() => setTheme(isDark ? "light" : "dark")}
-          aria-label={isDark ? "الوضع الفاتح" : "الوضع الداكن"}
+          aria-label={isDark ? "التبديل إلى الوضع الفاتح" : "التبديل إلى الوضع الداكن"}
         >
           {mounted ? (
             isDark ? (
-              <Sun className="size-[18px]" />
+              <Sun className="size-[18px]" aria-hidden />
             ) : (
-              <Moon className="size-[18px]" />
+              <Moon className="size-[18px]" aria-hidden />
             )
           ) : (
-            <Moon className="size-[18px]" />
+            <Moon className="size-[18px]" aria-hidden />
           )}
         </Button>
 

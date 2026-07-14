@@ -66,10 +66,15 @@ export function OfflineIndicator({ className }: { className?: string }) {
       type="button"
       onClick={() => void retry()}
       disabled={!online || busy}
+      aria-live="polite"
       aria-label={
         failed > 0
           ? `إعادة محاولة ${failed} عملية مزامنة`
-          : "حالة المزامنة"
+          : online
+            ? pending > 0
+              ? `مزامنة، ${pending} معلّق`
+              : "حالة المزامنة"
+            : "وضع عدم الاتصال"
       }
       className={cn(
         "flex min-h-8 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
@@ -83,27 +88,32 @@ export function OfflineIndicator({ className }: { className?: string }) {
             : "bg-caramel-500/15 text-caramel-500",
         className,
       )}
-      role="status"
     >
       {failed > 0 ? (
         <>
-          <RotateCcw className={cn("size-3.5", busy && "animate-spin")} />
+          <RotateCcw
+            className={cn("size-3.5", busy && "animate-spin")}
+            aria-hidden
+          />
           <span>تعذرت المزامنة ({failed})</span>
         </>
       ) : online ? (
         initialSync ? (
           <>
-            <CloudUpload className="size-3.5 animate-pulse" />
+            <CloudUpload className="size-3.5 animate-pulse" aria-hidden />
             <span>تحديث البيانات</span>
           </>
         ) : realtime === "connected" && pending === 0 ? (
           <>
-            <Radio className="size-3.5" />
+            <Radio className="size-3.5" aria-hidden />
             <span>مزامنة فورية</span>
           </>
         ) : (
           <>
-            <CloudUpload className={cn("size-3.5", busy && "animate-pulse")} />
+            <CloudUpload
+              className={cn("size-3.5", busy && "animate-pulse")}
+              aria-hidden
+            />
             <span>
               {busy
                 ? "جاري المزامنة"
@@ -116,7 +126,7 @@ export function OfflineIndicator({ className }: { className?: string }) {
         )
       ) : (
         <>
-          <CloudOff className="size-3.5" />
+          <CloudOff className="size-3.5" aria-hidden />
           <span>وضع عدم الاتصال</span>
         </>
       )}

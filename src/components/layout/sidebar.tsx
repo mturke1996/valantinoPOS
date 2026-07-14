@@ -74,7 +74,9 @@ const ICON_MAP: Record<string, LucideIcon> = {
 
 function NavIcon({ name }: { name: string }) {
   const Icon = ICON_MAP[name] ?? Package;
-  return <Icon className="size-[18px] shrink-0" strokeWidth={1.75} />;
+  return (
+    <Icon className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden />
+  );
 }
 
 export interface SidebarProps {
@@ -98,8 +100,10 @@ function NavLink({
     <Link
       href={item.href}
       title={collapsed ? item.label : undefined}
+      aria-label={collapsed ? item.label : undefined}
+      aria-current={isActive ? "page" : undefined}
       className={cn(
-        "group relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors duration-200",
+        "group relative flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors duration-200",
         "hover:bg-cacao-800/[0.04] dark:hover:bg-cacao-800/30",
         isActive
           ? "bg-cacao-800/[0.06] text-cacao-800 dark:bg-cacao-800/40 dark:text-cream-50"
@@ -107,7 +111,10 @@ function NavLink({
       )}
     >
       {isActive ? (
-        <span className="absolute inset-y-2 start-0 w-0.5 rounded-full bg-gold-400" />
+        <span
+          aria-hidden
+          className="absolute inset-y-2 start-0 w-0.5 rounded-full bg-gold-400"
+        />
       ) : null}
       <NavIcon name={item.icon} />
       {!collapsed ? (
@@ -155,6 +162,7 @@ export function Sidebar({
 
   return (
     <aside
+      aria-label="القائمة الجانبية"
       className={cn(
         "flex h-full shrink-0 flex-col border-s border-cacao-800/8 bg-background transition-[width] duration-300 ease-spring motion-reduce:transition-none",
         collapsed ? "w-[72px]" : "w-64",
@@ -210,7 +218,7 @@ export function Sidebar({
         )}
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+      <nav aria-label="التنقل الرئيسي" className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {primaryItems.map((item) =>
           canAccessNavItem(item, userRole) ? (
             <NavLink

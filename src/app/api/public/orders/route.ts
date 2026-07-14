@@ -1,7 +1,36 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
+import {
+  DEFAULT_DELIVERY_ZONES,
+  resolveDeliveryFee,
+} from "@/lib/constants/delivery-zones";
 import { generateId } from "@/lib/utils";
+
+const MAX_LINE_ITEMS = 20;
+const MAX_QTY_PER_LINE = 50;
+const MAX_ORDERS_PER_WINDOW = 8;
+const RATE_WINDOW_MS = 15 * 60 * 1000;
+
+const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+
+function clientKey(request: Request, phone: string): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  const ip = forwarded?.split(",")[0]?.trim() || "unknown";
+  return `${ip}:${phone}`;
+}
+
+function consumeRateLimit(key: string): boolean {
+  const now = Date.now();
+  const bucket = rateBuckets.get(key);
+  if (!bucket || now >= bucket.resetAt) {
+    rateBuckets.set(key, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return true;
+  }
+  if (bucket.count >= MAX_ORDERS_PER_WINDOW) return false;
+  bucket.count += 1;
+  return true;
+}
 
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -12,16 +41,25 @@ function adminClient() {
   });
 }
 
+function isValidLibyaPhone(phone: string): boolean {
+  const digits = phone.replace(/\D/g, "");
+  return (
+    (digits.length === 10 && digits.startsWith("09")) ||
+    (digits.length === 12 && digits.startsWith("2189")) ||
+    (digits.length >= 8 && digits.length <= 15)
+  );
+}
+
 export async function POST(request: Request) {
   const admin = adminClient();
   if (!admin) {
     return NextResponse.json(
-      { error: "إرسال الطلبات غير مُعد — أضف SUPABASE_SERVICE_ROLE_KEY" },
+      { error: "إرسال الطلبات غير مُعد حالياً" },
       { status: 503 },
     );
   }
 
-  const body = (await request.json()) as {
+  let body: {
     customerName?: string;
     customerPhone?: string;
     deliveryZone?: string | null;
@@ -30,6 +68,12 @@ export async function POST(request: Request) {
     notes?: string | null;
     items?: Array<{ productId: string; quantity: number }>;
   };
+
+  try {
+    body = (await request.json()) as typeof body;
+  } catch {
+    return NextResponse.json({ error: "طلب غير صالح" }, { status: 400 });
+  }
 
   const customerName = body.customerName?.trim();
   const customerPhone = body.customerPhone?.trim();
@@ -41,27 +85,49 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  if (!isValidLibyaPhone(customerPhone)) {
+    return NextResponse.json({ error: "رقم الهاتف غير صالح" }, { status: 400 });
+  }
   if (items.length === 0) {
     return NextResponse.json({ error: "السلة فارغة" }, { status: 400 });
   }
+  if (items.length > MAX_LINE_ITEMS) {
+    return NextResponse.json(
+      { error: `الحد الأقصى ${MAX_LINE_ITEMS} صنفاً في الطلب` },
+      { status: 400 },
+    );
+  }
 
-  const { data: branches } = await admin
-    .from("branches")
-    .select("id")
-    .limit(1);
+  const rateKey = clientKey(request, customerPhone);
+  if (!consumeRateLimit(rateKey)) {
+    return NextResponse.json(
+      { error: "تم تجاوز حد الطلبات، حاول لاحقاً" },
+      { status: 429 },
+    );
+  }
+
+  const { data: branches } = await admin.from("branches").select("id").limit(1);
   const branchId = branches?.[0]?.id as string | undefined;
   if (!branchId) {
     return NextResponse.json({ error: "لا يوجد فرع" }, { status: 404 });
   }
 
-  const productIds = items.map((i) => i.productId);
+  const productIds = [...new Set(items.map((i) => i.productId))];
+  if (productIds.length !== items.length) {
+    return NextResponse.json(
+      { error: "تكرار أصناف غير مسموح — ادمج الكميات" },
+      { status: 400 },
+    );
+  }
+
   const { data: products, error: productsError } = await admin
     .from("products")
     .select("id, name_ar, retail_price, is_active, deleted_at")
     .eq("branch_id", branchId)
     .in("id", productIds);
   if (productsError) {
-    return NextResponse.json({ error: productsError.message }, { status: 500 });
+    console.error("[public/orders] products", productsError.message);
+    return NextResponse.json({ error: "تعذر تحميل المنتجات" }, { status: 500 });
   }
 
   const productMap = new Map((products ?? []).map((p) => [p.id as string, p]));
@@ -84,7 +150,16 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    const qty = Math.max(1, Math.floor(item.quantity));
+    const qty = Math.floor(Number(item.quantity));
+    if (!Number.isFinite(qty) || qty < 1) {
+      return NextResponse.json({ error: "كمية غير صالحة" }, { status: 400 });
+    }
+    if (qty > MAX_QTY_PER_LINE) {
+      return NextResponse.json(
+        { error: `الحد الأقصى للكمية ${MAX_QTY_PER_LINE} للصنف` },
+        { status: 400 },
+      );
+    }
     const unit = Number(product.retail_price);
     const lineTotal = unit * qty;
     subtotal += lineTotal;
@@ -99,13 +174,31 @@ export async function POST(request: Request) {
     });
   }
 
-  const deliveryFee = Math.max(0, Number(body.deliveryFee) || 0);
+  // Never trust client deliveryFee — resolve from known zones.
+  const deliveryFee = resolveDeliveryFee({
+    zones: DEFAULT_DELIVERY_ZONES,
+    zoneIdOrName: body.deliveryZone,
+    defaultFee: 0,
+    cartTotal: subtotal,
+    freeDeliveryThreshold: null,
+  });
+  if (body.deliveryZone && deliveryFee === 0) {
+    const known = DEFAULT_DELIVERY_ZONES.some(
+      (z) => z.id === body.deliveryZone || z.name === body.deliveryZone,
+    );
+    if (!known) {
+      return NextResponse.json(
+        { error: "منطقة التوصيل غير معروفة" },
+        { status: 400 },
+      );
+    }
+  }
+
   const total = subtotal + deliveryFee;
   const orderId = generateId();
   const orderNumber = `WEB-${Date.now().toString().slice(-8)}`;
   const now = new Date().toISOString();
 
-  // Upsert customer by phone
   let customerId: string | null = null;
   const { data: existingCustomer } = await admin
     .from("customers")
@@ -133,7 +226,8 @@ export async function POST(request: Request) {
       updated_at: now,
     });
     if (customerError) {
-      return NextResponse.json({ error: customerError.message }, { status: 500 });
+      console.error("[public/orders] customer", customerError.message);
+      return NextResponse.json({ error: "تعذر حفظ العميل" }, { status: 500 });
     }
   }
 
@@ -156,13 +250,14 @@ export async function POST(request: Request) {
     delivery_phone: customerPhone,
     delivery_recipient_name: customerName,
     notes: body.notes
-      ? `[طلب أونلاين] ${body.notes}`
+      ? `[طلب أونلاين] ${body.notes}`.slice(0, 500)
       : "[طلب أونلاين]",
     created_at: now,
     updated_at: now,
   });
   if (orderError) {
-    return NextResponse.json({ error: orderError.message }, { status: 500 });
+    console.error("[public/orders] order", orderError.message);
+    return NextResponse.json({ error: "تعذر إنشاء الطلب" }, { status: 500 });
   }
 
   const { error: itemsError } = await admin.from("order_items").insert(
@@ -173,7 +268,8 @@ export async function POST(request: Request) {
     })),
   );
   if (itemsError) {
-    return NextResponse.json({ error: itemsError.message }, { status: 500 });
+    console.error("[public/orders] items", itemsError.message);
+    return NextResponse.json({ error: "تعذر حفظ بنود الطلب" }, { status: 500 });
   }
 
   await admin.from("order_status_history").insert({
@@ -186,5 +282,5 @@ export async function POST(request: Request) {
     notes: "طلب من الكتالوج العام",
   });
 
-  return NextResponse.json({ orderId, orderNumber });
+  return NextResponse.json({ orderId, orderNumber, deliveryFee, total });
 }

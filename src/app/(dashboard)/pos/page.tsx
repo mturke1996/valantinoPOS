@@ -674,6 +674,7 @@ export default function PosPage() {
                 }
               }}
               placeholder="بحث بالاسم أو الباركود... (F2)"
+              aria-label="بحث بالاسم أو الباركود"
               className="ps-9"
             />
           </div>

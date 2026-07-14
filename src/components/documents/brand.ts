@@ -1,4 +1,4 @@
-import type { Settings } from "@/types";
+import type { PaymentStatus, Settings } from "@/types";
 
 /**
  * Clean white document system — gold accents matched to logo (#CCA850).
@@ -45,18 +45,31 @@ export function getDocPage(size: DocPaperSize = "a4") {
 }
 
 /** Transparent / gold logo for white paper */
-export function resolveDocLogoUrl(settings: Settings): string {
-  if (!settings.logoUrl || settings.logoUrl.includes("valentino-logo")) {
-    return "/images/valentino-logo.png";
+const DEFAULT_DOC_LOGO = "/images/valentino-logo.png";
+
+function isUsableLogoUrl(url: string | null | undefined): url is string {
+  if (!url || !url.trim()) return false;
+  const trimmed = url.trim();
+  if (trimmed.includes("valentino-logo")) return true;
+  // Remote / data URIs are OK (PDF allowlist still applies at fetch time).
+  if (
+    trimmed.startsWith("data:") ||
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://")
+  ) {
+    return true;
   }
-  return settings.logoUrl;
+  // Local assets must live under /images/ — blocks stale paths like /TajMall-Icon.jpg
+  if (trimmed.startsWith("/images/")) return true;
+  return false;
+}
+
+export function resolveDocLogoUrl(settings: Settings): string {
+  return isUsableLogoUrl(settings.logoUrl) ? settings.logoUrl.trim() : DEFAULT_DOC_LOGO;
 }
 
 export function resolveUiLogoUrl(settings: Settings): string {
-  if (!settings.logoUrl || settings.logoUrl.includes("valentino-logo")) {
-    return "/images/valentino-logo.png";
-  }
-  return settings.logoUrl;
+  return isUsableLogoUrl(settings.logoUrl) ? settings.logoUrl.trim() : DEFAULT_DOC_LOGO;
 }
 
 /** Same Arabic stack as rkeaz-group (Cairo UI + Tajawal PDF/print) */
@@ -84,6 +97,55 @@ export const PAYMENT_LABELS = {
   mixed: "مختلط",
   credit: "آجل",
 } as const;
+
+/** Invoice / document payment-status labels (from order.paymentStatus). */
+export const ORDER_PAYMENT_STATUS_AR: Record<PaymentStatus, string> = {
+  unpaid: "غير مدفوعة",
+  partial: "دفعة جزئية",
+  paid: "مدفوعة",
+  refunded: "مسترجعة",
+};
+
+export const ORDER_PAYMENT_STATUS_SHORT_AR: Record<PaymentStatus, string> = {
+  unpaid: "غير مدفوعة",
+  partial: "جزئية",
+  paid: "مدفوعة",
+  refunded: "مسترجعة",
+};
+
+export function invoicePaymentStatusMeta(status: PaymentStatus): {
+  label: string;
+  short: string;
+  tone: "success" | "warning" | "danger" | "muted";
+} {
+  switch (status) {
+    case "paid":
+      return {
+        label: ORDER_PAYMENT_STATUS_AR.paid,
+        short: ORDER_PAYMENT_STATUS_SHORT_AR.paid,
+        tone: "success",
+      };
+    case "partial":
+      return {
+        label: ORDER_PAYMENT_STATUS_AR.partial,
+        short: ORDER_PAYMENT_STATUS_SHORT_AR.partial,
+        tone: "warning",
+      };
+    case "refunded":
+      return {
+        label: ORDER_PAYMENT_STATUS_AR.refunded,
+        short: ORDER_PAYMENT_STATUS_SHORT_AR.refunded,
+        tone: "muted",
+      };
+    case "unpaid":
+    default:
+      return {
+        label: ORDER_PAYMENT_STATUS_AR.unpaid,
+        short: ORDER_PAYMENT_STATUS_SHORT_AR.unpaid,
+        tone: "danger",
+      };
+  }
+}
 
 export const PO_STATUS_LABELS: Record<string, string> = {
   draft: "مسودة",

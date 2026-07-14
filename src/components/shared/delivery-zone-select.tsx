@@ -17,6 +17,8 @@ interface DeliveryZoneSelectProps {
   className?: string;
   placeholder?: string;
   disabled?: boolean;
+  id?: string;
+  "aria-label"?: string;
 }
 
 export function DeliveryZoneSelect({
@@ -26,6 +28,8 @@ export function DeliveryZoneSelect({
   className,
   placeholder = "اختر منطقة التوصيل",
   disabled,
+  id,
+  "aria-label": ariaLabel,
 }: DeliveryZoneSelectProps) {
   return (
     <Select
@@ -36,7 +40,11 @@ export function DeliveryZoneSelect({
         onChange(zoneId, zone?.fee ?? 0);
       }}
     >
-      <SelectTrigger className={cn(className)}>
+      <SelectTrigger
+        id={id}
+        aria-label={ariaLabel ?? placeholder}
+        className={cn(className)}
+      >
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>

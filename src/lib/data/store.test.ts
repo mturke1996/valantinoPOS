@@ -2,16 +2,20 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { createSeedState } from "@/lib/data/seed";
 import {
+  closeShift,
   createOrder,
   createProduct,
+  createReturn,
   ensureInvoiceForOrder,
   getState,
   processPayment,
   receiveInventoryBatch,
+  recordShiftHandover,
   setState,
   updateSettings,
 } from "@/lib/data/store";
 import { getAvailableStock } from "@/lib/services/inventory.service";
+import { roundMoney } from "@/lib/utils";
 
 describe("POS payment integrity", () => {
   beforeEach(() => {
@@ -275,5 +279,122 @@ describe("catalog and reserved inventory integrity", () => {
         items: [{ productId: product.id, quantity: 1 }],
       }),
     ).toThrow("بعد حجوزات الطلبات");
+  });
+});
+
+describe("shift cash integrity", () => {
+  beforeEach(() => {
+    setState(createSeedState());
+  });
+
+  it("keeps expected cash after handover when closing", () => {
+    const initial = getState();
+    const product = initial.products.find(
+      (item) => item.isActive && item.stockQuantity >= 1,
+    )!;
+    const openShift = initial.shifts.find((shift) => shift.status === "open")!;
+    const baseline = openShift.expectedCash;
+
+    const order = createOrder({
+      branchId: initial.settings.branchId,
+      type: "pos",
+      items: [{ productId: product.id, quantity: 1 }],
+      shiftId: openShift.id,
+      createdBy: initial.users[0]?.id,
+    });
+    processPayment({
+      orderId: order.id,
+      shiftId: openShift.id,
+      method: "cash",
+      amount: order.total,
+      cashAmount: order.total,
+      userId: initial.users[0]?.id,
+    });
+
+    const afterSale = getState().shifts.find((s) => s.id === openShift.id)!;
+    expect(afterSale.expectedCash).toBe(roundMoney(baseline + order.total));
+
+    const counted = roundMoney(afterSale.expectedCash - 5);
+    recordShiftHandover({
+      shiftId: openShift.id,
+      countedCash: counted,
+      userId: initial.users[0]?.id,
+    });
+
+    const postHandover = getState().shifts.find((s) => s.id === openShift.id)!;
+    expect(postHandover.openingFloat).toBe(counted);
+    expect(postHandover.expectedCash).toBe(counted);
+
+    const second = createOrder({
+      branchId: initial.settings.branchId,
+      type: "pos",
+      items: [{ productId: product.id, quantity: 1 }],
+      shiftId: openShift.id,
+      createdBy: initial.users[0]?.id,
+    });
+    processPayment({
+      orderId: second.id,
+      shiftId: openShift.id,
+      method: "cash",
+      amount: second.total,
+      cashAmount: second.total,
+      userId: initial.users[0]?.id,
+    });
+
+    const expectedBeforeClose = roundMoney(counted + second.total);
+    expect(
+      getState().shifts.find((s) => s.id === openShift.id)?.expectedCash,
+    ).toBe(expectedBeforeClose);
+
+    const closed = closeShift(openShift.id, expectedBeforeClose);
+    expect(closed?.expectedCash).toBe(expectedBeforeClose);
+    expect(closed?.variance).toBe(0);
+  });
+
+  it("subtracts cash refunds from expected cash on close", () => {
+    const initial = getState();
+    const product = initial.products.find(
+      (item) => item.isActive && item.stockQuantity >= 1,
+    )!;
+    const openShift = initial.shifts.find((shift) => shift.status === "open")!;
+
+    const order = createOrder({
+      branchId: initial.settings.branchId,
+      type: "pos",
+      items: [{ productId: product.id, quantity: 1 }],
+      shiftId: openShift.id,
+      createdBy: initial.users[0]?.id,
+    });
+    processPayment({
+      orderId: order.id,
+      shiftId: openShift.id,
+      method: "cash",
+      amount: order.total,
+      cashAmount: order.total,
+      userId: initial.users[0]?.id,
+    });
+
+    const paid = getState().orders.find((o) => o.id === order.id)!;
+    const line = paid.items[0]!;
+    createReturn({
+      branchId: initial.settings.branchId,
+      orderId: order.id,
+      shiftId: openShift.id,
+      refundMethod: "cash",
+      createdBy: initial.users[0]?.id,
+      items: [
+        {
+          orderItemId: line.id,
+          productId: line.productId,
+          quantity: 1,
+          restock: false,
+        },
+      ],
+    });
+
+    const afterReturn = getState().shifts.find((s) => s.id === openShift.id)!;
+    const closed = closeShift(openShift.id, afterReturn.expectedCash);
+    expect(closed?.expectedCash).toBe(afterReturn.expectedCash);
+    expect(closed?.variance).toBe(0);
   });
 });

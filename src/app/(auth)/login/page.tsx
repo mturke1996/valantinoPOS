@@ -172,12 +172,20 @@ export default function LoginPage() {
                   className="text-start"
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={loading}
+                aria-busy={loading}
+              >
                 {loading ? (
-                  <Loader2 className="size-4 animate-spin" />
+                  <>
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    <span>جاري تسجيل الدخول...</span>
+                  </>
                 ) : (
                   <>
-                    <ShieldCheck className="size-4" />
+                    <ShieldCheck className="size-4" aria-hidden />
                     دخول آمن
                   </>
                 )}

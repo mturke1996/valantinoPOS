@@ -291,7 +291,7 @@ async function runOfflineSyncQueue(): Promise<number> {
           ),
           created_at: payment.createdAt,
         },
-        { onConflict: "id" },
+        { onConflict: "id", ignoreDuplicates: true },
       );
       if (error) throw error;
 
@@ -823,7 +823,7 @@ async function runOfflineSyncQueue(): Promise<number> {
           created_by: asCloudUuid(movement.createdBy),
           created_at: movement.createdAt,
         },
-        { onConflict: "id" },
+        { onConflict: "id", ignoreDuplicates: true },
       );
       if (error) throw error;
       return;
@@ -843,7 +843,7 @@ async function runOfflineSyncQueue(): Promise<number> {
           new_values: log.newValues,
           created_at: log.createdAt,
         },
-        { onConflict: "id" },
+        { onConflict: "id", ignoreDuplicates: true },
       );
       if (error) throw error;
       return;
@@ -864,7 +864,10 @@ async function runOfflineSyncQueue(): Promise<number> {
         { onConflict: "id" },
       );
       if (error) throw error;
+      return;
     }
+
+    throw new Error(`Unhandled sync action: ${item.action}`);
   });
 }
 

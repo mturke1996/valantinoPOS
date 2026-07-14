@@ -11,9 +11,16 @@ import {
 import { toast } from "sonner";
 
 import type { DocPaperSize } from "@/components/documents/brand";
+import { invoicePaymentStatusMeta } from "@/components/documents/brand";
 import { InvoiceA5Template } from "@/components/documents/invoice-a5-template";
 import { InvoiceThermalTemplate } from "@/components/documents/invoice-thermal-template";
-import { createDocumentPdf, downloadBlob } from "@/components/documents/pdf-export";
+import {
+  buildQrDataUri,
+  createInvoicePdf,
+  downloadBlob,
+  fetchLogoDataUri,
+  toPdfPaperSize,
+} from "@/components/documents/pdf";
 import {
   openPrintWindow,
   paperPrintStyles,
@@ -66,7 +73,7 @@ export function InvoicePrintDialog({
   const payments = state.payments.filter(
     (payment) => payment.orderId === order.id,
   );
-  const balance = Math.max(0, order.total - order.paidAmount);
+  const paymentMeta = invoicePaymentStatusMeta(order.paymentStatus);
   const sizeLabel = paperSize.toUpperCase();
   const fileName = `${invoice.invoiceNumber}-${sizeLabel}.pdf`;
   const qrPayload =
@@ -74,9 +81,24 @@ export function InvoicePrintDialog({
     buildInvoiceQrPayload({ invoice, order, settings });
 
   const getPdf = async () => {
-    const content = pageRef.current;
-    if (!content) throw new Error("تعذر تجهيز الفاتورة");
-    return createDocumentPdf(content, fileName, paperSize);
+    const [logoUri, qrUri] = await Promise.all([
+      fetchLogoDataUri(settings),
+      buildQrDataUri(qrPayload),
+    ]);
+    return createInvoicePdf(
+      {
+        invoice,
+        order,
+        settings,
+        customer,
+        payments,
+        event,
+        paperSize: toPdfPaperSize(paperSize),
+        logoUri,
+        qrUri,
+      },
+      fileName,
+    );
   };
 
   const handleDownloadPdf = async () => {
@@ -120,7 +142,7 @@ export function InvoicePrintDialog({
       });
 
       if (result === "shared") {
-        toast.success("تم إرسال الفاتورة عبر واتساب");
+        toast.success("تمت المشاركة — اختر واتساب من ورقة المشاركة");
       } else if (result === "whatsapp_text") {
         toast.success(
           "تم تنزيل PDF وفتح واتساب — أرفق الملف من التنزيلات في المحادثة",
@@ -175,8 +197,12 @@ export function InvoicePrintDialog({
           <DialogTitle className="flex flex-wrap items-center gap-2">
             <FileText className="size-5 text-gold-400" />
             فاتورة {invoice.invoiceNumber}
-            <Badge variant={balance > 0 ? "outline" : "secondary"}>
-              {balance > 0 ? "دفعة جزئية" : "مدفوعة"}
+            <Badge
+              variant={
+                order.paymentStatus === "paid" ? "secondary" : "outline"
+              }
+            >
+              {paymentMeta.label}
             </Badge>
           </DialogTitle>
         </DialogHeader>

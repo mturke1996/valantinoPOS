@@ -218,10 +218,11 @@ export function ShiftPanel({
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>
+                <Label htmlFor="shift-closing-count">
                   {mode === "handover" ? "مبلغ العد عند التسليم" : "مبلغ الجرد الفعلي"}
                 </Label>
                 <Input
+                  id="shift-closing-count"
                   type="number"
                   value={closingCount}
                   onChange={(e) => setClosingCount(e.target.value)}
@@ -231,8 +232,9 @@ export function ShiftPanel({
               </div>
               {mode === "handover" ? (
                 <div className="space-y-2">
-                  <Label>ملاحظات التسليم</Label>
+                  <Label htmlFor="shift-handover-notes">ملاحظات التسليم</Label>
                   <Input
+                    id="shift-handover-notes"
                     value={handoverNotes}
                     onChange={(e) => setHandoverNotes(e.target.value)}
                     placeholder="اسم الكاشير التالي / ملاحظات"
@@ -243,8 +245,9 @@ export function ShiftPanel({
           ) : (
             <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label>رصيد الافتتاح (الدرج)</Label>
+                <Label htmlFor="shift-float-amount">رصيد الافتتاح (الدرج)</Label>
                 <Input
+                  id="shift-float-amount"
                   type="number"
                   value={floatAmount}
                   onChange={(e) => setFloatAmount(e.target.value)}
