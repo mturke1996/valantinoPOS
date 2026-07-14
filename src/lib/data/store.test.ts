@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { createSeedState } from "@/lib/data/seed";
 import {
+  cancelOrder,
   closeShift,
   createOrder,
   createProduct,
@@ -396,5 +397,86 @@ describe("shift cash integrity", () => {
     const closed = closeShift(openShift.id, afterReturn.expectedCash);
     expect(closed?.expectedCash).toBe(afterReturn.expectedCash);
     expect(closed?.variance).toBe(0);
+  });
+});
+
+describe("order cancellation", () => {
+  beforeEach(() => {
+    setState(createSeedState());
+  });
+
+  it("soft-cancels an order without deleting it and records history", () => {
+    const initial = getState();
+    const product = initial.products.find(
+      (item) => item.isActive && item.stockQuantity >= 1,
+    )!;
+    const actor = initial.users[0]?.id ?? null;
+
+    const order = createOrder({
+      branchId: initial.settings.branchId,
+      type: "event",
+      items: [{ productId: product.id, quantity: 1 }],
+    });
+    expect(order.status).toBe("received");
+
+    const historyBeforeCancel = getState().orderStatusHistory.filter(
+      (entry) => entry.orderId === order.id,
+    ).length;
+    const result = cancelOrder(order.id, actor);
+
+    expect(result).not.toBeNull();
+    expect(result?.status).toBe("cancelled");
+
+    const after = getState().orders.find((o) => o.id === order.id)!;
+    expect(after.status).toBe("cancelled");
+    expect(after.deletedAt).toBeNull();
+    expect(typeof after.updatedAt).toBe("string");
+    expect(after.updatedAt.length).toBeGreaterThan(0);
+
+    const orderHistory = getState().orderStatusHistory.filter(
+      (entry) => entry.orderId === order.id,
+    );
+    expect(orderHistory.length).toBe(historyBeforeCancel + 1);
+
+    const cancelEntry = orderHistory.find(
+      (entry) => entry.toStatus === "cancelled",
+    );
+    expect(cancelEntry).toBeDefined();
+    expect(cancelEntry!.fromStatus).toBe("received");
+    expect(cancelEntry!.toStatus).toBe("cancelled");
+    expect(cancelEntry!.changedBy).toBe(actor);
+  });
+
+  it("throws when cancelling an already-completed order", () => {
+    const initial = getState();
+    const product = initial.products.find(
+      (item) => item.isActive && item.stockQuantity >= 1,
+    )!;
+    const openShift = initial.shifts.find((shift) => shift.status === "open")!;
+
+    const order = createOrder({
+      branchId: initial.settings.branchId,
+      type: "pos",
+      items: [{ productId: product.id, quantity: 1 }],
+      shiftId: openShift.id,
+      createdBy: initial.users[0]?.id,
+    });
+    processPayment({
+      orderId: order.id,
+      shiftId: openShift.id,
+      method: "cash",
+      amount: order.total,
+      cashAmount: order.total,
+      userId: initial.users[0]?.id,
+    });
+
+    const completed = getState().orders.find((o) => o.id === order.id)!;
+    expect(completed.status).toBe("completed");
+
+    expect(() => cancelOrder(order.id)).toThrow();
+  });
+
+  it("returns null for an unknown order id", () => {
+    expect(cancelOrder("does-not-exist")).toBeNull();
   });
 });

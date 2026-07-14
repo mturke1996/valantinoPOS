@@ -8,11 +8,18 @@ import type { Settings } from "@/types";
 
 export const INK = DOC_INK;
 
+/**
+ * Pagination reserves — aligned with rkeaz-group so flowing content never
+ * collides with the fixed footer and table heads/total bars stay atomic.
+ */
 export const PDF_PAGINATION = {
   tableHead: 32,
   totalBar: 36,
+  minRowHeight: 28,
+  section: 36,
   footerBottom: 14,
-  footerReserve: 64,
+  footerHeight: 56,
+  footerReserve: 70,
 } as const;
 
 export type PdfPaperSize = "A4" | "A5";

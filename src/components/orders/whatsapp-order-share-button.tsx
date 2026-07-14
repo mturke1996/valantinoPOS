@@ -9,6 +9,7 @@ import {
   createInvoicePdf,
   downloadBlob,
   fetchLogoDataUri,
+  type PdfPaperSize,
 } from "@/components/documents/pdf";
 import { Button } from "@/components/ui/button";
 import { ensureInvoiceForOrder, getState } from "@/lib/data/store";
@@ -18,9 +19,10 @@ import {
   isMobileUserAgent,
   openWhatsAppChat,
   resolveOrderWhatsAppPhone,
+  shareOrderPdfOnWhatsApp,
 } from "@/lib/whatsapp/order-share";
 import { cn } from "@/lib/utils";
-import type { Order } from "@/types";
+import type { Customer, Event, Order, Payment, Settings } from "@/types";
 
 interface WhatsAppOrderShareButtonProps {
   order: Order;
@@ -29,10 +31,36 @@ interface WhatsAppOrderShareButtonProps {
   size?: "default" | "sm" | "icon" | "lg";
   label?: string;
   onBeforeShare?: () => void;
+  /** PDF page size for the attached invoice (defaults to A4). */
+  paperSize?: PdfPaperSize;
+  /** Override the downloaded file name (defaults to "<invoiceNumber>.pdf"). */
+  fileName?: string;
+}
+
+interface ShareContext {
+  settings: Settings;
+  customer: Customer | null;
+  event: Event | null;
+  payments: Payment[];
+  phone: string | null;
+  message: string;
+  invoiceNumber: string;
+  fileName: string;
 }
 
 /**
- * High-quality A4 vector PDF + detailed WhatsApp message (no system links).
+ * Shares the order's invoice as a real PDF file on WhatsApp.
+ *
+ * - Mobile (Web Share with files): builds the PDF, then opens the native share
+ *   sheet so the user picks WhatsApp and the PDF is attached.
+ * - Desktop (no file share): opens wa.me with the order text inside the click
+ *   gesture (popup-safe) and downloads the PDF in the background — wa.me
+ *   cannot attach files, so download + open chat is the best desktop can do.
+ *
+ * PDF generation is bounded by a 20s timeout (see createInvoicePdf) so a hung
+ * react-pdf stream never freezes the button. The button always releases and
+ * leaves the user with a usable result (shared file, downloaded file, or an
+ * open WhatsApp chat).
  */
 export function WhatsAppOrderShareButton({
   order,
@@ -41,17 +69,16 @@ export function WhatsAppOrderShareButton({
   size = "default",
   label = "واتساب + PDF",
   onBeforeShare,
+  paperSize = "A4",
+  fileName,
 }: WhatsAppOrderShareButtonProps) {
   const [working, setWorking] = useState(false);
 
-  const handleClick = async () => {
-    setWorking(true);
-    onBeforeShare?.();
-
+  const gatherContext = (): ShareContext => {
     const state = getState();
     const settings = state.settings;
     const customer = order.customerId
-      ? state.customers.find((item) => item.id === order.customerId) ?? null
+      ? (state.customers.find((item) => item.id === order.customerId) ?? null)
       : null;
     const event =
       state.events.find((item) => item.orderId === order.id) ?? null;
@@ -71,53 +98,72 @@ export function WhatsAppOrderShareButton({
       event,
       invoice: ensured,
     });
-    const fileName = `${ensured.invoiceNumber}.pdf`;
-    const mobile = isMobileUserAgent();
-
-    // Build the PDF (logo + QR + react-pdf) — protected by a timeout so a
-    // hung react-pdf stream can never freeze the button forever.
-    const buildPdf = async (): Promise<File> => {
-      const qrPayload =
-        ensured.qrPayload ??
-        buildInvoiceQrPayload({ invoice: ensured, order, settings });
-      const [logoUri, qrUri] = await Promise.all([
-        fetchLogoDataUri(settings),
-        buildQrDataUri(qrPayload),
-      ]);
-      const { file } = await createInvoicePdf(
-        {
-          invoice: ensured,
-          order,
-          settings,
-          customer,
-          payments,
-          event,
-          paperSize: "A4",
-          logoUri,
-          qrUri,
-        },
-        fileName,
-      );
-      return file;
+    const resolvedFileName = fileName ?? `${ensured.invoiceNumber}.pdf`;
+    return {
+      settings,
+      customer,
+      event,
+      payments,
+      phone,
+      message,
+      invoiceNumber: ensured.invoiceNumber,
+      fileName: resolvedFileName,
     };
+  };
+
+  // Build the invoice PDF (logo + QR + react-pdf). createInvoicePdf wraps the
+  // render in a 20s timeout, so a hung stream rejects instead of freezing.
+  const buildFile = async (ctx: ShareContext): Promise<File> => {
+    const ensured = ensureInvoiceForOrder(order.id);
+    const qrPayload =
+      ensured.qrPayload ??
+      buildInvoiceQrPayload({ invoice: ensured, order, settings: ctx.settings });
+    const [logoUri, qrUri] = await Promise.all([
+      fetchLogoDataUri(ctx.settings),
+      buildQrDataUri(qrPayload),
+    ]);
+    const { file } = await createInvoicePdf(
+      {
+        invoice: ensured,
+        order,
+        settings: ctx.settings,
+        customer: ctx.customer,
+        payments: ctx.payments,
+        event: ctx.event,
+        paperSize,
+        logoUri,
+        qrUri,
+      },
+      ctx.fileName,
+    );
+    return file;
+  };
+
+  const isAbort = (error: unknown) =>
+    error instanceof DOMException && error.name === "AbortError";
+
+  const handleClick = async () => {
+    setWorking(true);
+    onBeforeShare?.();
+    const ctx = gatherContext();
 
     // Desktop: open the WhatsApp chat IMMEDIATELY within the click gesture so it
     // never depends on async PDF generation (immune to popup blockers & hangs).
-    // The PDF downloads in the background; the button is released at once.
-    if (!mobile) {
-      if (phone) {
-        openWhatsAppChat(phone, message);
+    // The PDF is then built + downloaded in the background; the button releases
+    // at once and the user always gets a chat + a downloaded file.
+    if (!isMobileUserAgent()) {
+      if (ctx.phone) {
+        openWhatsAppChat(ctx.phone, ctx.message);
       } else {
         toast.message("لا يوجد رقم واتساب للعميل", {
           description: "سيتم تنزيل الفاتورة — أرسلها يدوياً",
         });
       }
       setWorking(false);
-      buildPdf()
-        .then((file) => downloadBlob(file, fileName))
+      buildFile(ctx)
+        .then((file) => downloadBlob(file, ctx.fileName))
         .catch((error) => {
-          if (error instanceof DOMException && error.name === "AbortError")
-            return;
+          if (isAbort(error)) return;
           toast.error(
             error instanceof Error ? error.message : "تعذر إنشاء PDF",
           );
@@ -125,33 +171,32 @@ export function WhatsAppOrderShareButton({
       return;
     }
 
-    // Mobile: prefer the native share sheet (attaches the PDF). Fall back to
-    // wa.me + download if sharing is unavailable or the user cancels.
+    // Mobile: bounded build, then the native share sheet attaches the PDF.
+    // Falls back to wa.me + download if sharing is unavailable or cancelled.
     try {
-      const file = await buildPdf();
-      const canShare =
-        typeof navigator.canShare !== "function" ||
-        navigator.canShare({ files: [file] });
-      if (canShare) {
-        try {
-          await navigator.share({
-            title: fileName.replace(/\.pdf$/i, ""),
-            text: message,
-            files: [file],
-          });
-          toast.success("تمت المشاركة — اختر واتساب من ورقة المشاركة");
-          return;
-        } catch (error) {
-          if (error instanceof DOMException && error.name === "AbortError")
-            return;
-          /* fall through to wa.me + download */
-        }
+      const file = await buildFile(ctx);
+      const result = await shareOrderPdfOnWhatsApp({
+        file,
+        message: ctx.message,
+        phone: ctx.phone,
+        fileName: ctx.fileName,
+        onDownloadFallback: downloadBlob,
+      });
+      if (result === "shared") {
+        toast.success("تمت المشاركة — اختر واتساب من ورقة المشاركة");
+      } else if (result === "whatsapp_text") {
+        toast.success(
+          "تم تنزيل PDF وفتح واتساب — أرفق الملف من التنزيلات إن لزم",
+        );
+      } else {
+        toast.message("تم تنزيل PDF", {
+          description: "أضف رقم واتساب للعميل للإرسال المباشر",
+        });
       }
-      if (phone) openWhatsAppChat(phone, message);
-      downloadBlob(file, fileName);
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      if (phone) openWhatsAppChat(phone, message);
+      if (isAbort(error)) return;
+      // No file (e.g. render timeout) — still give the user a usable chat.
+      if (ctx.phone) openWhatsAppChat(ctx.phone, ctx.message);
       toast.error(
         error instanceof Error ? error.message : "تعذرت مشاركة واتساب",
       );

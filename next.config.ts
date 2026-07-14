@@ -12,11 +12,16 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      // 'wasm-unsafe-eval' lets @react-pdf/renderer load its yoga wasm; 'unsafe-eval' kept for the renderer's JS.
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://i.ibb.co https://*.ibb.co https://*.supabase.co",
       "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.imgbb.com",
+      // data: + blob: let react-pdf fetch its yoga wasm (data: URI) and blob assets;
+      // i.ibb.co lets fetchAsDataUri pull the remote logo into the PDF.
+      "connect-src 'self' data: blob: https://i.ibb.co https://*.ibb.co https://*.supabase.co wss://*.supabase.co https://api.imgbb.com",
+      // blob: lets @react-pdf/renderer spawn its layout worker.
+      "worker-src 'self' blob:",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

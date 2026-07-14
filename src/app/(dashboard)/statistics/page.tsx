@@ -1,196 +1,203 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  Pie,
+  BarChart3,
+  Coins,
   PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+  Receipt,
+  ShoppingBag,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
 
 import { PageHeader } from "@/components/shared/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CurrencyDisplay } from "@/components/shared/currency-display";
+import { MetricCard } from "@/components/shared/metric-card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ORDER_STATUSES } from "@/lib/constants/order-status";
-import { getDashboardStats } from "@/lib/services/dashboard.service";
 import { getState } from "@/lib/data/store";
 import { useStoreSubscription } from "@/hooks/use-store-subscription";
-import { formatCurrency } from "@/lib/utils";
-import type { DashboardStats } from "@/types";
+import { formatNumber } from "@/lib/utils";
+import type { AppState } from "@/types";
 
-const COLORS = ["#3D2B1F", "#D4AF37", "#C4956A", "#8FB996", "#8B3A62"];
+import { SalesAreaChart } from "@/components/charts/sales-area-chart";
+import { SalesBarChart } from "@/components/charts/sales-bar-chart";
+import { TopProductsChart } from "@/components/charts/top-products-chart";
+import { StatusDonut } from "@/components/charts/status-donut";
+import { CHART_COLORS } from "@/components/charts/chart-theme";
+import { StatChartCard } from "@/components/statistics/stat-chart-card";
+import { TimeRangeToggle } from "@/components/statistics/time-range-toggle";
+import {
+  rangeDescription,
+  useStatisticsData,
+  type TimeRange,
+} from "@/components/statistics/use-statistics-data";
+
+const COMPARE_LABEL = "مقارنة بالفترة السابقة";
 
 export default function StatisticsPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [state, setState] = useState<AppState | null>(null);
   const [loading, setLoading] = useState(true);
+  const [range, setRange] = useState<TimeRange>("7d");
 
   const refresh = useCallback(() => {
-    setStats(getDashboardStats(getState()));
+    setState(getState());
     setLoading(false);
   }, []);
 
   useStoreSubscription(refresh);
 
-  const statusData = useMemo(() => {
-    if (!stats) return [];
-    return ORDER_STATUSES.filter((s) => s.index >= 0).map((s) => ({
-      name: s.labelAr,
-      value: stats.ordersByStatus[s.key] ?? 0,
-    }));
-  }, [stats]);
+  const data = useStatisticsData(state ?? getState(), range);
 
-  const topProductsData = useMemo(() => {
-    if (!stats) return [];
-    return stats.topProducts.map((p) => ({
-      name: p.nameAr.length > 15 ? `${p.nameAr.slice(0, 15)}…` : p.nameAr,
-      revenue: p.revenue,
-      quantity: p.quantitySold,
-    }));
-  }, [stats]);
-
-  const salesTrend = useMemo(() => {
-    if (!stats) return [];
-    return [
-      { period: "اليوم", sales: stats.todaySales },
-      { period: "الأسبوع", sales: stats.weekSales },
-      { period: "الشهر", sales: stats.monthSales },
-    ];
-  }, [stats]);
-
-  if (loading) {
-    return (
-      <div className="space-y-4 py-4">
-        <Skeleton className="h-10 w-48" />
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Skeleton className="h-72" />
-          <Skeleton className="h-72" />
-        </div>
-      </div>
-    );
+  if (loading || !state) {
+    return <StatisticsSkeleton />;
   }
 
-  if (!stats) return null;
+  const areaData = data.buckets.map((b) => ({ label: b.label, value: b.sales }));
+  const ordersData = data.buckets.map((b) => ({
+    label: b.label,
+    value: b.orders,
+  }));
+  const topProductsData = data.topProducts.map((p) => ({
+    name: p.name.length > 16 ? `${p.name.slice(0, 16)}…` : p.name,
+    value: p.value,
+  }));
+  const statusTotal = data.statusMix.reduce((sum, s) => sum + s.value, 0);
+
+  const isAll = range === "all";
 
   return (
     <div className="space-y-6 py-4">
       <PageHeader
         title="الإحصائيات"
         description="تحليلات مرئية لأداء المتجر"
+        actions={<TimeRangeToggle value={range} onChange={setRange} />}
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card className="border-cacao-800/8 shadow-none">
-          <CardContent className="p-5">
-            <p className="text-sm text-muted-foreground">مبيعات اليوم</p>
-            <p className="text-2xl font-semibold tabular-nums">
-              {formatCurrency(stats.todaySales)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="border-cacao-800/8 shadow-none">
-          <CardContent className="p-5">
-            <p className="text-sm text-muted-foreground">مبيعات الشهر</p>
-            <p className="text-2xl font-semibold tabular-nums">
-              {formatCurrency(stats.monthSales)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="border-cacao-800/8 shadow-none">
-          <CardContent className="p-5">
-            <p className="text-sm text-muted-foreground">صافي الربح</p>
-            <p className="text-2xl font-semibold tabular-nums">
-              {formatCurrency(stats.netProfit)}
-            </p>
-          </CardContent>
-        </Card>
+      {/* KPI row */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          label="مبيعات الفترة"
+          value={<CurrencyDisplay amount={data.kpis.sales} />}
+          delta={data.kpis.salesDelta ?? undefined}
+          deltaLabel={isAll ? "إجمالي كل الفترات" : COMPARE_LABEL}
+          sparklineData={data.salesSpark}
+          icon={Coins}
+          accent="gold"
+        />
+        <MetricCard
+          label="عدد الطلبات"
+          value={formatNumber(data.kpis.orders)}
+          delta={data.kpis.ordersDelta ?? undefined}
+          deltaLabel={isAll ? "كل الفترات" : COMPARE_LABEL}
+          sparklineData={data.ordersSpark}
+          icon={ShoppingBag}
+          accent="caramel"
+        />
+        <MetricCard
+          label="متوسط قيمة الطلب"
+          value={<CurrencyDisplay amount={data.kpis.avgOrder} />}
+          delta={data.kpis.avgOrderDelta ?? undefined}
+          deltaLabel={isAll ? "كل الفترات" : COMPARE_LABEL}
+          sparklineData={data.avgOrderSpark}
+          icon={Receipt}
+          accent="pistachio"
+        />
+        <MetricCard
+          label="صافي الربح"
+          value={<CurrencyDisplay amount={data.kpis.profit} />}
+          delta={data.kpis.profitDelta ?? undefined}
+          deltaLabel={isAll ? "كل الفترات" : COMPARE_LABEL}
+          sparklineData={data.profitSpark}
+          icon={Wallet}
+          accent="cacao"
+        />
       </div>
 
+      {/* Hero area chart + status donut */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <StatChartCard
+          title="تطور المبيعات"
+          subtitle={rangeDescription(range)}
+          icon={TrendingUp}
+          accent={CHART_COLORS.gold}
+          className="lg:col-span-2"
+          empty={!data.hasSales}
+          emptyTitle="لا توجد مبيعات في هذه الفترة"
+          emptyDescription="جرّب نطاقاً زمنياً أوسع أو أضف طلبات مكتملة لعرض التطور"
+        >
+          <SalesAreaChart data={areaData} height={320} valueLabel="المبيعات" />
+        </StatChartCard>
+
+        <StatChartCard
+          title="توزيع حالات الطلبات"
+          subtitle="لقطة للطلبات النشطة"
+          icon={PieChart}
+          accent={CHART_COLORS.berry}
+          empty={statusTotal === 0}
+          emptyTitle="لا توجد طلبات"
+          emptyDescription="ستظهر توزيع الحالات عند وجود طلبات"
+        >
+          <StatusDonut
+            data={data.statusMix}
+            height={220}
+            centerValue={formatNumber(statusTotal)}
+          />
+        </StatChartCard>
+      </div>
+
+      {/* Top products + orders by day */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="border-cacao-800/8 shadow-none">
-          <CardHeader>
-            <CardTitle className="text-base">اتجاه المبيعات</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={salesTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="period" />
-                  <YAxis width={60} />
-                  <Tooltip
-                    formatter={(v: number) => [formatCurrency(v), "المبيعات"]}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="sales"
-                    stroke="#3D2B1F"
-                    strokeWidth={2}
-                    dot={{ fill: "#D4AF37" }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+        <StatChartCard
+          title="أفضل المنتجات مبيعاً"
+          subtitle={isAll ? "كل الفترات" : rangeDescription(range)}
+          icon={BarChart3}
+          accent={CHART_COLORS.caramel}
+          empty={topProductsData.length === 0}
+          emptyTitle="لا توجد منتجات مباعة"
+          emptyDescription="ستظهر المنتجات الأكثر مبيعاً عند إتمام طلبات"
+        >
+          <TopProductsChart data={topProductsData} height={300} />
+        </StatChartCard>
 
-        <Card className="border-cacao-800/8 shadow-none">
-          <CardHeader>
-            <CardTitle className="text-base">توزيع الطلبات</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={statusData.filter((d) => d.value > 0)}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    label={({ name, value }) => `${name}: ${value}`}
-                  >
-                    {statusData.map((_, i) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+        <StatChartCard
+          title="عدد الطلبات"
+          subtitle={rangeDescription(range)}
+          icon={ShoppingBag}
+          accent={CHART_COLORS.pistachio}
+          empty={!data.hasSales}
+          emptyTitle="لا توجد طلبات في هذه الفترة"
+          emptyDescription="جرّب نطاقاً زمنياً أوسع لعرض الطلبات"
+        >
+          <SalesBarChart
+            data={ordersData}
+            height={300}
+            valueLabel="الطلبات"
+            unit="طلب"
+            color={CHART_COLORS.pistachio}
+          />
+        </StatChartCard>
+      </div>
+    </div>
+  );
+}
 
-        <Card className="border-cacao-800/8 shadow-none lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">أفضل المنتجات مبيعاً</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={topProductsData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis width={60} />
-                  <Tooltip
-                    formatter={(v: number) => [formatCurrency(v), "الإيراد"]}
-                  />
-                  <Bar dataKey="revenue" fill="#D4AF37" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+function StatisticsSkeleton() {
+  return (
+    <div className="space-y-6 py-4">
+      <Skeleton className="h-10 w-48" />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-36 rounded-xl" />
+        ))}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Skeleton className="h-80 rounded-xl lg:col-span-2" />
+        <Skeleton className="h-80 rounded-xl" />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Skeleton className="h-80 rounded-xl" />
+        <Skeleton className="h-80 rounded-xl" />
       </div>
     </div>
   );

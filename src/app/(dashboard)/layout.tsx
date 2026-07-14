@@ -53,7 +53,11 @@ export default function DashboardLayout({
       return 0;
     }
   });
-  const [mounted, setMounted] = useState(() => Boolean(cached));
+  // Always start unmounted on both server and first client render so the
+  // initial HTML matches (avoids hydration mismatch from the client-only
+  // `cached` localStorage session). `mounted` is flipped to true only inside
+  // the boot effect below, after hydration has completed.
+  const [mounted, setMounted] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
 
   useRealtimeSync(authSession, mounted && sessionChecked);

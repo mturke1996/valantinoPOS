@@ -1494,6 +1494,73 @@ export function deleteOrder(id: string): boolean {
   return Boolean(deleted);
 }
 
+/**
+ * Soft-cancel an order: sets status to "cancelled" without marking it deleted.
+ * Records an order_status_history entry, an audit log, and queues a sync using
+ * the same "update_status" action as `updateOrderStatus`.
+ */
+export function cancelOrder(
+  orderId: string,
+  changedBy?: string | null,
+  notes?: string | null,
+): Order | null {
+  const state = getState();
+  const order = state.orders.find((o) => o.id === orderId && !o.deletedAt);
+  if (!order) return null;
+
+  if (!isValidStatusTransition(order.status, "cancelled")) {
+    throw new Error(`تعذر إلغاء طلب بحالة «${order.status}»`);
+  }
+
+  let newState: AppState = {
+    ...state,
+    orders: state.orders.map((o) =>
+      o.id === orderId
+        ? { ...o, status: "cancelled", updatedAt: nowISO() }
+        : o,
+    ),
+    orderStatusHistory: [
+      ...state.orderStatusHistory,
+      {
+        id: generateId(),
+        orderId,
+        fromStatus: order.status,
+        toStatus: "cancelled",
+        changedBy: changedBy ?? null,
+        changedAt: nowISO(),
+        notes: notes ?? null,
+      },
+    ],
+  };
+
+  const statusHistoryEntry =
+    newState.orderStatusHistory[newState.orderStatusHistory.length - 1];
+
+  newState = appendAudit(newState, {
+    userId: changedBy ?? null,
+    action: "order.cancel",
+    entityType: "order",
+    entityId: orderId,
+    oldValues: { status: order.status },
+    newValues: { status: "cancelled" },
+  });
+
+  setState(newState);
+  const updatedOrder =
+    newState.orders.find((candidate) => candidate.id === orderId) ?? null;
+  if (updatedOrder) {
+    queueStoreSync("update_status", {
+      orderId,
+      branchId: updatedOrder.branchId,
+      status: updatedOrder.status,
+      updatedAt: updatedOrder.updatedAt,
+      changedBy: changedBy ?? null,
+      statusHistory: statusHistoryEntry,
+    });
+  }
+  return updatedOrder;
+}
+
 // ─── Payments ──────────────────────────────────────────────────────────────────
 
 export function processPayment(input: ProcessPaymentInput): Payment {

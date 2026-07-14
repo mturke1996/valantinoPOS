@@ -144,6 +144,34 @@
     @apply hover:border-gold-400/30 hover:bg-gold-400/5 active:bg-cacao-800/[0.06];
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
   }
+
+  /* Statistics — gentle rise-in for chart/KPI surfaces (plays once on mount) */
+  .chart-rise {
+    animation: chart-rise 0.5s cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+
+  /* Recharts: inherit brand font + crisp rendering */
+  .recharts-wrapper,
+  .recharts-surface,
+  .recharts-text {
+    font-family: inherit;
+    font-feature-settings: "tnum" 1;
+  }
+
+  .recharts-cartesian-axis-tick-value {
+    font-size: 11px;
+  }
+}
+
+@keyframes chart-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Skip link — WCAG 2.4.1 Bypass Blocks */

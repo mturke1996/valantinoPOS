@@ -217,6 +217,18 @@ export function openWhatsAppChat(
   return true;
 }
 
+/** True when the current navigator can share an actual PDF file (mobile Web Share). */
+export function canShareFiles(file: File): boolean {
+  if (typeof navigator === "undefined") return false;
+  if (typeof navigator.share !== "function") return false;
+  if (typeof navigator.canShare !== "function") return true;
+  try {
+    return navigator.canShare({ files: [file] });
+  } catch {
+    return false;
+  }
+}
+
 export async function shareOrderPdfOnWhatsApp(options: {
   file: File;
   message: string;
@@ -236,28 +248,23 @@ export async function shareOrderPdfOnWhatsApp(options: {
   } = options;
 
   // Web Share with files is reliable mainly on mobile; desktop often claims
-  // support then fails or never opens WhatsApp.
-  if (isMobileUserAgent() && typeof navigator !== "undefined" && navigator.share) {
+  // support then fails or never opens WhatsApp — so we gate on mobile.
+  if (isMobileUserAgent() && canShareFiles(file)) {
     try {
       const sharePayload: ShareData = {
         title: fileName.replace(/\.pdf$/i, ""),
         text: message,
         files: [file],
       };
-      const canShareFiles =
-        typeof navigator.canShare !== "function" ||
-        navigator.canShare({ files: [file] });
-      if (canShareFiles) {
-        await navigator.share(sharePayload);
-        preOpenedWindow?.close();
-        return "shared";
-      }
+      await navigator.share(sharePayload);
+      preOpenedWindow?.close();
+      return "shared";
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         preOpenedWindow?.close();
         throw error;
       }
-      // Fall through to wa.me
+      // Fall through to wa.me + download.
     }
   }
 

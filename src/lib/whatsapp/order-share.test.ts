@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  canShareFiles,
   shareOrderPdfOnWhatsApp,
   truncateWhatsAppText,
 } from "@/lib/whatsapp/order-share";
@@ -103,5 +104,38 @@ describe("truncateWhatsAppText", () => {
     const out = truncateWhatsAppText(long, 100);
     expect(out.length).toBeLessThanOrEqual(120);
     expect(out).toContain("PDF");
+  });
+});
+
+describe("canShareFiles", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("returns true on mobile when canShare accepts the file", () => {
+    vi.stubGlobal("navigator", {
+      userAgent: "iPhone",
+      share: vi.fn(),
+      canShare: () => true,
+    });
+    const file = new File(["%PDF"], "inv.pdf", { type: "application/pdf" });
+    expect(canShareFiles(file)).toBe(true);
+  });
+
+  it("returns false when canShare rejects the file", () => {
+    vi.stubGlobal("navigator", {
+      userAgent: "iPhone",
+      share: vi.fn(),
+      canShare: () => false,
+    });
+    const file = new File(["%PDF"], "inv.pdf", { type: "application/pdf" });
+    expect(canShareFiles(file)).toBe(false);
+  });
+
+  it("returns false when navigator.share is unavailable", () => {
+    vi.stubGlobal("navigator", { userAgent: "iPhone" });
+    const file = new File(["%PDF"], "inv.pdf", { type: "application/pdf" });
+    expect(canShareFiles(file)).toBe(false);
   });
 });

@@ -7,6 +7,7 @@ import {
   MapPin,
   Package,
   Truck,
+  Undo2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -26,7 +27,7 @@ import {
   ORDER_STATUSES,
 } from "@/lib/constants/order-status";
 import { useStoreSubscription } from "@/hooks/use-store-subscription";
-import { getOrders, getState, updateOrderStatus } from "@/lib/data/store";
+import { getOrders, getReturns, getState, updateOrderStatus } from "@/lib/data/store";
 import { cn, formatDate, formatNumber } from "@/lib/utils";
 import type { Order, OrderStatus } from "@/types";
 
@@ -38,7 +39,7 @@ const TYPE_LABEL: Record<string, string> = {
   online: "أونلاين",
 };
 
-type StatusFilter = "active" | "all" | OrderStatus;
+type StatusFilter = "active" | "all" | "cancelled_returned" | OrderStatus;
 
 function customerNameFor(order: Order): string {
   if (!order.customerId) {
@@ -53,11 +54,18 @@ function customerNameFor(order: Order): string {
 }
 
 function isActiveOrder(order: Order): boolean {
-  return order.status !== "completed" && order.status !== "delivered";
+  return (
+    order.status !== "completed" &&
+    order.status !== "delivered" &&
+    order.status !== "cancelled"
+  );
 }
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [returnedOrderIds, setReturnedOrderIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [loading, setLoading] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
@@ -65,7 +73,8 @@ export default function OrdersPage() {
   const [advancingId, setAdvancingId] = useState<string | null>(null);
 
   const loadOrders = useCallback(() => {
-    setOrders(getOrders().filter((o) => o.status !== "cancelled"));
+    setOrders(getOrders());
+    setReturnedOrderIds(new Set(getReturns().map((r) => r.orderId)));
     setLoading(false);
   }, []);
 
@@ -109,7 +118,11 @@ export default function OrdersPage() {
     return orders
       .filter((order) => {
         if (statusFilter === "active") return isActiveOrder(order);
-        if (statusFilter === "all") return true;
+        if (statusFilter === "all") return order.status !== "cancelled";
+        if (statusFilter === "cancelled_returned")
+          return (
+            order.status === "cancelled" || returnedOrderIds.has(order.id)
+          );
         return order.status === statusFilter;
       })
       .filter((order) => {
@@ -123,7 +136,7 @@ export default function OrdersPage() {
         );
       })
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [orders, search, statusFilter]);
+  }, [orders, returnedOrderIds, search, statusFilter]);
 
   const selectedOrder = selectedOrderId
     ? (orders.find((order) => order.id === selectedOrderId) ?? null)
@@ -210,6 +223,7 @@ export default function OrdersPage() {
                   value: s.key as StatusFilter,
                   label: s.labelAr,
                 })),
+                { value: "cancelled_returned" as const, label: "ملغاة/مرتجعة" },
               ] as const
             ).map((option) => (
               <button
@@ -230,9 +244,17 @@ export default function OrdersPage() {
 
           {filtered.length === 0 ? (
             <EmptyState
-              icon={Package}
-              title="لا توجد نتائج"
-              description="غيّر البحث أو الحالة"
+              icon={statusFilter === "cancelled_returned" ? Undo2 : Package}
+              title={
+                statusFilter === "cancelled_returned"
+                  ? "لا توجد طلبات ملغاة أو مرتجعة"
+                  : "لا توجد نتائج"
+              }
+              description={
+                statusFilter === "cancelled_returned"
+                  ? "ستظهر الطلبات الملغاة والمرتجعة هنا"
+                  : "غيّر البحث أو الحالة"
+              }
             />
           ) : (
             <div className="overflow-hidden rounded-xl border border-cacao-800/10 bg-white">

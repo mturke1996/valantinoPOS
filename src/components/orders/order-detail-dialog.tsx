@@ -2,13 +2,17 @@
 
 import { useState } from "react";
 import {
+  ArrowLeft,
+  Ban,
   CalendarClock,
+  Loader2,
   MapPin,
+  MoreHorizontal,
   ReceiptText,
-  Trash2,
   Truck,
   UserRound,
   Wallet,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -29,13 +33,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import {
   getNextOrderStatus,
   getOrderStatusConfig,
 } from "@/lib/constants/order-status";
 import {
-  deleteOrder,
+  cancelOrder,
   ensureInvoiceForOrder,
   getOpenShift,
   getSettings,
@@ -88,11 +99,12 @@ export function OrderDetailDialog({
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [invoiceTarget, setInvoiceTarget] = useState<Invoice | null>(null);
   const [deliveryOpen, setDeliveryOpen] = useState(false);
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   if (!order) return null;
 
   const isManager = getAuthSession()?.role === "admin";
+  const isTerminal = order.status === "cancelled" || order.status === "completed";
 
   const state = getState();
   const customer = order.customerId
@@ -148,19 +160,19 @@ export function OrderDetailDialog({
     }
   };
 
-  const confirmDelete = () => {
-    setDeleting(true);
+  const confirmCancel = () => {
+    setCancelling(true);
     try {
-      const ok = deleteOrder(order.id);
-      if (!ok) throw new Error("تعذر حذف الطلب");
-      toast.success("تم حذف الطلب");
-      setConfirmDeleteOpen(false);
+      const updated = cancelOrder(order.id);
+      if (!updated) throw new Error("تعذر إلغاء الطلب");
+      toast.success("تم إلغاء الطلب");
+      setConfirmCancelOpen(false);
       onOpenChange(false);
       onUpdated();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "فشل حذف الطلب");
+      toast.error(error instanceof Error ? error.message : "فشل إلغاء الطلب");
     } finally {
-      setDeleting(false);
+      setCancelling(false);
     }
   };
 
@@ -480,9 +492,24 @@ export function OrderDetailDialog({
             ) : null}
         </DialogBody>
 
-        <DialogFooter className="flex flex-col gap-3 border-t border-cacao-800/8 bg-card px-4 py-3 sm:px-6 sm:py-4">
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {balance > 0 ? (
+        <DialogFooter className="gap-3 border-t border-cacao-800/8 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
+          {/* Primary + secondary actions — grouped on the right (start in RTL)
+              on desktop, stacked on top on mobile. */}
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            {nextStatus ? (
+              <Button
+                className="min-h-11 w-full gap-1.5 sm:w-auto"
+                onClick={advanceOrder}
+              >
+                <ArrowLeft className="size-4" />
+                نقل إلى {nextConfig?.labelAr ?? nextStatus}
+              </Button>
+            ) : null}
+            <span
+              aria-hidden
+              className="hidden h-8 w-px shrink-0 bg-cacao-800/10 sm:block"
+            />
+            {balance > 0 && !isTerminal ? (
               <Button
                 variant="outline"
                 className="min-h-11 flex-1 sm:flex-none"
@@ -506,48 +533,46 @@ export function OrderDetailDialog({
               className="min-h-11 flex-1 border-pistachio-400/40 text-pistachio-400 hover:bg-pistachio-400/10 sm:flex-none"
               label="واتساب + PDF"
             />
-            {order.deliveryDate ||
-            order.deliveryAddress ||
-            order.type === "delivery" ? (
-              <Button
-                variant="outline"
-                className="min-h-11 flex-1 sm:flex-none"
-                onClick={() => setDeliveryOpen(true)}
-              >
-                <Truck className="size-4" />
-                واصل استلام
-              </Button>
-            ) : null}
-            {nextStatus ? (
-              <Button
-                className="min-h-11 flex-1 sm:flex-none"
-                onClick={advanceOrder}
-              >
-                نقل إلى {nextConfig?.labelAr ?? nextStatus}
-              </Button>
-            ) : null}
           </div>
-          <div className="flex items-center justify-between gap-2">
-            {isManager ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                onClick={() => setConfirmDeleteOpen(true)}
-              >
-                <Trash2 className="size-4" />
-                حذف الطلب
-              </Button>
-            ) : (
-              <span aria-hidden className="flex-1" />
-            )}
-            <Button
-              variant="ghost"
-              className="min-h-11"
-              onClick={() => onOpenChange(false)}
-            >
-              إغلاق
-            </Button>
+
+          {/* Less-used actions in an overflow menu: delivery receipt, cancel, close. */}
+          <div className="flex items-center justify-end sm:justify-start">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="min-h-11 gap-1.5 px-3 text-muted-foreground sm:min-h-9"
+                >
+                  <MoreHorizontal className="size-4" />
+                  المزيد
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[12rem]">
+                {order.deliveryDate ||
+                order.deliveryAddress ||
+                order.type === "delivery" ? (
+                  <DropdownMenuItem onClick={() => setDeliveryOpen(true)}>
+                    <Truck className="size-4" />
+                    واصل استلام
+                  </DropdownMenuItem>
+                ) : null}
+                {isManager && !isTerminal ? (
+                  <DropdownMenuItem
+                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                    onClick={() => setConfirmCancelOpen(true)}
+                  >
+                    <Ban className="size-4" />
+                    إلغاء الطلبيه
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onOpenChange(false)}>
+                  <X className="size-4" />
+                  إغلاق
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </DialogFooter>
       </DialogContent>
@@ -568,32 +593,39 @@ export function OrderDetailDialog({
         onOpenChange={setDeliveryOpen}
         order={order}
       />
-      <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+      <Dialog open={confirmCancelOpen} onOpenChange={setConfirmCancelOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Trash2 className="size-5 text-destructive" />
-              حذف الطلب
+              <Ban className="size-5 text-destructive" />
+              تأكيد إلغاء الطلب
             </DialogTitle>
           </DialogHeader>
           <DialogBody className="py-4 text-sm text-muted-foreground">
-            سيتم حذف الطلب «{order.orderNumber}» نهائياً من النظام. لا يمكن
-            التراجع عن هذا الإجراء.
+            سيتم إلغاء الطلب «{order.orderNumber}» وتصنيفه كملغي. يبقى الطلب
+            محفوظاً في النظام ويمكن مراجعته من تبويب «ملغاة/مرتجعة».
           </DialogBody>
           <DialogFooter className="flex-row justify-end gap-2 sm:justify-end">
             <Button
               variant="ghost"
-              onClick={() => setConfirmDeleteOpen(false)}
-              disabled={deleting}
+              onClick={() => setConfirmCancelOpen(false)}
+              disabled={cancelling}
             >
               إلغاء
             </Button>
             <Button
               variant="destructive"
-              onClick={confirmDelete}
-              disabled={deleting}
+              onClick={confirmCancel}
+              disabled={cancelling}
             >
-              {deleting ? "جاري الحذف..." : "تأكيد الحذف"}
+              {cancelling ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  جاري الإلغاء...
+                </>
+              ) : (
+                "تأكيد الإلغاء"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
