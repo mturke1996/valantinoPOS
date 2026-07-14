@@ -4,20 +4,23 @@ import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   CalendarClock,
-  CircleDollarSign,
   Gift,
+  MapPin,
   PartyPopper,
   Pencil,
   Plus,
-  Search,
+  Sparkles,
+  Truck,
+  Users,
 } from "lucide-react";
 import { format, parseISO, startOfDay } from "date-fns";
+import { ar } from "date-fns/locale";
 
 import { EventCreateDialog } from "@/components/events/event-create-dialog";
 import { EventEditDialog } from "@/components/events/event-edit-dialog";
 import { GiftBoxBuilder } from "@/components/events/gift-box-builder";
-import { ChocolateBarProgress } from "@/components/signature/chocolate-bar-progress";
-import type { OrderPipelineStage } from "@/components/signature/chocolate-bar-progress";
+import { SeasonalPackageDialog } from "@/components/events/seasonal-package-dialog";
+import { WhatsAppOrderShareButton } from "@/components/orders/whatsapp-order-share-button";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
@@ -28,8 +31,8 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getOrders, getState } from "@/lib/data/store";
 import { useStoreSubscription } from "@/hooks/use-store-subscription";
-import { cn, formatDate, formatNumber } from "@/lib/utils";
-import type { Event, Order, OrderStatus } from "@/types";
+import { cn, formatNumber } from "@/lib/utils";
+import type { Event, Order } from "@/types";
 
 const EVENT_LABELS: Record<string, string> = {
   wedding: "زفاف",
@@ -43,37 +46,27 @@ const EVENT_LABELS: Record<string, string> = {
   other: "أخرى",
 };
 
-const LEGACY_COLOR_MAP: Record<string, string> = {
-  ذهبي: "#D4AF37",
-  كريمي: "#F5EDE3",
-  أبيض: "#FFFFFF",
-  كاكاو: "#3D2B1F",
-  توتي: "#8B3A62",
-  فستقي: "#8FB996",
+type EventFilter = "all" | "upcoming" | "balance" | "overdue" | "today";
+
+type EventRow = {
+  event: Event;
+  order: Order;
+  customerName: string;
 };
 
-type EventFilter = "all" | "upcoming" | "balance" | "overdue";
-
-function toPipelineStage(status: OrderStatus): OrderPipelineStage {
-  return status === "cancelled" ? "received" : status;
-}
-
-function colorValue(value: string): string {
-  return LEGACY_COLOR_MAP[value] ?? value;
+function typeChip(order: Order, event: Event): string {
+  if (order.type === "delivery") return "توصيل";
+  if (order.type === "reservation") return "حجز";
+  return EVENT_LABELS[event.eventType] ?? event.eventType;
 }
 
 export default function EventsPage() {
-  const [events, setEvents] = useState<
-    Array<{ event: Event; order: Order; customerName: string }>
-  >([]);
+  const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [giftBoxOpen, setGiftBoxOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<{
-    event: Event;
-    order: Order;
-    customerName: string;
-  } | null>(null);
+  const [packagesOpen, setPackagesOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<EventRow | null>(null);
   const [filter, setFilter] = useState<EventFilter>("all");
   const [search, setSearch] = useState("");
 
@@ -92,7 +85,6 @@ export default function EventsPage() {
     const customerMap = new Map(
       state.customers.map((customer) => [customer.id, customer.name]),
     );
-
     const byOrderId = new Map(state.events.map((event) => [event.orderId, event]));
 
     const mapped = scheduledOrders
@@ -120,8 +112,8 @@ export default function EventsPage() {
           event,
           order,
           customerName: order.customerId
-            ? customerMap.get(order.customerId) ?? "عميل"
-            : "عميل نقدي",
+            ? (customerMap.get(order.customerId) ?? "عميل")
+            : (order.deliveryRecipientName ?? "عميل نقدي"),
         };
       })
       .filter(({ order }) => orderMap.has(order.id))
@@ -148,8 +140,7 @@ export default function EventsPage() {
 
     for (const { order } of events) {
       if (order.status === "cancelled" || order.status === "completed") continue;
-      const balance = Math.max(0, order.total - order.paidAmount);
-      outstanding += balance;
+      outstanding += Math.max(0, order.total - order.paidAmount);
       if (!order.deliveryDate) continue;
       if (order.deliveryDate === todayKey) dueToday += 1;
       if (parseISO(order.deliveryDate) < today) overdue += 1;
@@ -166,11 +157,19 @@ export default function EventsPage() {
         !query ||
         order.orderNumber.toLocaleLowerCase("en").includes(query) ||
         customerName.toLocaleLowerCase("ar").includes(query) ||
+        (order.deliveryZone ?? "").toLocaleLowerCase("ar").includes(query) ||
         (order.type === "reservation" && "حجز".includes(query)) ||
         (EVENT_LABELS[event.eventType] ?? event.eventType).includes(query);
       if (!matchesSearch) return false;
 
       if (filter === "balance") return order.paidAmount < order.total;
+      if (filter === "today") {
+        return (
+          order.deliveryDate === todayKey &&
+          order.status !== "completed" &&
+          order.status !== "cancelled"
+        );
+      }
       if (filter === "overdue") {
         return (
           !!order.deliveryDate &&
@@ -189,34 +188,45 @@ export default function EventsPage() {
       }
       return true;
     });
-  }, [events, filter, search, today]);
+  }, [events, filter, search, today, todayKey]);
 
   if (loading) {
     return (
-      <div className="space-y-4 py-4">
+      <div className="space-y-3 py-4">
         <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-32" />
-        <Skeleton className="h-72" />
+        <Skeleton className="h-12 rounded-xl" />
+        <Skeleton className="h-72 rounded-xl" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 py-4">
+    <div className="space-y-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <PageHeader
-        title="مكتب المناسبات"
-        description="الحجوزات، العربون، التجهيز ومواعيد التسليم في مكان واحد"
+        title="المناسبات"
+        description={`${formatNumber(stats.dueToday)} اليوم · ${formatNumber(stats.upcoming)} قادمة · ${formatNumber(stats.overdue)} متأخرة`}
         actions={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             <Button
               variant="outline"
-              className="gap-1.5"
+              className="min-h-11 flex-1 sm:flex-none"
+              onClick={() => setPackagesOpen(true)}
+            >
+              <Sparkles className="size-4" />
+              باقات رمضان/العيد
+            </Button>
+            <Button
+              variant="outline"
+              className="min-h-11 flex-1 sm:flex-none"
               onClick={() => setGiftBoxOpen(true)}
             >
               <Gift className="size-4" />
-              منشئ علب الهدايا
+              علبة هدية
             </Button>
-            <Button className="gap-1.5" onClick={() => setCreateOpen(true)}>
+            <Button
+              className="min-h-11 flex-1 sm:flex-none"
+              onClick={() => setCreateOpen(true)}
+            >
               <Plus className="size-4" />
               حجز مناسبة
             </Button>
@@ -244,84 +254,84 @@ export default function EventsPage() {
         onOpenChange={setGiftBoxOpen}
         onSaved={loadEvents}
       />
+      <SeasonalPackageDialog
+        open={packagesOpen}
+        onOpenChange={setPackagesOpen}
+        onCreated={loadEvents}
+      />
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
-        <div className="rounded-xl border border-gold-400/20 bg-gold-400/[0.06] p-5">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <CircleDollarSign className="size-4 text-gold-400" />
-            أرصدة قيد التحصيل
-          </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <Input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="بحث برقم الطلب أو العميل أو المناسبة"
+          className="h-11 min-w-0 flex-1"
+        />
+        <div className="flex items-center gap-2 rounded-xl border border-cacao-800/10 bg-white px-3 py-2 text-sm sm:shrink-0">
+          <span className="text-muted-foreground">أرصدة</span>
           <CurrencyDisplay
             amount={stats.outstanding}
-            className="mt-3 text-3xl font-semibold"
+            className="font-semibold"
           />
         </div>
-        {[
-          { label: "قادمة", value: stats.upcoming },
-          { label: "تسليم اليوم", value: stats.dueToday },
-          { label: "متأخرة", value: stats.overdue },
-        ].map((item) => (
-          <div
-            key={item.label}
-            className="rounded-xl border border-cacao-800/8 bg-card p-5"
+      </div>
+
+      <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {(
+          [
+            { value: "all" as const, label: "الكل" },
+            { value: "today" as const, label: "اليوم" },
+            { value: "upcoming" as const, label: "القادمة" },
+            { value: "balance" as const, label: "تحتاج تحصيل" },
+            { value: "overdue" as const, label: "المتأخرة" },
+          ] as const
+        ).map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => setFilter(option.value)}
+            className={cn(
+              "shrink-0 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+              filter === option.value
+                ? "bg-cacao-800 text-cream-50"
+                : "bg-muted/70 text-muted-foreground hover:bg-muted",
+            )}
           >
-            <p className="text-sm text-muted-foreground">{item.label}</p>
-            <p className="mt-3 font-mono text-3xl font-semibold tabular-nums">
-              {formatNumber(item.value)}
-            </p>
-          </div>
+            {option.label}
+          </button>
         ))}
-      </section>
+      </div>
 
-      <section className="overflow-hidden rounded-xl border border-cacao-800/8 bg-card">
-        <div className="flex flex-col gap-3 border-b border-cacao-800/8 p-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap gap-2">
-            {(
-              [
-                { value: "all" as const, label: "الكل" },
-                { value: "upcoming" as const, label: "القادمة" },
-                { value: "balance" as const, label: "تحتاج تحصيل" },
-                { value: "overdue" as const, label: "المتأخرة" },
-              ] as const
-            ).map((option) => (
-              <Button
-                key={option.value}
-                size="sm"
-                variant={filter === option.value ? "default" : "ghost"}
-                onClick={() => setFilter(option.value)}
-              >
-                {option.label}
-              </Button>
-            ))}
+      {filteredEvents.length === 0 ? (
+        <EmptyState
+          icon={PartyPopper}
+          title={
+            events.length === 0 ? "لا توجد مناسبات أو توصيل" : "لا توجد نتائج"
+          }
+          description={
+            events.length === 0
+              ? "احجز مناسبة أو توصيل بموعد ليظهر هنا"
+              : "غيّر البحث أو المرشح"
+          }
+          action={
+            events.length === 0 ? (
+              <Button onClick={() => setCreateOpen(true)}>حجز مناسبة</Button>
+            ) : null
+          }
+        />
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-cacao-800/10 bg-white">
+          <div className="hidden grid-cols-[1fr_1fr_0.8fr_1.1fr_0.7fr_0.9fr_auto] gap-3 border-b border-cacao-800/8 bg-cream-50/80 px-4 py-2.5 text-[11px] font-semibold text-muted-foreground lg:grid">
+            <span>الطلب</span>
+            <span>العميل</span>
+            <span>النوع</span>
+            <span>الموعد</span>
+            <span>الحالة</span>
+            <span className="text-end">المبلغ</span>
+            <span className="w-28" />
           </div>
-          <div className="relative w-full lg:w-72">
-            <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="رقم الطلب، العميل، المناسبة"
-              className="ps-9"
-            />
-          </div>
-        </div>
 
-        {filteredEvents.length === 0 ? (
-          <EmptyState
-            icon={PartyPopper}
-            title={events.length === 0 ? "لا توجد مناسبات أو توصيل" : "لا توجد نتائج"}
-            description={
-              events.length === 0
-                ? "احجز مناسبة أو توصيل بموعد — يظهر تلقائياً في التقويم والتنبيهات"
-                : "غيّر البحث أو مرشح العرض"
-            }
-            action={
-              events.length === 0 ? (
-                <Button onClick={() => setCreateOpen(true)}>حجز مناسبة</Button>
-              ) : null
-            }
-          />
-        ) : (
-          <div className="divide-y divide-cacao-800/8">
+          <ul className="divide-y divide-cacao-800/8">
             {filteredEvents.map(({ event, order, customerName }) => {
               const balance = Math.max(0, order.total - order.paidAmount);
               const overdue =
@@ -329,121 +339,213 @@ export default function EventsPage() {
                 parseISO(order.deliveryDate) < today &&
                 order.status !== "completed" &&
                 order.status !== "cancelled";
+              const dueToday = order.deliveryDate === todayKey;
 
               return (
-                <div
-                  key={event.id}
-                  className="group flex items-stretch gap-2 p-4 transition-colors hover:bg-cacao-800/[0.025] sm:p-5"
-                >
-                  <Link
-                    href={`/orders?highlight=${order.id}`}
-                    aria-label={`فتح تفاصيل الطلب ${order.orderNumber} للعميل ${customerName}`}
-                    className="min-w-0 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                  >
-                    <article className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(220px,0.8fr)_minmax(190px,0.55fr)] lg:items-center">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold">{order.orderNumber}</p>
-                        <Badge variant="outline">
-                          {order.type === "delivery"
-                            ? "توصيل"
-                            : order.type === "reservation"
-                              ? "حجز"
-                              : EVENT_LABELS[event.eventType] ?? event.eventType}
-                        </Badge>
-                        <StatusBadge status={order.status} type="order" />
-                      </div>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {customerName} · {formatNumber(event.guestCount)} ضيف/قطعة
-                      </p>
-                      {event.packagingColors.length > 0 ? (
-                        <div className="mt-3 flex items-center gap-1.5">
-                          {event.packagingColors.map((color) => (
-                            <span
-                              key={color}
-                              className="size-4 rounded-sm border border-black/10"
-                              style={{ backgroundColor: colorValue(color) }}
-                              title={color}
-                            />
-                          ))}
+                <li key={event.id}>
+                  {/* Mobile */}
+                  <div className="space-y-3 p-3.5 lg:hidden">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="font-semibold">
+                            {order.orderNumber}
+                          </span>
+                          <Badge variant="outline" className="h-5 text-[10px]">
+                            {typeChip(order, event)}
+                          </Badge>
+                          {dueToday ? (
+                            <Badge className="h-5 bg-pistachio-400 text-[10px] text-white hover:bg-pistachio-400">
+                              اليوم
+                            </Badge>
+                          ) : null}
+                          {overdue ? (
+                            <Badge
+                              variant="destructive"
+                              className="h-5 text-[10px]"
+                            >
+                              متأخر
+                            </Badge>
+                          ) : null}
                         </div>
-                      ) : null}
+                        <p className="mt-1 truncate text-sm text-muted-foreground">
+                          {customerName}
+                        </p>
+                      </div>
+                      <StatusBadge status={order.status} type="order" />
                     </div>
 
-                    <div>
-                      <ChocolateBarProgress
-                        currentStage={toPipelineStage(order.status)}
-                        size="sm"
-                      />
-                      <div
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1">
+                        <Users className="size-3.5" />
+                        {formatNumber(event.guestCount)}
+                      </span>
+                      <span
                         className={cn(
-                          "mt-2 flex items-center gap-2 text-xs",
-                          overdue
-                            ? "text-destructive"
-                            : "text-muted-foreground",
+                          "inline-flex items-center gap-1",
+                          overdue && "font-medium text-destructive",
+                          dueToday && !overdue && "font-medium text-pistachio-400",
                         )}
                       >
                         <CalendarClock className="size-3.5" />
                         {order.deliveryDate
-                          ? formatDate(order.deliveryDate, "dd MMM yyyy")
+                          ? format(parseISO(order.deliveryDate), "dd MMM yyyy", {
+                              locale: ar,
+                            })
                           : "بدون موعد"}
                         {order.deliveryTime ? ` · ${order.deliveryTime}` : ""}
-                      </div>
+                      </span>
+                      {order.deliveryZone || order.deliveryAddress ? (
+                        <span className="inline-flex max-w-full items-center gap-1 truncate">
+                          {order.type === "delivery" ? (
+                            <Truck className="size-3.5 shrink-0" />
+                          ) : (
+                            <MapPin className="size-3.5 shrink-0" />
+                          )}
+                          <span className="truncate">
+                            {order.deliveryZone || order.deliveryAddress}
+                          </span>
+                        </span>
+                      ) : null}
                     </div>
 
-                    <div className="flex items-end justify-between gap-4 lg:flex-col lg:items-end">
-                      <div className="text-end">
+                    <div className="flex items-end justify-between gap-3">
+                      <div>
                         <CurrencyDisplay
                           amount={order.total}
-                          className="font-semibold"
+                          className="text-sm font-semibold"
                         />
+                        {balance > 0 ? (
+                          <p className="mt-0.5 text-[11px] text-caramel-500">
+                            متبقي{" "}
+                            <CurrencyDisplay
+                              amount={balance}
+                              className="inline text-[11px]"
+                            />
+                          </p>
+                        ) : (
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">
+                            مدفوع
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-1.5">
+                        <WhatsAppOrderShareButton
+                          order={order}
+                          variant="outline"
+                          size="sm"
+                          label="واتساب"
+                          className="h-9"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="size-9"
+                          aria-label="تعديل"
+                          onClick={() =>
+                            setEditTarget({ event, order, customerName })
+                          }
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button asChild size="sm" variant="secondary">
+                          <Link href={`/orders?highlight=${order.id}`}>
+                            الطلب
+                          </Link>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Desktop */}
+                  <div className="hidden grid-cols-[1fr_1fr_0.8fr_1.1fr_0.7fr_0.9fr_auto] items-center gap-3 px-4 py-3 lg:grid">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">
+                        {order.orderNumber}
+                      </p>
+                      {(dueToday || overdue) && (
                         <p
                           className={cn(
-                            "mt-1 text-xs",
-                            balance > 0
-                              ? "text-caramel-500"
-                              : "text-muted-foreground",
+                            "mt-0.5 text-[11px] font-medium",
+                            overdue ? "text-destructive" : "text-pistachio-400",
                           )}
                         >
-                          {balance > 0 ? (
-                            <>
-                              متبقي{" "}
-                              <CurrencyDisplay
-                                amount={balance}
-                                className="inline text-xs"
-                              />
-                            </>
-                          ) : (
-                            "مدفوع بالكامل"
-                          )}
+                          {overdue ? "متأخر" : "اليوم"}
                         </p>
-                      </div>
-                      {order.deliveryAddress ? (
-                        <p className="max-w-48 truncate text-xs text-muted-foreground">
-                          {order.deliveryAddress}
+                      )}
+                    </div>
+                    <p className="truncate text-sm">{customerName}</p>
+                    <Badge variant="outline" className="w-fit text-[10px]">
+                      {typeChip(order, event)}
+                    </Badge>
+                    <div className="text-xs text-muted-foreground">
+                      <p className="inline-flex items-center gap-1">
+                        <CalendarClock className="size-3.5" />
+                        {order.deliveryDate
+                          ? format(parseISO(order.deliveryDate), "dd MMM yyyy", {
+                              locale: ar,
+                            })
+                          : "—"}
+                        {order.deliveryTime ? ` · ${order.deliveryTime}` : ""}
+                      </p>
+                      {order.deliveryZone || order.deliveryAddress ? (
+                        <p className="mt-0.5 truncate">
+                          {order.deliveryZone || order.deliveryAddress}
                         </p>
                       ) : null}
                     </div>
-                  </article>
-                  </Link>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="shrink-0 self-center opacity-80 transition-opacity group-hover:opacity-100"
-                    aria-label={`تعديل المناسبة ${order.orderNumber}`}
-                    onClick={() =>
-                      setEditTarget({ event, order, customerName })
-                    }
-                  >
-                    <Pencil className="size-4" />
-                  </Button>
-                </div>
+                    <StatusBadge status={order.status} type="order" />
+                    <div className="text-end">
+                      <CurrencyDisplay
+                        amount={order.total}
+                        className="text-sm font-semibold"
+                      />
+                      {balance > 0 ? (
+                        <p className="mt-0.5 text-[11px] text-caramel-500">
+                          متبقي{" "}
+                          <CurrencyDisplay
+                            amount={balance}
+                            className="inline text-[11px]"
+                          />
+                        </p>
+                      ) : (
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          مدفوع
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex w-auto justify-end gap-1.5">
+                      <WhatsAppOrderShareButton
+                        order={order}
+                        variant="outline"
+                        size="sm"
+                        label="واتساب"
+                        className="h-8 px-2 text-[11px]"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="size-8"
+                        aria-label="تعديل"
+                        onClick={() =>
+                          setEditTarget({ event, order, customerName })
+                        }
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                      <Button asChild size="sm" variant="ghost" className="h-8 px-2">
+                        <Link href={`/orders?highlight=${order.id}`}>عرض</Link>
+                      </Button>
+                    </div>
+                  </div>
+                </li>
               );
             })}
-          </div>
-        )}
-      </section>
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

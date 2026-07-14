@@ -7,6 +7,7 @@ import {
   addMovement,
   fefoDeduct,
   getAvailableStock,
+  getExpiringBatches,
   getTotalStock,
 } from "@/lib/services/inventory.service";
 import { earnPoints, redeemPoints } from "@/lib/services/loyalty.service";
@@ -48,7 +49,7 @@ import type {
 import { generateId, nowISO, roundMoney } from "@/lib/utils";
 
 const STORAGE_KEY = "valentino-pos-state";
-const STATE_VERSION = 2;
+const STATE_VERSION = 4;
 
 type Listener = (state: AppState) => void;
 const listeners = new Set<Listener>();
@@ -127,6 +128,36 @@ function syncProductStock(state: AppState): AppState {
   return { ...state, products };
 }
 
+function normalizeStoredState(state: AppState): AppState {
+  const defaults = createInitialState();
+  return {
+    ...state,
+    version: STATE_VERSION,
+    settings: {
+      ...defaults.settings,
+      ...state.settings,
+      deliveryZones:
+        state.settings?.deliveryZones?.length
+          ? state.settings.deliveryZones
+          : defaults.settings.deliveryZones,
+      autoWhatsAppOnSale:
+        typeof state.settings?.autoWhatsAppOnSale === "boolean"
+          ? state.settings.autoWhatsAppOnSale
+          : defaults.settings.autoWhatsAppOnSale,
+      taxNumber: state.settings?.taxNumber ?? null,
+      commercialRegister: state.settings?.commercialRegister ?? null,
+    },
+    orders: (state.orders ?? []).map((order) => ({
+      ...order,
+      deliveryFee: order.deliveryFee ?? 0,
+      deliveryZone: order.deliveryZone ?? null,
+      deliveryRecipientName: order.deliveryRecipientName ?? null,
+      deliveryPhone: order.deliveryPhone ?? null,
+      deliveryInstructions: order.deliveryInstructions ?? null,
+    })),
+  };
+}
+
 import { mergeRecordsById } from "@/lib/data/merge-snapshot";
 
 export function getState(): AppState {
@@ -146,12 +177,10 @@ export function getState(): AppState {
 
   try {
     const parsed = JSON.parse(raw) as AppState;
-    if (!parsed.version || parsed.version < STATE_VERSION) {
-      memoryCache = createInitialState();
+    memoryCache = syncProductStock(normalizeStoredState(parsed));
+    if (parsed.version !== STATE_VERSION) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(memoryCache));
-      return memoryCache;
     }
-    memoryCache = syncProductStock(parsed);
     return memoryCache;
   } catch {
     memoryCache = createInitialState();
@@ -161,7 +190,7 @@ export function getState(): AppState {
 }
 
 export function setState(state: AppState): void {
-  const synced = syncProductStock({ ...state, version: STATE_VERSION });
+  const synced = syncProductStock(normalizeStoredState(state));
   memoryCache = synced;
   if (isBrowser()) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(synced));
@@ -311,6 +340,13 @@ export function mergeCloudSnapshot(
       auditLogs: partial.auditLogs
         ? mergeRecordsById(state.auditLogs, partial.auditLogs, protectedIds)
         : state.auditLogs,
+      orderStatusHistory: partial.orderStatusHistory
+        ? mergeRecordsById(
+            state.orderStatusHistory,
+            partial.orderStatusHistory,
+            protectedIds,
+          )
+        : state.orderStatusHistory,
       loyaltyTiers: partial.loyaltyTiers ?? state.loyaltyTiers,
       users:
         partial.users && partial.users.length > 0
@@ -836,6 +872,11 @@ export function getOrderById(id: string): Order | undefined {
 
 export function createOrder(input: CreateOrderInput): Order {
   const state = getState();
+  if (input.type === "pos" && !state.settings.walkInSalesEnabled) {
+    throw new Error(
+      "البيع الفوري متوقف من الإعدادات — استخدم التوصيل أو المناسبة أو الحجز",
+    );
+  }
   if (input.items.length === 0) {
     throw new Error("لا يمكن إنشاء طلب فارغ");
   }
@@ -922,6 +963,7 @@ export function createOrder(input: CreateOrderInput): Order {
       discount: i.discount,
     })),
     discountAmount: input.discountAmount ?? 0,
+    deliveryFee: input.deliveryFee ?? 0,
     taxRate: state.settings.taxRate,
   });
 
@@ -949,6 +991,11 @@ export function createOrder(input: CreateOrderInput): Order {
     deliveryDate: input.deliveryDate ?? null,
     deliveryTime: input.deliveryTime ?? null,
     deliveryAddress: input.deliveryAddress ?? null,
+    deliveryFee: totals.deliveryFee,
+    deliveryZone: input.deliveryZone?.trim() || null,
+    deliveryRecipientName: input.deliveryRecipientName?.trim() || null,
+    deliveryPhone: input.deliveryPhone?.trim() || null,
+    deliveryInstructions: input.deliveryInstructions?.trim() || null,
     notes: input.notes ?? null,
     assignedTo: input.assignedTo ?? null,
     shiftId: input.shiftId ?? null,
@@ -959,20 +1006,22 @@ export function createOrder(input: CreateOrderInput): Order {
     deletedAt: null,
   };
 
+  const createdStatusHistory = {
+    id: generateId(),
+    orderId,
+    fromStatus: null as OrderStatus | null,
+    toStatus: "received" as const,
+    changedBy: input.createdBy ?? null,
+    changedAt: nowISO(),
+    notes: "إنشاء طلب جديد",
+  };
+
   let newState: AppState = {
     ...state,
     orders: [...state.orders, order],
     orderStatusHistory: [
       ...state.orderStatusHistory,
-      {
-        id: generateId(),
-        orderId,
-        fromStatus: null,
-        toStatus: "received",
-        changedBy: input.createdBy ?? null,
-        changedAt: nowISO(),
-        notes: "إنشاء طلب جديد",
-      },
+      createdStatusHistory,
     ],
   };
 
@@ -1013,15 +1062,20 @@ export function createOrder(input: CreateOrderInput): Order {
     newState = { ...newState, events: [...newState.events, event] };
   }
 
+  let redeemedCoupon: Coupon | null = null;
   if (input.couponCode) {
     const coupon = validateCoupon(input.couponCode, totals.subtotal);
     if (coupon) {
+      const updatedCoupon = {
+        ...coupon,
+        usedCount: coupon.usedCount + 1,
+        updatedAt: nowISO(),
+      };
+      redeemedCoupon = updatedCoupon;
       newState = {
         ...newState,
         coupons: newState.coupons.map((c) =>
-          c.id === coupon.id
-            ? { ...c, usedCount: c.usedCount + 1, updatedAt: nowISO() }
-            : c,
+          c.id === coupon.id ? updatedCoupon : c,
         ),
       };
     }
@@ -1073,7 +1127,11 @@ export function createOrder(input: CreateOrderInput): Order {
   queueStoreSync("create_order", {
     order,
     event: newState.events.find((event) => event.orderId === order.id) ?? null,
+    statusHistory: createdStatusHistory,
   });
+  if (redeemedCoupon) {
+    queueStoreSync("update_coupon", { coupon: redeemedCoupon });
+  }
 
   // Generate upcoming prep reminders immediately for scheduled work
   if (order.deliveryDate) {
@@ -1098,6 +1156,11 @@ export function updateEventBooking(input: {
   deliveryDate?: string | null;
   deliveryTime?: string | null;
   deliveryAddress?: string | null;
+  deliveryFee?: number;
+  deliveryZone?: string | null;
+  deliveryRecipientName?: string | null;
+  deliveryPhone?: string | null;
+  deliveryInstructions?: string | null;
   notes?: string | null;
 }): { order: Order; event: Event } | null {
   const state = getState();
@@ -1109,6 +1172,13 @@ export function updateEventBooking(input: {
   );
   if (!order || !event) return null;
 
+  const nextDeliveryFee =
+    input.deliveryFee !== undefined
+      ? roundMoney(Math.max(0, input.deliveryFee))
+      : order.deliveryFee;
+  const nextTotal = roundMoney(
+    order.total - order.deliveryFee + nextDeliveryFee,
+  );
   const updatedOrder: Order = {
     ...order,
     deliveryDate:
@@ -1123,6 +1193,30 @@ export function updateEventBooking(input: {
       input.deliveryAddress !== undefined
         ? input.deliveryAddress
         : order.deliveryAddress,
+    deliveryFee: nextDeliveryFee,
+    deliveryZone:
+      input.deliveryZone !== undefined
+        ? input.deliveryZone
+        : order.deliveryZone,
+    deliveryRecipientName:
+      input.deliveryRecipientName !== undefined
+        ? input.deliveryRecipientName
+        : order.deliveryRecipientName,
+    deliveryPhone:
+      input.deliveryPhone !== undefined
+        ? input.deliveryPhone
+        : order.deliveryPhone,
+    deliveryInstructions:
+      input.deliveryInstructions !== undefined
+        ? input.deliveryInstructions
+        : order.deliveryInstructions,
+    total: nextTotal,
+    paymentStatus:
+      order.paidAmount <= 0
+        ? "unpaid"
+        : order.paidAmount >= nextTotal
+          ? "paid"
+          : "partial",
     notes: input.notes !== undefined ? input.notes : order.notes,
     updatedAt: nowISO(),
   };
@@ -1216,6 +1310,9 @@ export function updateOrderStatus(
     ],
   };
 
+  const statusHistoryEntry =
+    newState.orderStatusHistory[newState.orderStatusHistory.length - 1];
+
   if (newStatus === "completed") {
     newState = completeOrder(newState, orderId, changedBy);
   }
@@ -1239,6 +1336,7 @@ export function updateOrderStatus(
       status: updatedOrder.status,
       updatedAt: updatedOrder.updatedAt,
       changedBy: changedBy ?? null,
+      statusHistory: statusHistoryEntry,
     });
   }
   return updatedOrder;
@@ -1289,6 +1387,13 @@ function completeOrder(
           : c,
       ),
     };
+  }
+
+  const updatedCustomer = order.customerId
+    ? newState.customers.find((customer) => customer.id === order.customerId)
+    : null;
+  if (updatedCustomer) {
+    queueStoreSync("update_customer", { customer: updatedCustomer });
   }
 
   return newState;
@@ -1478,14 +1583,27 @@ export function processPayment(input: ProcessPaymentInput): Payment {
     };
   }
 
-  if (paymentStatus === "paid") {
-    const invoice: Invoice = {
+  if (
+    paymentStatus === "paid" &&
+    !state.invoices.some((invoice) => invoice.orderId === input.orderId)
+  ) {
+    const invoiceDraft: Invoice = {
       id: generateId(),
       orderId: input.orderId,
       invoiceNumber: nextInvoiceNumber(state),
       qrPayload: null,
       printedAt: null,
       createdAt: nowISO(),
+    };
+    const paidOrder =
+      newState.orders.find((item) => item.id === input.orderId) ?? order;
+    const invoice: Invoice = {
+      ...invoiceDraft,
+      qrPayload: buildInvoiceQrPayload({
+        invoice: invoiceDraft,
+        order: paidOrder,
+        settings: state.settings,
+      }),
     };
     newState = {
       ...newState,
@@ -1498,6 +1616,15 @@ export function processPayment(input: ProcessPaymentInput): Payment {
   }
 
   if (paymentStatus === "paid" && order.type === "pos") {
+    const completionHistory = {
+      id: generateId(),
+      orderId: order.id,
+      fromStatus: order.status as OrderStatus | null,
+      toStatus: "completed" as const,
+      changedBy: input.userId ?? null,
+      changedAt: nowISO(),
+      notes: "إتمام بيع نقطة الدفع",
+    };
     newState = {
       ...newState,
       orders: newState.orders.map((o) =>
@@ -1507,18 +1634,53 @@ export function processPayment(input: ProcessPaymentInput): Payment {
       ),
       orderStatusHistory: [
         ...newState.orderStatusHistory,
-        {
-          id: generateId(),
-          orderId: order.id,
-          fromStatus: order.status,
-          toStatus: "completed",
-          changedBy: input.userId ?? null,
-          changedAt: nowISO(),
-          notes: "إتمام بيع نقطة الدفع",
-        },
+        completionHistory,
       ],
     };
     newState = completeOrder(newState, order.id, input.userId);
+
+    newState = appendAudit(newState, {
+      userId: input.userId ?? null,
+      action: "payment.process",
+      entityType: "payment",
+      entityId: payment.id,
+      oldValues: { paidAmount: order.paidAmount },
+      newValues: { paidAmount, method: input.method },
+    });
+
+    const methodLabels: Record<string, string> = {
+      cash: "نقدي",
+      card: "بطاقة",
+      transfer: "تحويل",
+      mixed: "مختلط",
+      credit: "آجل",
+    };
+    newState = pushNotificationToState(newState, {
+      userId: input.userId ?? "system",
+      type: "order",
+      title: "تم تحصيل دفعة",
+      body: `${order.orderNumber} — ${formatMoneyLabel(input.amount, newState.settings)} (${methodLabels[input.method] ?? input.method})`,
+      link: `/orders`,
+      channels: ["in_app"],
+    });
+
+    const paidOrder =
+      newState.orders.find((o) => o.id === order.id) ?? order;
+    setState(newState);
+    queueStoreSync("process_payment", {
+      payment,
+      branchId: order.branchId,
+      createdBy: input.userId ?? null,
+      orderPatch: {
+        id: paidOrder.id,
+        paidAmount: paidOrder.paidAmount,
+        paymentStatus: paidOrder.paymentStatus,
+        status: paidOrder.status,
+        updatedAt: paidOrder.updatedAt,
+      },
+      statusHistory: completionHistory,
+    });
+    return payment;
   }
 
   newState = appendAudit(newState, {
@@ -1546,24 +1708,20 @@ export function processPayment(input: ProcessPaymentInput): Payment {
     channels: ["in_app"],
   });
 
+  const paidOrder =
+    newState.orders.find((o) => o.id === input.orderId) ?? order;
   setState(newState);
   queueStoreSync("process_payment", {
     payment,
     branchId: order.branchId,
     createdBy: input.userId ?? null,
+    orderPatch: {
+      id: paidOrder.id,
+      paidAmount: paidOrder.paidAmount,
+      paymentStatus: paidOrder.paymentStatus,
+      updatedAt: paidOrder.updatedAt,
+    },
   });
-  if (paymentStatus === "paid" && order.type === "pos") {
-    const completed = newState.orders.find((o) => o.id === order.id);
-    if (completed) {
-      queueStoreSync("update_status", {
-        orderId: completed.id,
-        branchId: completed.branchId,
-        status: completed.status,
-        updatedAt: completed.updatedAt,
-        changedBy: input.userId ?? null,
-      });
-    }
-  }
   return payment;
 }
 
@@ -1821,6 +1979,69 @@ export function closeShift(
   return updated;
 }
 
+/**
+ * Mid-shift cash count / handover without closing the shift.
+ * Resets the expected cash baseline to the counted amount for the next cashier.
+ */
+export function recordShiftHandover(input: {
+  shiftId: string;
+  countedCash: number;
+  notes?: string | null;
+  userId?: string | null;
+}): Shift | null {
+  if (!Number.isFinite(input.countedCash) || input.countedCash < 0) {
+    throw new Error("مبلغ العد غير صالح");
+  }
+
+  let updated: Shift | null = null;
+  update((s) => {
+    const shift = s.shifts.find((sh) => sh.id === input.shiftId);
+    if (!shift || shift.status !== "open") {
+      throw new Error("لا توجد وردية مفتوحة لهذا التسليم");
+    }
+    const variance = roundMoney(input.countedCash - shift.expectedCash);
+    updated = {
+      ...shift,
+      openingFloat: input.countedCash,
+      expectedCash: input.countedCash,
+      updatedAt: nowISO(),
+    };
+    let next: AppState = {
+      ...s,
+      shifts: s.shifts.map((sh) => (sh.id === input.shiftId ? updated! : sh)),
+    };
+    next = appendAudit(next, {
+      userId: input.userId ?? null,
+      action: "shift.handover",
+      entityType: "shift",
+      entityId: input.shiftId,
+      oldValues: {
+        expectedCash: shift.expectedCash,
+        openingFloat: shift.openingFloat,
+      },
+      newValues: {
+        countedCash: input.countedCash,
+        variance,
+        notes: input.notes ?? null,
+      },
+    });
+    next = pushNotificationToState(next, {
+      userId: input.userId ?? "system",
+      type: "system",
+      title: "تسليم وردية جزئي",
+      body: `عُدّ الدرج ${formatMoneyLabel(input.countedCash, next.settings)} · الفرق السابق ${formatMoneyLabel(variance, next.settings)}`,
+      link: "/shifts",
+      channels: ["in_app"],
+    });
+    return next;
+  });
+
+  if (updated) {
+    queueStoreSync("open_shift", { shift: updated });
+  }
+  return updated;
+}
+
 // ─── Discounts & Coupons ─────────────────────────────────────────────────────
 
 export function getDiscounts(): Discount[] {
@@ -1904,6 +2125,7 @@ export function redeemLoyaltyDiscount(
     ),
     loyaltyPointsLog: [...s.loyaltyPointsLog, result.log],
   }));
+  queueStoreSync("update_customer", { customer: result.customer });
 
   return { discountAmount, customer: result.customer };
 }
@@ -2213,6 +2435,39 @@ export function printInvoice(invoiceId: string): Invoice | null {
   return updated;
 }
 
+export function ensureInvoiceForOrder(orderId: string): Invoice {
+  const state = getState();
+  const existing = state.invoices.find((item) => item.orderId === orderId);
+  if (existing) return existing;
+  const order = state.orders.find(
+    (item) => item.id === orderId && !item.deletedAt,
+  );
+  if (!order) throw new Error("الطلب غير موجود");
+
+  const draft: Invoice = {
+    id: generateId(),
+    orderId,
+    invoiceNumber: nextInvoiceNumber(state),
+    qrPayload: null,
+    printedAt: null,
+    createdAt: nowISO(),
+  };
+  const invoice: Invoice = {
+    ...draft,
+    qrPayload: buildInvoiceQrPayload({
+      invoice: draft,
+      order,
+      settings: state.settings,
+    }),
+  };
+  setState({ ...state, invoices: [...state.invoices, invoice] });
+  queueStoreSync("create_invoice", {
+    invoice,
+    branchId: state.settings.branchId,
+  });
+  return invoice;
+}
+
 // ─── Users ───────────────────────────────────────────────────────────────────
 
 export function getUsers(): UserProfile[] {
@@ -2339,6 +2594,56 @@ export function refreshSystemReminders(): void {
       existingKeys.add(key);
     }
 
+    // Daily digest of all low-stock items for managers
+    const lowStock = state.products.filter(
+      (p) =>
+        !p.deletedAt &&
+        p.isActive &&
+        p.trackStock !== false &&
+        p.stockQuantity <= p.minStock,
+    );
+    const lowDigestKey = `low-stock-digest:${today}`;
+    if (lowStock.length > 0 && !existingKeys.has(lowDigestKey)) {
+      const names = lowStock
+        .slice(0, 5)
+        .map((p) => p.nameAr)
+        .join("، ");
+      next = pushNotificationToState(next, {
+        userId: "system",
+        type: "stock",
+        title: `ملخص مخزون منخفض — ${lowStock.length} أصناف`,
+        body: `${names}${lowStock.length > 5 ? ` +${lowStock.length - 5}` : ""} · راجع المشتريات`,
+        link: "/inventory",
+        channels: ["in_app", "push"],
+        dedupKey: lowDigestKey,
+      });
+      existingKeys.add(lowDigestKey);
+    }
+
+    // FEFO expiry alerts (7 / 14 days)
+    for (const days of [7, 14] as const) {
+      const expiring = getExpiringBatches(state.batches, days);
+      for (const batch of expiring) {
+        const product = state.products.find((p) => p.id === batch.productId);
+        const key = `expiry:${batch.id}:${days}`;
+        if (existingKeys.has(key)) continue;
+        next = pushNotificationToState(next, {
+          userId: "system",
+          type: "stock",
+          title:
+            days <= 7
+              ? "صلاحية قريبة — خلال أسبوع"
+              : "تنبيه صلاحية — خلال أسبوعين",
+            body: `${product?.nameAr ?? "صنف"} · دفعة ${batch.batchNumber} · ينتهي ${batch.expiryDate} · كمية ${batch.quantity}`,
+          link: "/inventory",
+          channels: ["in_app", "push"],
+          dedupKey: key,
+        });
+        existingKeys.add(key);
+      }
+    }
+
+    const upcomingPrep: Array<{ order: Order; target: number }> = [];
     for (const order of state.orders) {
       if (order.deletedAt || !order.deliveryDate) continue;
       if (order.status === "cancelled" || order.status === "completed") continue;
@@ -2352,6 +2657,9 @@ export function refreshSystemReminders(): void {
       const timePart = order.deliveryTime ?? "12:00";
       const target = new Date(`${order.deliveryDate}T${timePart}`).getTime();
       if (Number.isNaN(target)) continue;
+      if (target >= now && target <= now + 7 * 24 * 60 * 60 * 1000) {
+        upcomingPrep.push({ order, target });
+      }
 
       // Grace window: keep reminder visible until 2h after target
       const graceUntil = target + 2 * 60 * 60 * 1000;
@@ -2361,7 +2669,11 @@ export function refreshSystemReminders(): void {
         if (now < reminderAt || now > graceUntil) continue;
         const key = `reminder:${order.id}:${offset.key}`;
         if (existingKeys.has(key)) continue;
-        const body = `${order.orderNumber} · ${customerName} · ${offset.label} · ${itemCount} صنف${balance > 0 ? ` · متبقي ${balance}` : ""}`;
+        const itemSummary = order.items
+          .slice(0, 3)
+          .map((item) => `${item.productNameAr} ×${item.quantity}`)
+          .join("، ");
+        const body = `${order.orderNumber} · ${customerName} · ${offset.label} · ${itemCount} قطعة · ${itemSummary}${order.items.length > 3 ? ` +${order.items.length - 3} أصناف` : ""}${balance > 0 ? ` · متبقي ${balance.toFixed(2)}\u00A0${state.settings.currencySymbol}` : " · مدفوع"}`;
         next = pushNotificationToState(next, {
           userId: "system",
           type: "event",
@@ -2371,7 +2683,7 @@ export function refreshSystemReminders(): void {
               : "تذكير تجهيز طلب",
           body,
           link: `/orders?highlight=${order.id}`,
-          channels: ["in_app"],
+          channels: ["in_app", "push"],
           dedupKey: key,
         });
         existingKeys.add(key);
@@ -2386,10 +2698,25 @@ export function refreshSystemReminders(): void {
         title: "تسليم اليوم",
         body: `${order.orderNumber} · ${customerName} · اليوم${order.deliveryTime ? ` ${order.deliveryTime}` : ""}${order.deliveryAddress ? ` · ${order.deliveryAddress}` : ""}`,
         link: `/orders?highlight=${order.id}`,
-        channels: ["in_app"],
+        channels: ["in_app", "push"],
         dedupKey: todayKey,
       });
       existingKeys.add(todayKey);
+    }
+
+    upcomingPrep.sort((a, b) => a.target - b.target);
+    const summaryKey = `prep-summary:${today}`;
+    if (upcomingPrep.length > 0 && !existingKeys.has(summaryKey)) {
+      const nextOrder = upcomingPrep[0]!.order;
+      next = pushNotificationToState(next, {
+        userId: "system",
+        type: "event",
+        title: `خطة التجهيز — ${upcomingPrep.length} طلبات قريبة`,
+        body: `أقرب طلب ${nextOrder.orderNumber} في ${nextOrder.deliveryDate}${nextOrder.deliveryTime ? ` الساعة ${nextOrder.deliveryTime}` : ""} · راجع المخزون والتغليف والتوصيل`,
+        link: "/calendar",
+        channels: ["in_app", "push"],
+        dedupKey: summaryKey,
+      });
     }
 
     return next === state ? state : next;

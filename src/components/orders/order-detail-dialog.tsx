@@ -1,8 +1,19 @@
 "use client";
 
-import { CalendarClock, MapPin, UserRound, Wallet } from "lucide-react";
+import { useState } from "react";
+import {
+  CalendarClock,
+  MapPin,
+  ReceiptText,
+  Truck,
+  UserRound,
+  Wallet,
+} from "lucide-react";
 import { toast } from "sonner";
 
+import { DeliveryReceiptDialog } from "@/components/documents/delivery-receipt-dialog";
+import { InvoicePrintDialog } from "@/components/invoices/invoice-print-dialog";
+import { WhatsAppOrderShareButton } from "@/components/orders/whatsapp-order-share-button";
 import { ChocolateBarProgress } from "@/components/signature/chocolate-bar-progress";
 import type { OrderPipelineStage } from "@/components/signature/chocolate-bar-progress";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
@@ -22,11 +33,18 @@ import {
   getNextOrderStatus,
   getOrderStatusConfig,
 } from "@/lib/constants/order-status";
-import { getState, processPayment, updateOrderStatus, getOpenShift, getSettings } from "@/lib/data/store";
+import {
+  ensureInvoiceForOrder,
+  getOpenShift,
+  getSettings,
+  getState,
+  processPayment,
+  updateOrderStatus,
+} from "@/lib/data/store";
 import { getAuthSession } from "@/lib/auth";
 import { formatMoneyLabel } from "@/lib/formatters";
 import { cn, formatDate, formatNumber } from "@/lib/utils";
-import type { Order, OrderStatus } from "@/types";
+import type { Invoice, Order, OrderStatus } from "@/types";
 
 const ORDER_TYPE_LABELS: Record<Order["type"], string> = {
   pos: "بيع فوري",
@@ -65,6 +83,9 @@ export function OrderDetailDialog({
   onOpenChange,
   onUpdated,
 }: OrderDetailDialogProps) {
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [invoiceTarget, setInvoiceTarget] = useState<Invoice | null>(null);
+  const [deliveryOpen, setDeliveryOpen] = useState(false);
   if (!order) return null;
 
   const state = getState();
@@ -111,8 +132,19 @@ export function OrderDetailDialog({
     }
   };
 
+  const openInvoice = () => {
+    try {
+      setInvoiceTarget(ensureInvoiceForOrder(order.id));
+      onOpenChange(false);
+      setInvoiceOpen(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذر فتح الفاتورة");
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[min(94dvh,100svh)] flex-col overflow-hidden p-0 sm:max-w-2xl">
         <DialogHeader className="border-b border-cacao-800/8">
           <DialogTitle className="flex flex-wrap items-center gap-2">
@@ -163,6 +195,55 @@ export function OrderDetailDialog({
                 ) : null}
               </div>
             </div>
+
+            {order.deliveryAddress ? (
+              <section className="space-y-3 rounded-xl border border-pistachio-400/20 bg-pistachio-400/[0.04] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold">
+                    <MapPin className="size-4 text-pistachio-400" />
+                    بطاقة التوصيل
+                  </h3>
+                  {order.deliveryFee > 0 ? (
+                    <Badge variant="outline">
+                      توصيل <CurrencyDisplay amount={order.deliveryFee} />
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary">توصيل مجاني</Badge>
+                  )}
+                </div>
+                <div className="grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs text-muted-foreground">المستلم</p>
+                    <p className="mt-1 font-medium">
+                      {order.deliveryRecipientName ?? customer?.name ?? "—"}
+                    </p>
+                    {(order.deliveryPhone ?? customer?.phone) ? (
+                      <p
+                        dir="ltr"
+                        className="mt-0.5 text-end text-xs text-muted-foreground"
+                      >
+                        {order.deliveryPhone ?? customer?.phone}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">المنطقة والعنوان</p>
+                    <p className="mt-1">
+                      {order.deliveryZone ? `${order.deliveryZone} · ` : ""}
+                      {order.deliveryAddress}
+                    </p>
+                  </div>
+                </div>
+                {order.deliveryInstructions ? (
+                  <div>
+                    <p className="text-xs text-muted-foreground">
+                      تعليمات التسليم
+                    </p>
+                    <p className="mt-1 text-sm">{order.deliveryInstructions}</p>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
 
             {event ? (
               <div className="space-y-3 rounded-xl border border-gold-400/15 bg-gold-400/[0.05] p-4">
@@ -317,6 +398,12 @@ export function OrderDetailDialog({
                   <span className="text-muted-foreground">الضريبة</span>
                   <CurrencyDisplay amount={order.taxAmount} />
                 </div>
+                {order.deliveryFee > 0 ? (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">التوصيل</span>
+                    <CurrencyDisplay amount={order.deliveryFee} />
+                  </div>
+                ) : null}
                 <Separator />
                 <div className="flex justify-between text-base font-semibold">
                   <span>الإجمالي</span>
@@ -389,6 +476,32 @@ export function OrderDetailDialog({
               تحصيل المتبقي
             </Button>
           ) : null}
+          <Button
+            variant="outline"
+            className="min-h-11 w-full sm:w-auto"
+            onClick={openInvoice}
+          >
+            <ReceiptText className="size-4" />
+            فاتورة / PDF / طباعة
+          </Button>
+          <WhatsAppOrderShareButton
+            order={order}
+            variant="outline"
+            className="min-h-11 w-full border-pistachio-400/40 text-pistachio-400 hover:bg-pistachio-400/10 sm:w-auto"
+            label="واتساب + PDF"
+          />
+          {order.deliveryDate ||
+          order.deliveryAddress ||
+          order.type === "delivery" ? (
+            <Button
+              variant="outline"
+              className="min-h-11 w-full sm:w-auto"
+              onClick={() => setDeliveryOpen(true)}
+            >
+              <Truck className="size-4" />
+              واصل استلام
+            </Button>
+          ) : null}
           {nextStatus ? (
             <Button className="min-h-11 w-full sm:w-auto" onClick={advanceOrder}>
               نقل إلى {nextConfig?.labelAr ?? nextStatus}
@@ -396,6 +509,23 @@ export function OrderDetailDialog({
           ) : null}
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+      {invoiceTarget ? (
+        <InvoicePrintDialog
+          open={invoiceOpen}
+          onOpenChange={(nextOpen) => {
+            setInvoiceOpen(nextOpen);
+            if (!nextOpen) setInvoiceTarget(null);
+          }}
+          invoice={invoiceTarget}
+          order={order}
+        />
+      ) : null}
+      <DeliveryReceiptDialog
+        open={deliveryOpen}
+        onOpenChange={setDeliveryOpen}
+        order={order}
+      />
+    </>
   );
 }

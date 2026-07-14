@@ -164,6 +164,15 @@ export function mapOrderRow(
     deliveryAddress: row.delivery_address
       ? String(row.delivery_address)
       : null,
+    deliveryFee: num(row.delivery_fee),
+    deliveryZone: row.delivery_zone ? String(row.delivery_zone) : null,
+    deliveryRecipientName: row.delivery_recipient_name
+      ? String(row.delivery_recipient_name)
+      : null,
+    deliveryPhone: row.delivery_phone ? String(row.delivery_phone) : null,
+    deliveryInstructions: row.delivery_instructions
+      ? String(row.delivery_instructions)
+      : null,
     notes: row.notes ? String(row.notes) : null,
     assignedTo: row.assigned_to ? String(row.assigned_to) : null,
     shiftId: row.shift_id ? String(row.shift_id) : null,
@@ -444,6 +453,22 @@ export function mapAuditLogRow(
     oldValues: (row.old_values as Record<string, unknown> | null) ?? null,
     newValues: (row.new_values as Record<string, unknown> | null) ?? null,
     createdAt: String(row.created_at),
+  };
+}
+
+export function mapOrderStatusHistoryRow(
+  row: Record<string, unknown>,
+): import("@/types").OrderStatusHistoryEntry {
+  return {
+    id: String(row.id),
+    orderId: String(row.order_id),
+    fromStatus: row.from_status
+      ? (String(row.from_status) as import("@/types").OrderStatus)
+      : null,
+    toStatus: String(row.to_status) as import("@/types").OrderStatus,
+    changedBy: row.changed_by ? String(row.changed_by) : null,
+    changedAt: String(row.changed_at),
+    notes: row.notes ? String(row.notes) : null,
   };
 }
 

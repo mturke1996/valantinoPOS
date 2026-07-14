@@ -54,7 +54,7 @@ const GROUP_ICONS: Record<SearchResult["group"], typeof Search> = {
 export function CommandPalette({
   open: controlledOpen,
   onOpenChange,
-  userRole = "admin",
+  userRole,
 }: CommandPaletteProps) {
   const router = useRouter();
   const [internalOpen, setInternalOpen] = useState(false);

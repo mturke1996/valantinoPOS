@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
   Bell,
   CalendarDays,
+  ChefHat,
   ClipboardList,
   Clock,
   FileBarChart,
@@ -19,6 +21,7 @@ import {
   Settings,
   ShoppingBag,
   ShoppingCart,
+  Store,
   Tag,
   Truck,
   Undo2,
@@ -48,6 +51,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   ShoppingCart,
   Clock,
   Package,
+  ChefHat,
   PartyPopper,
   CalendarDays,
   Users,
@@ -65,6 +69,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   UserCog,
   ScrollText,
   Settings,
+  Store,
 };
 
 function NavIcon({ name }: { name: string }) {
@@ -113,7 +118,7 @@ function NavLink({
 }
 
 export function Sidebar({
-  userRole = "admin",
+  userRole,
   collapsed: controlledCollapsed,
   onCollapsedChange,
   onClose,
@@ -165,11 +170,15 @@ export function Sidebar({
         {!collapsed ? (
           <>
             <Link href="/dashboard" className="flex items-center gap-2.5">
-              <span className="flex size-8 items-center justify-center rounded-md bg-cacao-800 text-xs font-bold text-cream-50">
-                V
-              </span>
-              <span className="text-base font-semibold tracking-tight text-cacao-800 dark:text-cream-50">
-                Valentino
+              <span className="flex h-10 w-36 items-center justify-center px-1">
+                <Image
+                  src="/images/valentino-logo.png"
+                  alt="Valentino Chocolate"
+                  width={144}
+                  height={48}
+                  priority
+                  className="h-auto w-full object-contain"
+                />
               </span>
             </Link>
             {onClose ? (
@@ -187,9 +196,16 @@ export function Sidebar({
         ) : (
           <Link
             href="/dashboard"
-            className="flex size-8 items-center justify-center rounded-md bg-cacao-800 text-xs font-bold text-cream-50"
+            className="flex size-10 items-center justify-center"
+            title="Valentino"
           >
-            V
+            <Image
+              src="/images/valentino-logo.png"
+              alt="Valentino"
+              width={40}
+              height={40}
+              className="h-9 w-9 object-cover object-[18%_45%]"
+            />
           </Link>
         )}
       </div>

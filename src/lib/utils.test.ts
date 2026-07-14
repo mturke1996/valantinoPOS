@@ -3,11 +3,12 @@ import { LIBYA_LOCALE } from "@/lib/constants/locale";
 import { formatCurrency, formatNumber, roundMoney } from "./utils";
 
 describe("utils", () => {
-  it("formats currency in Libya locale with latin digits", () => {
+  it("formats currency as amount then symbol (rkeaz Arabic pattern)", () => {
     const formatted = formatCurrency(1234.5, LIBYA_LOCALE.currency, LIBYA_LOCALE.locale);
     expect(formatted).toMatch(/1[.,\s]?234/);
+    expect(formatted).toMatch(/د\.ل$/);
     expect(formatted).not.toMatch(/[٠-٩]/);
-    expect(formatted.length).toBeGreaterThan(5);
+    expect(formatted.search(/\d/)).toBeLessThan(formatted.indexOf("د.ل"));
   });
 
   it("formats numbers with latin digits", () => {

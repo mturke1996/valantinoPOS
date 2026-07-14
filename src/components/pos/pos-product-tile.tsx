@@ -3,6 +3,7 @@
 import { memo } from "react";
 import { Scale } from "lucide-react";
 
+import { PosKeyBadge } from "@/components/pos/pos-key-badge";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { ProductImage } from "@/components/shared/product-image";
 import { Badge } from "@/components/ui/badge";
@@ -14,11 +15,13 @@ import type { Product } from "@/types";
 interface PosProductTileProps {
   product: Product;
   onClick: () => void;
+  shortcutNumber?: number;
 }
 
 export const PosProductTile = memo(function PosProductTile({
   product,
   onClick,
+  shortcutNumber,
 }: PosProductTileProps) {
   const tracked = isStockTracked(product);
   const isWeight = product.unitType === "gram" || product.unitType === "kilo";
@@ -66,6 +69,15 @@ export const PosProductTile = memo(function PosProductTile({
             </Badge>
           ) : null}
         </div>
+        {shortcutNumber ? (
+          <PosKeyBadge
+            label={String(shortcutNumber)}
+            title={`اختصار لوحة المفاتيح Alt+${shortcutNumber}`}
+            tone="onDark"
+            size="md"
+            className="absolute bottom-2 start-2"
+          />
+        ) : null}
       </div>
 
       <p className="line-clamp-2 min-h-[2.5rem] px-0.5 text-sm font-medium leading-tight">

@@ -24,6 +24,11 @@ export interface PosSaleContext {
   scheduledDate: string;
   scheduledTime: string;
   deliveryAddress: string;
+  deliveryFee: number;
+  deliveryZone: string;
+  deliveryRecipientName: string;
+  deliveryPhone: string;
+  deliveryInstructions: string;
   eventType: EventType;
   guestCount: number;
   paymentPlan: PosPaymentPlan;
@@ -37,6 +42,11 @@ export const DEFAULT_POS_SALE_CONTEXT: PosSaleContext = {
   scheduledDate: "",
   scheduledTime: "",
   deliveryAddress: "",
+  deliveryFee: 0,
+  deliveryZone: "",
+  deliveryRecipientName: "",
+  deliveryPhone: "",
+  deliveryInstructions: "",
   eventType: "other",
   guestCount: 1,
   paymentPlan: "full",
@@ -97,6 +107,7 @@ interface CartState {
 function computeTotals(
   items: CartItem[],
   discountAmount: number,
+  deliveryFee = 0,
 ): CartTotals {
   const settings = getSettings();
   return calculateOrderTotals({
@@ -106,6 +117,7 @@ function computeTotals(
       discount: item.discount,
     })),
     discountAmount,
+    deliveryFee,
     taxRate: settings.taxRate,
   });
 }
@@ -228,8 +240,15 @@ export const useCartStore = create<CartState>()(
       setSaleContext: (saleContext) => set({ saleContext }),
 
       getTotals: () => {
-        const { items, discountAmount } = get();
-        return computeTotals(items, discountAmount);
+        const { items, discountAmount, saleContext } = get();
+        const delivery =
+          saleContext.mode === "delivery" ||
+          saleContext.fulfillment === "delivery";
+        return computeTotals(
+          items,
+          discountAmount,
+          delivery ? saleContext.deliveryFee ?? 0 : 0,
+        );
       },
 
       holdCart: (label) => {
@@ -274,7 +293,10 @@ export const useCartStore = create<CartState>()(
           discountAmount: held.discountAmount,
           couponCode: held.couponCode,
           customerId: held.customerId ?? null,
-          saleContext: held.saleContext ?? { ...DEFAULT_POS_SALE_CONTEXT },
+          saleContext: {
+            ...DEFAULT_POS_SALE_CONTEXT,
+            ...(held.saleContext ?? {}),
+          },
           heldCarts: heldCarts.filter((h) => h.id !== heldId),
         });
       },
@@ -287,7 +309,7 @@ export const useCartStore = create<CartState>()(
     }),
     {
       name: "valentino-cart",
-      version: 2,
+      version: 3,
       partialize: (state) => ({
         items: state.items,
         discountAmount: state.discountAmount,
@@ -298,14 +320,23 @@ export const useCartStore = create<CartState>()(
       }),
       migrate: (persisted, version) => {
         const state = persisted as Partial<CartState>;
-        if (version < 2) {
+        if (version < 3) {
           return {
             items: state.items ?? [],
             discountAmount: state.discountAmount ?? 0,
             couponCode: state.couponCode ?? null,
             customerId: state.customerId ?? null,
-            saleContext: state.saleContext ?? { ...DEFAULT_POS_SALE_CONTEXT },
-            heldCarts: state.heldCarts ?? [],
+            saleContext: {
+              ...DEFAULT_POS_SALE_CONTEXT,
+              ...(state.saleContext ?? {}),
+            },
+            heldCarts: (state.heldCarts ?? []).map((held) => ({
+              ...held,
+              saleContext: {
+                ...DEFAULT_POS_SALE_CONTEXT,
+                ...(held.saleContext ?? {}),
+              },
+            })),
           };
         }
         return persisted as CartState;

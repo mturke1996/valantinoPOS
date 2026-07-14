@@ -2,157 +2,67 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-} from "@dnd-kit/core";
-import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { Package } from "lucide-react";
+  CalendarClock,
+  ChevronLeft,
+  MapPin,
+  Package,
+  Truck,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { OrderDetailDialog } from "@/components/orders/order-detail-dialog";
-import { ChocolateBarProgress } from "@/components/signature/chocolate-bar-progress";
+import { WhatsAppOrderShareButton } from "@/components/orders/whatsapp-order-share-button";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ORDER_STATUSES, PIPELINE_STATUSES } from "@/lib/constants/order-status";
+import {
+  getNextOrderStatus,
+  getOrderStatusConfig,
+  ORDER_STATUSES,
+} from "@/lib/constants/order-status";
 import { useStoreSubscription } from "@/hooks/use-store-subscription";
-import { getOrders, updateOrderStatus } from "@/lib/data/store";
-import { cn, formatDate } from "@/lib/utils";
+import { getOrders, getState, updateOrderStatus } from "@/lib/data/store";
+import { cn, formatDate, formatNumber } from "@/lib/utils";
 import type { Order, OrderStatus } from "@/types";
-import type { OrderPipelineStage } from "@/components/signature/chocolate-bar-progress";
 
-function toPipelineStage(status: OrderStatus): OrderPipelineStage {
-  if (status === "cancelled") return "received";
-  return status;
-}
+const TYPE_LABEL: Record<string, string> = {
+  pos: "فوري",
+  delivery: "توصيل",
+  event: "مناسبة",
+  reservation: "حجز",
+  online: "أونلاين",
+};
 
-const KANBAN_COLUMNS: OrderStatus[] = [
-  "received",
-  "reviewing",
-  "preparing",
-  "packaging",
-  "ready",
-  "out_for_delivery",
-];
+type StatusFilter = "active" | "all" | OrderStatus;
 
-function OrderCard({
-  order,
-  highlighted = false,
-  onOpen,
-}: {
-  order: Order;
-  highlighted?: boolean;
-  onOpen: (orderId: string) => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({ id: order.id });
-
-  const style = transform
-    ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
-    : undefined;
-
+function customerNameFor(order: Order): string {
+  if (!order.customerId) {
+    return order.deliveryRecipientName ?? "عميل نقدي";
+  }
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...listeners}
-      {...attributes}
-      onClick={() => {
-        if (!isDragging) onOpen(order.id);
-      }}
-      className={cn(
-        "cursor-grab rounded-md border border-cacao-800/10 bg-card p-3 shadow-sm transition-[box-shadow,border-color] active:cursor-grabbing",
-        isDragging && "opacity-50 shadow-lg",
-        highlighted && "border-gold-400/50 ring-2 ring-gold-400/15",
-      )}
-    >
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-sm font-semibold">{order.orderNumber}</span>
-        <StatusBadge status={order.paymentStatus} type="payment" />
-      </div>
-      <ChocolateBarProgress currentStage={toPipelineStage(order.status)} size="sm" />
-      <div className="mt-2 flex items-center justify-between">
-        <CurrencyDisplay amount={order.total} className="text-sm font-medium" />
-        <span className="text-[10px] text-muted-foreground">
-          {formatDate(order.createdAt, "dd/MM")}
-        </span>
-      </div>
-      {order.deliveryDate ? (
-        <p className="mt-1 text-[10px] text-caramel-500">
-          تسليم: {formatDate(order.deliveryDate)}
-        </p>
-      ) : null}
-    </div>
+    getState().customers.find((customer) => customer.id === order.customerId)
+      ?.name ??
+    order.deliveryRecipientName ??
+    "عميل"
   );
 }
 
-function KanbanColumn({
-  status,
-  orders,
-  selectedOrderId,
-  onOpenOrder,
-}: {
-  status: OrderStatus;
-  orders: Order[];
-  selectedOrderId: string | null;
-  onOpenOrder: (orderId: string) => void;
-}) {
-  const config = ORDER_STATUSES.find((s) => s.key === status);
-  const { setNodeRef, isOver } = useDroppable({ id: status });
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        "flex w-64 shrink-0 flex-col rounded-lg border border-cacao-800/8 bg-cream-50/50 dark:bg-cacao-800/10",
-        isOver && "ring-2 ring-gold-400/50",
-      )}
-    >
-      <div className="flex items-center justify-between border-b border-cacao-800/8 px-3 py-2">
-        <span className="text-sm font-medium">{config?.labelAr}</span>
-        <span className="rounded-sm bg-cacao-800/8 px-1.5 py-0.5 text-xs tabular-nums">
-          {orders.length}
-        </span>
-      </div>
-      <div className="flex-1 space-y-2 overflow-y-auto p-2" style={{ minHeight: 200 }}>
-        {orders.length === 0 ? (
-          <p className="py-8 text-center text-xs text-muted-foreground">
-            لا توجد طلبات
-          </p>
-        ) : (
-          orders.map((order) => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              highlighted={order.id === selectedOrderId}
-              onOpen={onOpenOrder}
-            />
-          ))
-        )}
-      </div>
-    </div>
-  );
+function isActiveOrder(order: Order): boolean {
+  return order.status !== "completed" && order.status !== "delivered";
 }
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-  const [view, setView] = useState<"kanban" | "tabs">("tabs");
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-  );
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
+  const [search, setSearch] = useState("");
+  const [advancingId, setAdvancingId] = useState<string | null>(null);
 
   const loadOrders = useCallback(() => {
     setOrders(getOrders().filter((o) => o.status !== "cancelled"));
@@ -166,80 +76,91 @@ export default function OrdersPage() {
       "highlight",
     );
     if (highlighted) setSelectedOrderId(highlighted);
-    if (window.matchMedia("(min-width: 1024px)").matches) {
-      setView("kanban");
-    }
   }, []);
 
-  const ordersByStatus = useMemo(() => {
-    const map = new Map<OrderStatus, Order[]>();
-    for (const status of PIPELINE_STATUSES) {
-      map.set(status.key, []);
+  const stats = useMemo(() => {
+    const active = orders.filter(isActiveOrder);
+    let preparing = 0;
+    let ready = 0;
+    let balance = 0;
+    for (const order of active) {
+      if (
+        order.status === "preparing" ||
+        order.status === "packaging" ||
+        order.status === "reviewing"
+      ) {
+        preparing += 1;
+      }
+      if (order.status === "ready" || order.status === "out_for_delivery") {
+        ready += 1;
+      }
+      balance += Math.max(0, order.total - order.paidAmount);
     }
-    for (const order of orders) {
-      const list = map.get(order.status);
-      if (list) list.push(order);
-    }
-    return map;
+    return {
+      active: active.length,
+      preparing,
+      ready,
+      balance,
+    };
   }, [orders]);
 
-  const activeOrder = activeId
-    ? orders.find((o) => o.id === activeId)
-    : null;
+  const filtered = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase("ar");
+    return orders
+      .filter((order) => {
+        if (statusFilter === "active") return isActiveOrder(order);
+        if (statusFilter === "all") return true;
+        return order.status === statusFilter;
+      })
+      .filter((order) => {
+        if (!query) return true;
+        const customer = customerNameFor(order).toLocaleLowerCase("ar");
+        return (
+          order.orderNumber.toLocaleLowerCase("en").includes(query) ||
+          customer.includes(query) ||
+          (order.deliveryZone ?? "").toLocaleLowerCase("ar").includes(query) ||
+          (TYPE_LABEL[order.type] ?? "").includes(query)
+        );
+      })
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [orders, search, statusFilter]);
+
   const selectedOrder = selectedOrderId
-    ? orders.find((order) => order.id === selectedOrderId) ?? null
+    ? (orders.find((order) => order.id === selectedOrderId) ?? null)
     : null;
 
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(String(event.active.id));
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    setActiveId(null);
-    const { active, over } = event;
-    if (!over) return;
-
-    const orderId = String(active.id);
-    const newStatus = String(over.id) as OrderStatus;
-    const order = orders.find((o) => o.id === orderId);
-    if (!order || order.status === newStatus) return;
-
+  const advanceStatus = (order: Order) => {
+    const next = getNextOrderStatus(order.status);
+    if (!next) return;
+    setAdvancingId(order.id);
     try {
-      updateOrderStatus(orderId, newStatus);
+      updateOrderStatus(order.id, next);
       loadOrders();
-      toast.success("تم تحديث حالة الطلب");
+      toast.success(
+        `تم النقل إلى «${getOrderStatusConfig(next)?.labelAr ?? next}»`,
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "فشل تحديث الحالة");
+    } finally {
+      setAdvancingId(null);
     }
   };
 
   if (loading) {
     return (
-      <div className="space-y-4 py-4">
+      <div className="space-y-3 py-4">
         <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-64" />
-      </div>
-    );
-  }
-
-  if (orders.length === 0) {
-    return (
-      <div className="py-4">
-        <PageHeader title="الطلبات" description="إدارة ومتابعة جميع الطلبات" />
-        <EmptyState
-          icon={Package}
-          title="لا توجد طلبات"
-          description="ستظهر الطلبات الجديدة هنا"
-        />
+        <Skeleton className="h-12 rounded-xl" />
+        <Skeleton className="h-72 rounded-xl" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 py-4">
+    <div className="space-y-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <PageHeader
         title="الطلبات"
-        description="سحب وإفلات لتحديث حالة الطلب"
+        description={`${formatNumber(stats.active)} نشطة · تجهيز ${formatNumber(stats.preparing)} · جاهزة ${formatNumber(stats.ready)}`}
       />
 
       <OrderDetailDialog
@@ -251,92 +172,278 @@ export default function OrdersPage() {
         onUpdated={loadOrders}
       />
 
-      <Tabs value={view} onValueChange={(v) => setView(v as "kanban" | "tabs")}>
-        <TabsList>
-          <TabsTrigger value="kanban">لوحة كانبان</TabsTrigger>
-          <TabsTrigger value="tabs">عرض تبويبي</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="kanban" className="mt-4">
-          <DndContext
-            sensors={sensors}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="flex gap-3 overflow-x-auto pb-4">
-              {KANBAN_COLUMNS.map((status) => (
-                <KanbanColumn
-                  key={status}
-                  status={status}
-                  orders={ordersByStatus.get(status) ?? []}
-                  selectedOrderId={selectedOrderId}
-                  onOpenOrder={setSelectedOrderId}
-                />
-              ))}
+      {orders.length === 0 ? (
+        <EmptyState
+          icon={Package}
+          title="لا توجد طلبات"
+          description="ستظهر الطلبات الجديدة هنا"
+        />
+      ) : (
+        <>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative min-w-0 flex-1">
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="بحث برقم الطلب أو العميل أو المنطقة"
+                className="h-11"
+              />
             </div>
-            <DragOverlay>
-              {activeOrder ? (
-                <div className="w-64 rounded-md border bg-card p-3 shadow-xl">
-                  <span className="font-semibold">{activeOrder.orderNumber}</span>
-                </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
-        </TabsContent>
+            <div className="flex items-center gap-2 rounded-xl border border-cacao-800/10 bg-white px-3 py-2 text-sm sm:shrink-0">
+              <span className="text-muted-foreground">أرصدة</span>
+              <CurrencyDisplay
+                amount={stats.balance}
+                className="font-semibold"
+              />
+            </div>
+          </div>
 
-        <TabsContent value="tabs" className="mt-4">
-          <Tabs defaultValue="received">
-            <TabsList className="flex-wrap h-auto">
-              {PIPELINE_STATUSES.map((s) => (
-                <TabsTrigger key={s.key} value={s.key}>
-                  {s.labelAr} ({ordersByStatus.get(s.key)?.length ?? 0})
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            {PIPELINE_STATUSES.map((s) => (
-              <TabsContent key={s.key} value={s.key}>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {(ordersByStatus.get(s.key) ?? []).map((order) => (
-                    <Card
+          <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {(
+              [
+                { value: "active" as const, label: "نشطة" },
+                { value: "all" as const, label: "الكل" },
+                ...ORDER_STATUSES.filter(
+                  (s) => s.key !== "cancelled" && s.index >= 0,
+                ).map((s) => ({
+                  value: s.key as StatusFilter,
+                  label: s.labelAr,
+                })),
+              ] as const
+            ).map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setStatusFilter(option.value)}
+                className={cn(
+                  "shrink-0 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+                  statusFilter === option.value
+                    ? "bg-cacao-800 text-cream-50"
+                    : "bg-muted/70 text-muted-foreground hover:bg-muted",
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          {filtered.length === 0 ? (
+            <EmptyState
+              icon={Package}
+              title="لا توجد نتائج"
+              description="غيّر البحث أو الحالة"
+            />
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-cacao-800/10 bg-white">
+              {/* Desktop header */}
+              <div className="hidden grid-cols-[1.1fr_1fr_0.7fr_0.9fr_0.85fr_0.9fr_auto] gap-3 border-b border-cacao-800/8 bg-cream-50/80 px-4 py-2.5 text-[11px] font-semibold text-muted-foreground md:grid">
+                <span>الطلب</span>
+                <span>العميل</span>
+                <span>النوع</span>
+                <span>الحالة</span>
+                <span>الموعد</span>
+                <span className="text-end">المبلغ</span>
+                <span className="w-[7.5rem]" />
+              </div>
+
+              <ul className="divide-y divide-cacao-800/8">
+                {filtered.map((order) => {
+                  const balance = Math.max(0, order.total - order.paidAmount);
+                  const next = getNextOrderStatus(order.status);
+                  const customer = customerNameFor(order);
+                  const selected = order.id === selectedOrderId;
+
+                  return (
+                    <li
                       key={order.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setSelectedOrderId(order.id)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          setSelectedOrderId(order.id);
-                        }
-                      }}
                       className={cn(
-                        "cursor-pointer border-cacao-800/8 shadow-none transition-colors hover:border-gold-400/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                        order.id === selectedOrderId &&
-                          "border-gold-400/50 ring-2 ring-gold-400/15",
+                        "transition-colors",
+                        selected && "bg-gold-400/[0.07]",
                       )}
                     >
-                      <CardHeader className="pb-2">
-                        <CardTitle className="flex items-center justify-between text-base">
-                          {order.orderNumber}
+                      {/* Mobile row */}
+                      <div className="space-y-3 p-3.5 md:hidden">
+                        <button
+                          type="button"
+                          className="flex w-full items-start justify-between gap-3 text-start"
+                          onClick={() => setSelectedOrderId(order.id)}
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="font-semibold">
+                                {order.orderNumber}
+                              </span>
+                              <Badge variant="outline" className="h-5 text-[10px]">
+                                {TYPE_LABEL[order.type] ?? order.type}
+                              </Badge>
+                            </div>
+                            <p className="mt-1 truncate text-sm text-muted-foreground">
+                              {customer}
+                            </p>
+                          </div>
+                          <ChevronLeft className="mt-1 size-4 shrink-0 text-muted-foreground" />
+                        </button>
+
+                        <div className="flex flex-wrap items-center gap-2">
                           <StatusBadge status={order.status} type="order" />
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <ChocolateBarProgress currentStage={toPipelineStage(order.status)} />
-                        <div className="flex justify-between text-sm">
-                          <CurrencyDisplay amount={order.total} />
-                          <span className="text-muted-foreground">
-                            {formatDate(order.createdAt)}
-                          </span>
+                          <StatusBadge
+                            status={order.paymentStatus}
+                            type="payment"
+                          />
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </TabsContent>
-            ))}
-          </Tabs>
-        </TabsContent>
-      </Tabs>
+
+                        <div className="flex items-end justify-between gap-3">
+                          <div>
+                            <CurrencyDisplay
+                              amount={order.total}
+                              className="text-sm font-semibold"
+                            />
+                            {balance > 0 ? (
+                              <p className="mt-0.5 text-[11px] text-caramel-500">
+                                متبقي{" "}
+                                <CurrencyDisplay
+                                  amount={balance}
+                                  className="inline text-[11px]"
+                                />
+                              </p>
+                            ) : null}
+                          </div>
+                          <div className="text-end text-[11px] text-muted-foreground">
+                            {order.deliveryDate ? (
+                              <span className="inline-flex items-center gap-1">
+                                <CalendarClock className="size-3" />
+                                {formatDate(order.deliveryDate, "dd/MM")}
+                                {order.deliveryTime
+                                  ? ` · ${order.deliveryTime}`
+                                  : ""}
+                              </span>
+                            ) : (
+                              formatDate(order.createdAt, "dd/MM HH:mm")
+                            )}
+                          </div>
+                        </div>
+
+                        {next ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="w-full"
+                            disabled={advancingId === order.id}
+                            onClick={() => advanceStatus(order)}
+                          >
+                            نقل إلى{" "}
+                            {getOrderStatusConfig(next)?.labelAr ?? next}
+                          </Button>
+                        ) : null}
+                        <WhatsAppOrderShareButton
+                          order={order}
+                          variant="outline"
+                          size="sm"
+                          label="واتساب + PDF"
+                          className="w-full"
+                        />
+                      </div>
+
+                      {/* Desktop row */}
+                      <div className="hidden grid-cols-[1.1fr_1fr_0.7fr_0.9fr_0.85fr_0.9fr_auto] items-center gap-3 px-4 py-3 md:grid">
+                        <button
+                          type="button"
+                          className="min-w-0 text-start"
+                          onClick={() => setSelectedOrderId(order.id)}
+                        >
+                          <p className="truncate font-semibold hover:text-gold-400">
+                            {order.orderNumber}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">
+                            {formatDate(order.createdAt, "dd/MM HH:mm")}
+                          </p>
+                        </button>
+                        <button
+                          type="button"
+                          className="min-w-0 truncate text-start text-sm"
+                          onClick={() => setSelectedOrderId(order.id)}
+                        >
+                          {customer}
+                        </button>
+                        <span>
+                          <Badge variant="outline" className="text-[10px]">
+                            {TYPE_LABEL[order.type] ?? order.type}
+                          </Badge>
+                        </span>
+                        <StatusBadge status={order.status} type="order" />
+                        <div className="text-xs text-muted-foreground">
+                          {order.deliveryDate ? (
+                            <span className="inline-flex items-center gap-1">
+                              {order.type === "delivery" ? (
+                                <Truck className="size-3.5" />
+                              ) : (
+                                <MapPin className="size-3.5" />
+                              )}
+                              {formatDate(order.deliveryDate, "dd/MM")}
+                              {order.deliveryTime
+                                ? ` ${order.deliveryTime}`
+                                : ""}
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </div>
+                        <div className="text-end">
+                          <CurrencyDisplay
+                            amount={order.total}
+                            className="text-sm font-semibold"
+                          />
+                          {balance > 0 ? (
+                            <p className="mt-0.5 text-[11px] text-caramel-500">
+                              متبقي{" "}
+                              <CurrencyDisplay
+                                amount={balance}
+                                className="inline text-[11px]"
+                              />
+                            </p>
+                          ) : (
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">
+                              مدفوع
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex w-[9.5rem] justify-end gap-1.5">
+                          <WhatsAppOrderShareButton
+                            order={order}
+                            variant="outline"
+                            size="sm"
+                            label="واتساب"
+                            className="h-8 px-2 text-[11px]"
+                          />
+                          {next ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-2 text-[11px]"
+                              disabled={advancingId === order.id}
+                              onClick={() => advanceStatus(order)}
+                            >
+                              التالي
+                            </Button>
+                          ) : null}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-2"
+                            onClick={() => setSelectedOrderId(order.id)}
+                          >
+                            عرض
+                          </Button>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

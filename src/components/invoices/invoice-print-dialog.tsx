@@ -1,20 +1,42 @@
 "use client";
 
-import { useRef } from "react";
-import { Printer } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import { useRef, useState } from "react";
+import {
+  Download,
+  FileText,
+  Printer,
+  Receipt,
+  Share2,
+} from "lucide-react";
+import { toast } from "sonner";
 
-import { CurrencyDisplay } from "@/components/shared/currency-display";
+import type { DocPaperSize } from "@/components/documents/brand";
+import { InvoiceA5Template } from "@/components/documents/invoice-a5-template";
+import { InvoiceThermalTemplate } from "@/components/documents/invoice-thermal-template";
+import { createDocumentPdf, downloadBlob } from "@/components/documents/pdf-export";
+import {
+  openPrintWindow,
+  paperPrintStyles,
+  thermalPrintStyles,
+} from "@/components/documents/print-window";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { getSettings } from "@/lib/data/store";
-import { formatDate } from "@/lib/utils";
+import { getState, printInvoice } from "@/lib/data/store";
+import { buildInvoiceQrPayload } from "@/lib/services/invoice.service";
+import {
+  buildOrderWhatsAppMessage,
+  resolveOrderWhatsAppPhone,
+  shareOrderPdfOnWhatsApp,
+} from "@/lib/whatsapp/order-share";
+import { cn } from "@/lib/utils";
 import type { Invoice, Order } from "@/types";
 
 interface InvoicePrintDialogProps {
@@ -30,99 +52,212 @@ export function InvoicePrintDialog({
   invoice,
   order,
 }: InvoicePrintDialogProps) {
-  const printRef = useRef<HTMLDivElement>(null);
-  const settings = getSettings();
+  const pageRef = useRef<HTMLDivElement>(null);
+  const thermalRef = useRef<HTMLDivElement>(null);
+  const [paperSize, setPaperSize] = useState<DocPaperSize>("a5");
+  const [working, setWorking] = useState<"pdf" | "share" | null>(null);
+  const state = getState();
+  const settings = state.settings;
+  const customer = order.customerId
+    ? state.customers.find((item) => item.id === order.customerId) ?? null
+    : null;
+  const event =
+    state.events.find((item) => item.orderId === order.id) ?? null;
+  const payments = state.payments.filter(
+    (payment) => payment.orderId === order.id,
+  );
+  const balance = Math.max(0, order.total - order.paidAmount);
+  const sizeLabel = paperSize.toUpperCase();
+  const fileName = `${invoice.invoiceNumber}-${sizeLabel}.pdf`;
+  const qrPayload =
+    invoice.qrPayload ??
+    buildInvoiceQrPayload({ invoice, order, settings });
 
-  const handlePrint = () => {
-    const content = printRef.current;
+  const getPdf = async () => {
+    const content = pageRef.current;
+    if (!content) throw new Error("تعذر تجهيز الفاتورة");
+    return createDocumentPdf(content, fileName, paperSize);
+  };
+
+  const handleDownloadPdf = async () => {
+    setWorking("pdf");
+    try {
+      const { blob } = await getPdf();
+      downloadBlob(blob, fileName);
+      toast.success(`تم إنشاء PDF بحجم ${sizeLabel}`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "تعذر إنشاء ملف PDF",
+      );
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  const handleShare = async () => {
+    setWorking("share");
+    try {
+      const { file } = await getPdf();
+      const message = buildOrderWhatsAppMessage({
+        order,
+        settings,
+        customer,
+        event,
+        invoice,
+      });
+      const phone = resolveOrderWhatsAppPhone(
+        order,
+        customer,
+        settings.whatsappCountryCode,
+      );
+
+      const result = await shareOrderPdfOnWhatsApp({
+        file,
+        message,
+        phone,
+        fileName,
+        onDownloadFallback: downloadBlob,
+      });
+
+      if (result === "shared") {
+        toast.success("تم إرسال الفاتورة عبر واتساب");
+      } else if (result === "whatsapp_text") {
+        toast.success(
+          "تم تنزيل PDF وفتح واتساب — أرفق الملف من التنزيلات في المحادثة",
+        );
+      } else {
+        toast.message("تم تنزيل PDF", {
+          description: "أضف رقم واتساب للعميل للإرسال المباشر",
+        });
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      toast.error(error instanceof Error ? error.message : "تعذرت المشاركة");
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  const handleThermalPrint = () => {
+    const content = thermalRef.current;
     if (!content) return;
-    const win = window.open("", "_blank", "noopener,noreferrer,width=420,height=640");
-    if (!win) return;
-    win.document.write(`
-      <html dir="rtl" lang="ar">
-        <head>
-          <title>${invoice.invoiceNumber}</title>
-          <style>
-            body { font-family: system-ui, sans-serif; padding: 16px; color: #1a1a1a; }
-            h1 { font-size: 18px; margin: 0 0 8px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-            td, th { padding: 6px 4px; border-bottom: 1px solid #e5e5e5; text-align: right; font-size: 13px; }
-            .meta { font-size: 12px; color: #555; line-height: 1.6; }
-            .total { font-weight: 700; font-size: 15px; }
-          </style>
-        </head>
-        <body>${content.innerHTML}</body>
-      </html>
-    `);
-    win.document.close();
-    win.focus();
-    win.print();
-    win.close();
+    const paperWidth = settings.thermalPaperWidth;
+    const ok = openPrintWindow({
+      title: invoice.invoiceNumber,
+      bodyHtml: content.innerHTML,
+      styles: thermalPrintStyles(paperWidth),
+      width: paperWidth === 58 ? 300 : 420,
+      height: 720,
+      onAfterOpen: () => printInvoice(invoice.id),
+    });
+    if (ok) toast.success(`طباعة حرارية ${paperWidth} مم`);
+  };
+
+  const handlePaperPrint = () => {
+    const content = pageRef.current;
+    if (!content) return;
+    const ok = openPrintWindow({
+      title: `${sizeLabel} · ${invoice.invoiceNumber}`,
+      bodyHtml: content.outerHTML,
+      styles: paperPrintStyles(paperSize),
+      includeAppStyles: true,
+      width: paperSize === "a5" ? 620 : 820,
+      height: paperSize === "a5" ? 880 : 1100,
+      onAfterOpen: () => printInvoice(invoice.id),
+    });
+    if (ok) toast.success(`طباعة فاتورة ${sizeLabel}`);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>فاتورة {invoice.invoiceNumber}</DialogTitle>
+      <DialogContent className="flex max-h-[min(96dvh,100svh)] flex-col overflow-hidden p-0 sm:max-w-4xl">
+        <DialogHeader className="border-b border-cacao-800/8">
+          <DialogTitle className="flex flex-wrap items-center gap-2">
+            <FileText className="size-5 text-gold-400" />
+            فاتورة {invoice.invoiceNumber}
+            <Badge variant={balance > 0 ? "outline" : "secondary"}>
+              {balance > 0 ? "دفعة جزئية" : "مدفوعة"}
+            </Badge>
+          </DialogTitle>
         </DialogHeader>
 
-        <div ref={printRef} className="space-y-4 rounded-lg border p-4">
-          <div className="text-center">
-            <h2 className="text-lg font-semibold">{settings.branchName}</h2>
-            <p className="text-sm text-muted-foreground">{settings.branchAddress}</p>
-            <p className="text-sm text-muted-foreground">{settings.branchPhone}</p>
+        <DialogBody className="bg-muted/25 py-4">
+          <div className="mb-3 flex items-center justify-center gap-1">
+            {(["a5", "a4"] as const).map((size) => (
+              <button
+                key={size}
+                type="button"
+                onClick={() => setPaperSize(size)}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
+                  paperSize === size
+                    ? "bg-cacao-800 text-white"
+                    : "bg-white text-muted-foreground hover:bg-muted",
+                )}
+              >
+                {size.toUpperCase()}
+              </button>
+            ))}
           </div>
-
-          <div className="meta space-y-1">
-            <p>رقم الفاتورة: {invoice.invoiceNumber}</p>
-            <p>رقم الطلب: {order.orderNumber}</p>
-            <p>التاريخ: {formatDate(invoice.createdAt)}</p>
+          <div
+            className={cn(
+              "mx-auto overflow-auto rounded-lg border border-black/5 bg-white shadow-sm",
+              paperSize === "a5" ? "max-w-[148mm]" : "max-w-[210mm]",
+            )}
+          >
+            <InvoiceA5Template
+              ref={pageRef}
+              invoice={invoice}
+              order={order}
+              settings={settings}
+              customer={customer}
+              payments={payments}
+              qrPayload={qrPayload}
+              event={event}
+              paperSize={paperSize}
+            />
           </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th>الصنف</th>
-                <th>الكمية</th>
-                <th>الإجمالي</th>
-              </tr>
-            </thead>
-            <tbody>
-              {order.items.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.productNameAr}</td>
-                  <td>{item.quantity}</td>
-                  <td>
-                    <CurrencyDisplay amount={item.total} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div className="space-y-1 text-sm">
-            <div className="flex justify-between">
-              <span>الضريبة</span>
-              <CurrencyDisplay amount={order.taxAmount} />
-            </div>
-            <div className="flex justify-between total">
-              <span>الإجمالي</span>
-              <CurrencyDisplay amount={order.total} />
-            </div>
+          <div className="hidden">
+            <InvoiceThermalTemplate
+              ref={thermalRef}
+              invoice={invoice}
+              order={order}
+              settings={settings}
+              qrPayload={qrPayload}
+              event={event}
+            />
           </div>
+        </DialogBody>
 
-          {invoice.qrPayload ? (
-            <div className="flex justify-center pt-2">
-              <QRCodeSVG value={invoice.qrPayload} size={120} />
-            </div>
-          ) : null}
-        </div>
-
-        <DialogFooter>
-          <Button onClick={handlePrint}>
-            <Printer className="ms-2 h-4 w-4" />
-            طباعة
+        <DialogFooter className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          <Button
+            variant="outline"
+            onClick={handleThermalPrint}
+            className="gap-2"
+          >
+            <Receipt className="size-4" />
+            حراري {settings.thermalPaperWidth} مم
+          </Button>
+          <Button variant="outline" onClick={handlePaperPrint} className="gap-2">
+            <Printer className="size-4" />
+            طباعة {sizeLabel}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleDownloadPdf}
+            disabled={working !== null}
+            className="gap-2"
+          >
+            <Download className="size-4" />
+            {working === "pdf" ? "جاري الإنشاء..." : `PDF ${sizeLabel}`}
+          </Button>
+          <Button
+            onClick={handleShare}
+            disabled={working !== null}
+            className="gap-2 sm:flex-1"
+          >
+            <Share2 className="size-4" />
+            {working === "share" ? "جاري التجهيز..." : "واتساب + PDF"}
           </Button>
         </DialogFooter>
       </DialogContent>

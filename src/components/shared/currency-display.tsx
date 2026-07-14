@@ -12,6 +12,10 @@ export interface CurrencyDisplayProps {
   showSymbol?: boolean;
 }
 
+/**
+ * مبلغ مالي: «الرقم ثم د.ل» كنص عادي — مطابق rkeaz CurrencyAmount
+ * (بدون dir/ltr حتى لا تنكسر العربية في صفحة RTL).
+ */
 export function CurrencyDisplay({
   amount,
   currency,
@@ -32,10 +36,7 @@ export function CurrencyDisplay({
   );
 
   return (
-    <span
-      className={cn("font-mono tabular-nums tracking-tight", className)}
-      dir="ltr"
-    >
+    <span className={cn("money-ar tabular-nums tracking-tight", className)}>
       {formatted}
     </span>
   );

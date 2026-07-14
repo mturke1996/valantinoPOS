@@ -12,7 +12,7 @@ export function calculateLineTotal(input: LineTotalInput): number {
 }
 
 export function calculateOrderTotals(input: OrderTotalsInput): OrderTotalsResult {
-  const { items, discountAmount = 0, taxRate } = input;
+  const { items, discountAmount = 0, deliveryFee = 0, taxRate } = input;
 
   const subtotal = roundMoney(
     items.reduce((sum, item) => sum + calculateLineTotal(item), 0),
@@ -21,12 +21,14 @@ export function calculateOrderTotals(input: OrderTotalsInput): OrderTotalsResult
   const orderDiscount = roundMoney(Math.min(discountAmount, subtotal));
   const taxableBase = roundMoney(subtotal - orderDiscount);
   const taxAmount = roundMoney(taxableBase * (taxRate / 100));
-  const total = roundMoney(taxableBase + taxAmount);
+  const normalizedDeliveryFee = roundMoney(Math.max(0, deliveryFee));
+  const total = roundMoney(taxableBase + taxAmount + normalizedDeliveryFee);
 
   return {
     subtotal,
     discountAmount: orderDiscount,
     taxAmount,
+    deliveryFee: normalizedDeliveryFee,
     total,
   };
 }

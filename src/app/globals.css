@@ -68,6 +68,38 @@
   .tabular-nums {
     font-variant-numeric: tabular-nums;
   }
+
+  /**
+   * مبلغ مالي — «الرقم ثم د.ل» يتبع اتجاه الصفحة RTL دون عزل LTR
+   * (مطابق rkeaz .money-ar — فرض LTR كان يعكس العربية والعملة)
+   */
+  .money-ar {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /** أرقام/هواتف لاتينية فقط */
+  .num-ltr {
+    direction: ltr;
+    unicode-bidi: isolate;
+    display: inline-block;
+  }
+}
+
+@font-face {
+  font-family: "Tajawal";
+  src: url("/fonts/Tajawal-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Tajawal";
+  src: url("/fonts/Tajawal-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
 }
 
 @layer utilities {
@@ -99,6 +131,18 @@
     @apply rounded-xl border border-cacao-800/10 bg-card p-3 transition-all duration-200;
     @apply hover:-translate-y-0.5 hover:border-gold-400/30 hover:shadow-[0_8px_24px_-12px_hsl(24_33%_18%/0.25)];
     @apply active:translate-y-0 active:scale-[0.98];
+  }
+
+  /* POS action keys — phone-keypad chip language */
+  .pos-key-surface {
+    @apply border border-cacao-800/10 bg-background/90 shadow-[inset_0_-1px_0_rgba(24,16,8,0.08)];
+  }
+
+  .pos-numpad-key {
+    @apply flex h-8 w-full items-center justify-center rounded-md border border-cacao-800/10 bg-background text-foreground;
+    @apply transition-colors duration-150;
+    @apply hover:border-gold-400/30 hover:bg-gold-400/5 active:bg-cacao-800/[0.06];
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
   }
 }
 

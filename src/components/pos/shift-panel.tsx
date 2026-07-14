@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Clock, Lock, Unlock } from "lucide-react";
+import { ArrowLeftRight, Clock, Lock, Unlock } from "lucide-react";
 import { toast } from "sonner";
 
 import { CurrencyDisplay } from "@/components/shared/currency-display";
@@ -21,6 +21,7 @@ import {
   getSettings,
   getState,
   openShift,
+  recordShiftHandover,
 } from "@/lib/data/store";
 import { formatMoneyLabel } from "@/lib/formatters";
 import { formatDateTime } from "@/lib/utils";
@@ -31,17 +32,21 @@ interface ShiftPanelProps {
   onShiftChange?: (shift: Shift | null) => void;
   shift?: Shift | null;
   compact?: boolean;
+  onClosed?: (shift: Shift) => void;
 }
 
 export function ShiftPanel({
   onShiftChange,
   shift: shiftProp,
   compact = false,
+  onClosed,
 }: ShiftPanelProps) {
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"close" | "handover">("close");
   const [shift, setShift] = useState<Shift | null>(shiftProp ?? null);
   const [floatAmount, setFloatAmount] = useState("500");
   const [closingCount, setClosingCount] = useState("");
+  const [handoverNotes, setHandoverNotes] = useState("");
   const onShiftChangeRef = useRef(onShiftChange);
 
   useEffect(() => {
@@ -67,6 +72,7 @@ export function ShiftPanel({
 
   const handleOpen = () => {
     refresh();
+    setMode("close");
     setOpen(true);
   };
 
@@ -107,9 +113,38 @@ export function ShiftPanel({
         `تم إغلاق الوردية — الفرق: ${formatMoneyLabel(closed.variance ?? 0, getSettings())}`,
       );
       setShift(null);
-      onShiftChange?.(closed);
+      onShiftChange?.(null);
+      onClosed?.(closed);
       setOpen(false);
       setClosingCount("");
+    }
+  };
+
+  const handleHandover = () => {
+    if (!shift) return;
+    const count = parseFloat(closingCount);
+    if (isNaN(count)) {
+      toast.error("أدخل مبلغ العد");
+      return;
+    }
+    try {
+      const session = getAuthSession();
+      const updated = recordShiftHandover({
+        shiftId: shift.id,
+        countedCash: count,
+        notes: handoverNotes.trim() || null,
+        userId: session?.userId ?? null,
+      });
+      if (updated) {
+        setShift(updated);
+        onShiftChange?.(updated);
+        toast.success("تم تسجيل تسليم الوردية دون إغلاقها");
+        setClosingCount("");
+        setHandoverNotes("");
+        setOpen(false);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "فشل التسليم");
     }
   };
 
@@ -117,7 +152,7 @@ export function ShiftPanel({
     <>
       <Button
         variant={shift ? "default" : "outline"}
-        size={compact ? "sm" : "sm"}
+        size="sm"
         className="gap-1.5"
         onClick={handleOpen}
       >
@@ -135,13 +170,38 @@ export function ShiftPanel({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {shift ? "إغلاق الوردية" : "فتح وردية جديدة"}
+              {!shift
+                ? "فتح وردية جديدة"
+                : mode === "handover"
+                  ? "تسليم وردية (منتصف اليوم)"
+                  : "إغلاق الوردية"}
             </DialogTitle>
           </DialogHeader>
 
           {shift ? (
             <div className="space-y-4 py-2">
-              <div className="rounded-lg bg-cacao-800/5 p-4 space-y-2 text-sm">
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={mode === "close" ? "default" : "outline"}
+                  className="flex-1"
+                  onClick={() => setMode("close")}
+                >
+                  إغلاق كامل
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={mode === "handover" ? "default" : "outline"}
+                  className="flex-1 gap-1"
+                  onClick={() => setMode("handover")}
+                >
+                  <ArrowLeftRight className="size-3.5" />
+                  تسليم جزئي
+                </Button>
+              </div>
+              <div className="space-y-2 rounded-lg bg-cacao-800/5 p-4 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">رصيد الافتتاح</span>
                   <CurrencyDisplay amount={shift.openingFloat} />
@@ -158,7 +218,9 @@ export function ShiftPanel({
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>مبلغ الجرد الفعلي</Label>
+                <Label>
+                  {mode === "handover" ? "مبلغ العد عند التسليم" : "مبلغ الجرد الفعلي"}
+                </Label>
                 <Input
                   type="number"
                   value={closingCount}
@@ -167,6 +229,16 @@ export function ShiftPanel({
                   dir="ltr"
                 />
               </div>
+              {mode === "handover" ? (
+                <div className="space-y-2">
+                  <Label>ملاحظات التسليم</Label>
+                  <Input
+                    value={handoverNotes}
+                    onChange={(e) => setHandoverNotes(e.target.value)}
+                    placeholder="اسم الكاشير التالي / ملاحظات"
+                  />
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="space-y-4 py-2">
@@ -184,10 +256,17 @@ export function ShiftPanel({
 
           <DialogFooter>
             {shift ? (
-              <Button onClick={handleCloseShift} className="gap-1.5">
-                <Lock className="size-4" />
-                إغلاق الوردية (Z-Report)
-              </Button>
+              mode === "handover" ? (
+                <Button onClick={handleHandover} className="gap-1.5">
+                  <ArrowLeftRight className="size-4" />
+                  تأكيد التسليم
+                </Button>
+              ) : (
+                <Button onClick={handleCloseShift} className="gap-1.5">
+                  <Lock className="size-4" />
+                  إغلاق الوردية (Z-Report)
+                </Button>
+              )
             ) : (
               <Button onClick={handleStartShift} className="gap-1.5">
                 <Unlock className="size-4" />

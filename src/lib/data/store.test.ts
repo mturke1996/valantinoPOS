@@ -4,10 +4,12 @@ import { createSeedState } from "@/lib/data/seed";
 import {
   createOrder,
   createProduct,
+  ensureInvoiceForOrder,
   getState,
   processPayment,
   receiveInventoryBatch,
   setState,
+  updateSettings,
 } from "@/lib/data/store";
 import { getAvailableStock } from "@/lib/services/inventory.service";
 
@@ -108,6 +110,55 @@ describe("POS payment integrity", () => {
         cardAmount: 1,
       }),
     ).toThrow("لا يساوي مبلغ الدفع");
+  });
+
+  it("prices delivery and keeps one invoice when paid later", () => {
+    const state = getState();
+    const product = state.products.find(
+      (item) => item.isActive && item.stockQuantity >= 1,
+    );
+    expect(product).toBeDefined();
+
+    const order = createOrder({
+      branchId: state.settings.branchId,
+      type: "delivery",
+      items: [{ productId: product!.id, quantity: 1 }],
+      deliveryDate: "2026-07-20",
+      deliveryTime: "12:00",
+      deliveryAddress: "طرابلس المركز",
+      deliveryFee: 12,
+    });
+    expect(order.deliveryFee).toBe(12);
+    expect(order.total).toBe(
+      order.subtotal - order.discountAmount + order.taxAmount + 12,
+    );
+
+    ensureInvoiceForOrder(order.id);
+    processPayment({
+      orderId: order.id,
+      method: "cash",
+      amount: order.total,
+      cashAmount: order.total,
+    });
+
+    expect(
+      getState().invoices.filter((invoice) => invoice.orderId === order.id),
+    ).toHaveLength(1);
+  });
+
+  it("blocks walk-in orders when shift sales are disabled", () => {
+    const state = getState();
+    const product = state.products.find((item) => item.isActive);
+    expect(product).toBeDefined();
+    updateSettings({ walkInSalesEnabled: false });
+
+    expect(() =>
+      createOrder({
+        branchId: state.settings.branchId,
+        type: "pos",
+        items: [{ productId: product!.id, quantity: 1 }],
+      }),
+    ).toThrow("البيع الفوري متوقف");
   });
 });
 

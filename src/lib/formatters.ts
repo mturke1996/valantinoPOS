@@ -32,21 +32,30 @@ export function resolveFormatSettings(
   };
 }
 
+/**
+ * مبلغ مالي — «الرقم ثم د.ل» كنص عادي بدون رموز اتجاه (bidi).
+ * مطابق rkeaz-group / formatCurrencyDisplay — يتبع RTL الصفحة فيظهر الرمز يساراً بصرياً.
+ */
 export function formatCurrencyAmount(
   amount: number,
   settings?: Partial<FormatSettings> | null,
   showSymbol = true,
 ): string {
   const resolved = resolveFormatSettings(settings);
+  const sign = amount < 0 ? "-" : "";
+  const absolute = Math.abs(Number.isFinite(amount) ? amount : 0);
   try {
-    return new Intl.NumberFormat(resolved.locale, {
+    const value = new Intl.NumberFormat("en-US", {
       ...CURRENCY_FORMAT_OPTIONS,
-      style: showSymbol ? "currency" : "decimal",
-      currency: resolved.currency,
-    }).format(amount);
+      style: "decimal",
+    }).format(absolute);
+    if (!showSymbol) return `${sign}${value}`;
+    return `${sign}${value}\u00A0${resolved.currencySymbol}`;
   } catch {
-    const value = amount.toFixed(2);
-    return showSymbol ? `${value} ${resolved.currencySymbol}` : value;
+    const value = absolute.toFixed(2);
+    return showSymbol
+      ? `${sign}${value}\u00A0${resolved.currencySymbol}`
+      : `${sign}${value}`;
   }
 }
 
@@ -66,6 +75,5 @@ export function formatMoneyLabel(
   amount: number,
   settings?: Partial<FormatSettings> | null,
 ): string {
-  const resolved = resolveFormatSettings(settings);
-  return `${amount.toFixed(2)} ${resolved.currencySymbol}`;
+  return formatCurrencyAmount(amount, settings, true);
 }

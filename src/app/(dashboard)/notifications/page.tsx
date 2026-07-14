@@ -4,11 +4,13 @@ import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Bell,
+  BellRing,
   CalendarClock,
   CheckCheck,
   Package,
   ShoppingBag,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
@@ -44,6 +46,12 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterKey>("all");
+  const [browserPermission, setBrowserPermission] =
+    useState<NotificationPermission>(() =>
+      typeof window !== "undefined" && "Notification" in window
+        ? Notification.permission
+        : "denied",
+    );
 
   const sync = useCallback(() => {
     setNotifications(getNotifications());
@@ -58,6 +66,20 @@ export default function NotificationsPage() {
 
   const markRead = (id: string) => {
     markNotificationRead(id);
+  };
+
+  const enableDeviceNotifications = async () => {
+    if (!("Notification" in window)) {
+      toast.error("هذا المتصفح لا يدعم إشعارات الجهاز");
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    setBrowserPermission(permission);
+    if (permission === "granted") {
+      toast.success("تم تفعيل تنبيهات المناسبات والتجهيز على الجهاز");
+    } else {
+      toast.error("لم يتم السماح بالإشعارات من المتصفح");
+    }
   };
 
   const unreadCount = notifications.filter((n) => !n.readAt).length;
@@ -89,7 +111,23 @@ export default function NotificationsPage() {
             : "كل الإشعارات مقروءة"
         }
         actions={
-          unreadCount > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {browserPermission !== "granted" ? (
+              <Button
+                variant="outline"
+                className="min-h-11 gap-2"
+                onClick={() => void enableDeviceNotifications()}
+              >
+                <BellRing className="size-4" />
+                تفعيل إشعارات الجهاز
+              </Button>
+            ) : (
+              <Badge variant="secondary" className="min-h-11 gap-2 px-3">
+                <BellRing className="size-4" />
+                إشعارات الجهاز مفعلة
+              </Badge>
+            )}
+            {unreadCount > 0 ? (
             <Button
               variant="outline"
               className="min-h-11 gap-2"
@@ -98,7 +136,8 @@ export default function NotificationsPage() {
               <CheckCheck className="size-4" />
               تعليم الكل
             </Button>
-          ) : undefined
+            ) : null}
+          </div>
         }
       />
 

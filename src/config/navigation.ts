@@ -53,6 +53,27 @@ export const NAV_ITEMS: NavItem[] = [
     searchKeywords: ["orders", "طلبات"],
   },
   {
+    label: "شاشة التحضير",
+    href: "/kitchen",
+    icon: "ChefHat",
+    roles: ["admin", "warehouse", "sales", "cashier"],
+    searchKeywords: ["kitchen", "تحضير", "مطبخ", "تجهيز"],
+  },
+  {
+    label: "الفواتير",
+    href: "/invoices",
+    icon: "Receipt",
+    roles: ["admin", "accountant", "sales"],
+    searchKeywords: ["invoices", "فواتير", "مدفوعات"],
+  },
+  {
+    label: "كتالوج الطلب",
+    href: "/catalog",
+    icon: "Store",
+    roles: ["admin", "sales"],
+    searchKeywords: ["catalog", "كتالوج", "أونلاين", "طلب"],
+  },
+  {
     label: "المناسبات",
     href: "/events",
     icon: "PartyPopper",
@@ -88,13 +109,6 @@ export const NAV_ITEMS: NavItem[] = [
     searchKeywords: ["inventory", "مخزون", "دفعات", "fefo"],
   },
   {
-    label: "الموردون",
-    href: "/suppliers",
-    icon: "Truck",
-    roles: ["admin", "warehouse", "accountant"],
-    searchKeywords: ["suppliers", "موردون"],
-  },
-  {
     label: "المشتريات",
     href: "/purchases",
     icon: "ShoppingBag",
@@ -107,13 +121,6 @@ export const NAV_ITEMS: NavItem[] = [
     icon: "Wallet",
     roles: ["admin", "accountant"],
     searchKeywords: ["expenses", "مصروفات"],
-  },
-  {
-    label: "الفواتير",
-    href: "/invoices",
-    icon: "Receipt",
-    roles: ["admin", "accountant", "sales"],
-    searchKeywords: ["invoices", "فواتير", "مدفوعات"],
   },
   {
     label: "المرتجعات",
@@ -190,6 +197,7 @@ export function canAccessPath(
   pathname: string,
   userRole: UserRole | undefined,
 ): boolean {
+  if (!userRole) return false;
   const normalizedPath = pathname === "/" ? "/dashboard" : pathname;
   const item = NAV_ITEMS.find(
     (candidate) =>

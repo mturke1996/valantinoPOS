@@ -1,4 +1,10 @@
-import { format, isSameDay, parseISO, startOfDay } from "date-fns";
+import {
+  differenceInCalendarDays,
+  format,
+  isSameDay,
+  parseISO,
+  startOfDay,
+} from "date-fns";
 
 import type {
   AppState,
@@ -31,6 +37,13 @@ export interface ServiceRibbonItem {
   status: OrderStatus;
   href: string;
   urgent: boolean;
+}
+
+export interface PreparationQueueItem extends ServiceRibbonItem {
+  deliveryDate: string;
+  daysUntil: number;
+  itemCount: number;
+  itemSummary: string;
 }
 
 export interface PosSalesActivityEntry {
@@ -149,6 +162,86 @@ export function getTodayOperations(state: AppState): ServiceRibbonItem[] {
         status: order.status,
         href: `/orders?highlight=${order.id}`,
         urgent: overdue || balance > 0,
+      };
+    });
+}
+
+export function getUpcomingPreparation(
+  state: AppState,
+  daysAhead = 7,
+): PreparationQueueItem[] {
+  const today = startOfDay(new Date());
+
+  return state.orders
+    .filter((order) => {
+      if (order.deletedAt || !order.deliveryDate) return false;
+      if (
+        order.status === "cancelled" ||
+        order.status === "completed" ||
+        order.status === "delivered"
+      ) {
+        return false;
+      }
+      const daysUntil = differenceInCalendarDays(
+        parseDeliveryDate(order.deliveryDate),
+        today,
+      );
+      return daysUntil >= 0 && daysUntil <= daysAhead;
+    })
+    .sort((a, b) =>
+      `${a.deliveryDate} ${a.deliveryTime ?? "99:99"}`.localeCompare(
+        `${b.deliveryDate} ${b.deliveryTime ?? "99:99"}`,
+      ),
+    )
+    .map((order) => {
+      const daysUntil = differenceInCalendarDays(
+        parseDeliveryDate(order.deliveryDate!),
+        today,
+      );
+      const eventName = eventLabel(order, state);
+      const customer = customerLabel(order, state);
+      const itemCount = order.items.reduce(
+        (sum, item) => sum + item.quantity,
+        0,
+      );
+      const itemSummary = order.items
+        .slice(0, 3)
+        .map((item) => `${item.productNameAr} ×${item.quantity}`)
+        .join("، ");
+      const kind: OperationKind =
+        order.type === "delivery"
+          ? "delivery"
+          : order.type === "reservation"
+            ? "reservation"
+            : eventName
+              ? "event"
+              : "pickup";
+
+      return {
+        id: order.id,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        kind,
+        title: `${daysUntil === 0 ? "اليوم" : daysUntil === 1 ? "غداً" : `بعد ${daysUntil} أيام`} — ${eventName ?? order.orderNumber}`,
+        subtitle: [
+          customer,
+          format(parseDeliveryDate(order.deliveryDate!), "dd/MM"),
+          order.deliveryTime ?? "بدون وقت",
+          itemSummary,
+          order.items.length > 3 ? `+${order.items.length - 3} أصناف` : null,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        time: order.deliveryTime,
+        amount: order.total,
+        paidAmount: order.paidAmount,
+        status: order.status,
+        href: `/orders?highlight=${order.id}`,
+        urgent: daysUntil <= 1 || order.status === "received",
+        deliveryDate: order.deliveryDate!,
+        daysUntil,
+        itemCount,
+        itemSummary,
       };
     });
 }

@@ -44,6 +44,8 @@ import { PosChrome } from "@/components/pos/pos-chrome";
 import { PosCouponDialog } from "@/components/pos/pos-coupon-dialog";
 import { PosCustomerDialog } from "@/components/pos/pos-customer-dialog";
 import { PosDiscountDialog } from "@/components/pos/pos-discount-dialog";
+import { PosKeyBadge } from "@/components/pos/pos-key-badge";
+import { PosNumpad } from "@/components/pos/pos-numpad";
 import { PosOperationsPanel } from "@/components/pos/pos-operations-panel";
 import { PosPaymentDialog } from "@/components/pos/pos-payment-dialog";
 import { PosProductTile } from "@/components/pos/pos-product-tile";
@@ -55,6 +57,7 @@ import {
 } from "@/components/pos/pos-sale-context-dialog";
 import { PosSalesActivityPanel } from "@/components/pos/pos-sales-activity-panel";
 import { PrintReceipt } from "@/components/pos/print-receipt";
+import { WhatsAppOrderShareButton } from "@/components/orders/whatsapp-order-share-button";
 import { useCartStore } from "@/features/pos/stores/cart.store";
 import { useStoreSubscription } from "@/hooks/use-store-subscription";
 import {
@@ -116,6 +119,7 @@ export default function PosPage() {
   const [saleContextOpen, setSaleContextOpen] = useState(false);
   const [salesActivityOpen, setSalesActivityOpen] = useState(false);
   const [returnToSaleContext, setReturnToSaleContext] = useState(false);
+  const [qtyBuffer, setQtyBuffer] = useState("");
   const [todayOperations, setTodayOperations] = useState(() =>
     getTodayOperations(getState()),
   );
@@ -157,9 +161,8 @@ export default function PosPage() {
   const deleteHeldCart = useCartStore((s) => s.deleteHeldCart);
 
   const settings = getSettings();
-  const totals = useMemo(
-    () =>
-      calculateOrderTotals({
+  const totals = useMemo(() => {
+    const input = {
         items: items.map((item) => ({
           quantity: item.quantity,
           unitPrice: item.unitPrice,
@@ -167,9 +170,35 @@ export default function PosPage() {
         })),
         discountAmount,
         taxRate: settings.taxRate,
-      }),
-    [items, discountAmount, settings.taxRate],
-  );
+      };
+    const base = calculateOrderTotals(input);
+    const delivery =
+      saleContext.mode === "delivery" ||
+      saleContext.fulfillment === "delivery";
+    const reachedFreeDelivery =
+      settings.freeDeliveryThreshold !== null &&
+      base.total >= settings.freeDeliveryThreshold;
+    const deliveryFee =
+      delivery && !reachedFreeDelivery
+        ? Math.max(
+            0,
+            saleContext.deliveryFee ?? settings.defaultDeliveryFee,
+          )
+        : 0;
+    return calculateOrderTotals({ ...input, deliveryFee });
+  }, [items, discountAmount, saleContext, settings]);
+
+  useEffect(() => {
+    if (settings.walkInSalesEnabled || saleContext.mode !== "walk_in") return;
+    setSaleContext({
+      ...saleContext,
+      mode: "delivery",
+      fulfillment: "delivery",
+      deliveryFee: settings.defaultDeliveryFee,
+      paymentPlan: "later",
+    });
+    toast.info("البيع الفوري متوقف — تم تحويل نوع الطلب إلى توصيل");
+  }, [saleContext, setSaleContext, settings]);
   const deferredSearch = useDeferredValue(search);
   const selectedCustomer = useMemo(
     () =>
@@ -205,14 +234,35 @@ export default function PosPage() {
     void refreshPosData();
   });
 
-  const handleProductClick = (product: Product) => {
-    if (product.unitType === "gram" || product.unitType === "kilo") {
-      setWeightProduct(product);
-      setWeightGrams("250");
-      return;
-    }
-    addItem(product);
-  };
+  const resolvePendingQuantity = useCallback(() => {
+    if (!qtyBuffer) return 1;
+    const parsed = Number.parseInt(qtyBuffer, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) return 1;
+    return Math.min(parsed, 9999);
+  }, [qtyBuffer]);
+
+  const appendQtyDigit = useCallback((digit: string) => {
+    setQtyBuffer((prev) => {
+      if (prev.length >= 4) return prev;
+      if (prev === "0") return digit;
+      return `${prev}${digit}`;
+    });
+  }, []);
+
+  const handleProductClick = useCallback(
+    (product: Product) => {
+      const quantity = resolvePendingQuantity();
+      if (product.unitType === "gram" || product.unitType === "kilo") {
+        setWeightProduct(product);
+        setWeightGrams(String(Math.max(1, quantity)));
+        setQtyBuffer("");
+        return;
+      }
+      addItem(product, quantity);
+      setQtyBuffer("");
+    },
+    [addItem, resolvePendingQuantity],
+  );
 
   const handleWeightAdd = () => {
     if (!weightProduct) return;
@@ -257,6 +307,9 @@ export default function PosPage() {
 
   const getCheckoutError = useCallback((): string | null => {
     if (items.length === 0) return "السلة فارغة";
+    if (saleContext.mode === "walk_in" && !settings.walkInSalesEnabled) {
+      return "البيع الفوري متوقف من الإعدادات";
+    }
     const requiresShift = saleContext.mode === "walk_in";
     if (requiresShift && !shift) return "افتح الوردية قبل إتمام البيع";
     if (saleContext.mode === "walk_in") return null;
@@ -283,6 +336,7 @@ export default function PosPage() {
     items.length,
     saleContext,
     selectedCustomer,
+    settings.walkInSalesEnabled,
     shift,
     totals.total,
   ]);
@@ -345,6 +399,24 @@ export default function PosPage() {
           : isScheduled
             ? "استلام من المتجر"
             : null,
+        deliveryFee: isDelivery ? totals.deliveryFee : 0,
+        deliveryZone: isDelivery
+          ? saleContext.deliveryZone?.trim() || null
+          : null,
+        deliveryRecipientName: isDelivery
+          ? saleContext.deliveryRecipientName?.trim() ||
+            selectedCustomer?.name ||
+            null
+          : null,
+        deliveryPhone: isDelivery
+          ? saleContext.deliveryPhone?.trim() ||
+            selectedCustomer?.whatsapp ||
+            selectedCustomer?.phone ||
+            null
+          : null,
+        deliveryInstructions: isDelivery
+          ? saleContext.deliveryInstructions?.trim() || null
+          : null,
         notes: saleContext.notes || null,
         shiftId: shift?.id ?? null,
         createdBy: authSession?.userId ?? state.users[0]?.id ?? null,
@@ -440,8 +512,10 @@ export default function PosPage() {
     paymentMethod,
     refreshSessionStats,
     saleContext,
+    selectedCustomer,
     shift,
     totals.discountAmount,
+    totals.deliveryFee,
     transferReference,
   ]);
 
@@ -468,6 +542,29 @@ export default function PosPage() {
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const typing =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable;
+      if (!typing && !e.altKey && !e.ctrlKey && !e.metaKey && /^[0-9]$/.test(e.key)) {
+        e.preventDefault();
+        appendQtyDigit(e.key);
+        return;
+      }
+      if (!typing && (e.key === "Backspace" || e.key === "Delete") && qtyBuffer) {
+        e.preventDefault();
+        setQtyBuffer((prev) => prev.slice(0, -1));
+        return;
+      }
+      if (e.altKey && !typing && /^[1-9]$/.test(e.key)) {
+        const product = filteredProducts[Number(e.key) - 1];
+        if (product) {
+          e.preventDefault();
+          handleProductClick(product);
+          toast.success(`تمت إضافة ${product.nameAr}`);
+        }
+      }
       if (e.key === "F2") {
         e.preventDefault();
         searchRef.current?.focus();
@@ -480,10 +577,18 @@ export default function PosPage() {
         e.preventDefault();
         startCheckout();
       }
+      if (e.key === "F5" && items.length > 0) {
+        e.preventDefault();
+        setDiscountOpen(true);
+      }
       if (e.key === "F6" && items.length > 0) {
         e.preventDefault();
         holdCart();
         toast.info("تم تعليق السلة");
+      }
+      if (e.key === "F10" && items.length > 0) {
+        e.preventDefault();
+        setCouponOpen(true);
       }
       if (e.key === "F7") {
         e.preventDefault();
@@ -498,13 +603,26 @@ export default function PosPage() {
         setSalesActivityOpen(true);
       }
       if (e.key === "Escape") {
+        if (qtyBuffer) {
+          e.preventDefault();
+          setQtyBuffer("");
+          return;
+        }
         setSearch("");
         setPaymentOpen(false);
         setSaleContextOpen(false);
         setSalesActivityOpen(false);
       }
     },
-    [items.length, holdCart, startCheckout],
+    [
+      filteredProducts,
+      handleProductClick,
+      items.length,
+      holdCart,
+      startCheckout,
+      appendQtyDigit,
+      qtyBuffer,
+    ],
   );
 
   useEffect(() => {
@@ -592,10 +710,11 @@ export default function PosPage() {
             />
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {filteredProducts.map((product) => (
+              {filteredProducts.map((product, index) => (
                 <PosProductTile
                   key={product.id}
                   product={product}
+                  shortcutNumber={index < 9 ? index + 1 : undefined}
                   onClick={() => handleProductClick(product)}
                 />
               ))}
@@ -603,15 +722,55 @@ export default function PosPage() {
           )}
         </ScrollArea>
 
-        <div className="flex items-center gap-4 border-t border-cacao-800/8 px-4 py-2 text-xs text-muted-foreground">
-          <span>F2 بحث</span>
-          <span className="hidden sm:inline">F3 عميل</span>
-          <span>F4 دفع</span>
-          <span>F6 تعليق</span>
-          <span className="hidden lg:inline">F7 نوع البيع</span>
-          <span className="hidden lg:inline">F8 جدول اليوم</span>
-          <span className="hidden xl:inline">F9 النشاط</span>
-          <span>Esc إلغاء</span>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-cacao-800/8 bg-card/40 px-4 py-2 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <PosKeyBadge label="0-9" title="كتابة الكمية" />
+            كمية
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <PosKeyBadge label="Alt+1-9" title="اختيار منتج سريع" />
+            منتج
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <PosKeyBadge label="F2" />
+            بحث
+          </span>
+          <span className="hidden items-center gap-1.5 sm:inline-flex">
+            <PosKeyBadge label="F3" />
+            عميل
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <PosKeyBadge label="F4" />
+            بيع
+          </span>
+          <span className="hidden items-center gap-1.5 sm:inline-flex">
+            <PosKeyBadge label="F5" />
+            خصم
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <PosKeyBadge label="F6" />
+            تعليق
+          </span>
+          <span className="hidden items-center gap-1.5 lg:inline-flex">
+            <PosKeyBadge label="F7" />
+            نوع البيع
+          </span>
+          <span className="hidden items-center gap-1.5 lg:inline-flex">
+            <PosKeyBadge label="F8" />
+            جدول اليوم
+          </span>
+          <span className="hidden items-center gap-1.5 xl:inline-flex">
+            <PosKeyBadge label="F9" />
+            النشاط
+          </span>
+          <span className="hidden items-center gap-1.5 md:inline-flex">
+            <PosKeyBadge label="F10" />
+            كوبون
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <PosKeyBadge label="Esc" />
+            مسح
+          </span>
         </div>
       </div>
 
@@ -653,7 +812,10 @@ export default function PosPage() {
               </p>
             </div>
           </div>
-          <span className="text-xs text-muted-foreground">تغيير</span>
+          <span className="flex items-center gap-2 text-xs text-muted-foreground">
+            <PosKeyBadge label="F3" />
+            تغيير
+          </span>
         </button>
 
         <PosSaleContextButton
@@ -667,8 +829,8 @@ export default function PosPage() {
             <EmptyState
               icon={ShoppingCart}
               title="السلة فارغة"
-              description="اختر منتجات لإضافتها"
-              className="py-12"
+              description="اكتب الكمية من اللوحة ثم اختر منتجاً"
+              className="py-8"
             />
           ) : (
             <div className="space-y-2 p-3">
@@ -711,9 +873,21 @@ export default function PosPage() {
                         >
                           <Minus className="size-3" />
                         </Button>
-                        <span className="w-8 text-center text-sm font-medium tabular-nums">
-                          {item.quantity}
-                        </span>
+                        <Input
+                          type="number"
+                          min={0.001}
+                          step={1}
+                          inputMode="decimal"
+                          value={item.quantity}
+                          onChange={(event) => {
+                            const quantity = Number.parseFloat(event.target.value);
+                            if (Number.isFinite(quantity) && quantity > 0) {
+                              updateQuantity(item.id, quantity);
+                            }
+                          }}
+                          aria-label={`كمية ${item.nameAr}`}
+                          className="h-8 w-16 px-1 text-center text-sm font-medium tabular-nums"
+                        />
                         <Button
                           variant="outline"
                           size="icon"
@@ -738,8 +912,15 @@ export default function PosPage() {
           )}
         </ScrollArea>
 
-        <div className="space-y-3 border-t border-cacao-800/8 p-4">
-          <div className="space-y-1.5 text-sm">
+        <div className="space-y-3 border-t border-cacao-800/8 bg-gradient-to-b from-transparent to-cacao-800/[0.03] p-3">
+          <PosNumpad
+            value={qtyBuffer}
+            onDigit={appendQtyDigit}
+            onClear={() => setQtyBuffer("")}
+            onBackspace={() => setQtyBuffer((prev) => prev.slice(0, -1))}
+          />
+
+          <div className="space-y-1.5 px-1 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">المجموع الفرعي</span>
               <CurrencyDisplay amount={totals.subtotal} />
@@ -747,7 +928,7 @@ export default function PosPage() {
             {totals.discountAmount > 0 ? (
               <div className="flex justify-between text-pistachio-400">
                 <span>الخصم</span>
-                <span dir="ltr">-{totals.discountAmount.toFixed(2)}</span>
+                <CurrencyDisplay amount={-totals.discountAmount} />
               </div>
             ) : null}
             <div className="flex justify-between">
@@ -756,6 +937,12 @@ export default function PosPage() {
               </span>
               <CurrencyDisplay amount={totals.taxAmount} />
             </div>
+            {totals.deliveryFee > 0 ? (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">التوصيل</span>
+                <CurrencyDisplay amount={totals.deliveryFee} />
+              </div>
+            ) : null}
             <Separator />
             <div className="flex justify-between text-base font-semibold">
               <span>الإجمالي</span>
@@ -766,39 +953,50 @@ export default function PosPage() {
           <div className="grid grid-cols-3 gap-2">
             <Button
               variant="outline"
+              className="relative h-11 flex-col gap-0.5 py-1.5 text-xs sm:text-sm"
               disabled={items.length === 0}
               onClick={() => {
                 holdCart();
                 toast.info("تم تعليق السلة");
               }}
             >
+              <PosKeyBadge label="F6" className="absolute end-1.5 top-1.5" />
               <Pause className="size-4" />
               تعليق
             </Button>
             <Button
               variant="outline"
+              className="relative h-11 flex-col gap-0.5 py-1.5 text-xs sm:text-sm"
               disabled={items.length === 0}
               onClick={() => setDiscountOpen(true)}
             >
+              <PosKeyBadge label="F5" className="absolute end-1.5 top-1.5" />
               <BadgePercent className="size-4" />
               خصم
             </Button>
             <Button
               variant="outline"
+              className="relative h-11 flex-col gap-0.5 py-1.5 text-xs sm:text-sm"
               disabled={items.length === 0}
               onClick={() => setCouponOpen(true)}
             >
+              <PosKeyBadge label="F10" className="absolute end-1.5 top-1.5" />
               <Ticket className="size-4" />
               كوبون
             </Button>
           </div>
 
           <Button
-            className="w-full gap-2"
+            className="relative h-12 w-full gap-2 overflow-hidden"
             size="lg"
             disabled={items.length === 0}
             onClick={startCheckout}
           >
+            <PosKeyBadge
+              label="F4"
+              tone="onPrimary"
+              className="absolute end-2.5 top-1/2 -translate-y-1/2"
+            />
             <Wallet className="size-4" />
             {collectionAmount > 0 ? (
               <>
@@ -808,30 +1006,44 @@ export default function PosPage() {
             ) : (
               "تسجيل الطلب للدفع لاحقاً"
             )}
-            <span className="text-xs opacity-70">(F4)</span>
           </Button>
         </div>
       </div>
       </div>
 
-      {/* Mobile cart bar */}
-      <div className="flex items-center justify-between gap-3 border-t border-cacao-800/10 bg-card px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
-        <Button
-          variant="outline"
-          className="min-h-11 gap-2"
-          onClick={() => setCartOpen(true)}
-        >
-          <ShoppingCart className="size-4" />
-          السلة ({items.length})
-        </Button>
-        <CurrencyDisplay amount={totals.total} className="font-semibold" />
-        <Button
-          className="min-h-11 min-w-20"
-          disabled={items.length === 0}
-          onClick={startCheckout}
-        >
-          {collectionAmount > 0 ? "دفع" : "تسجيل"}
-        </Button>
+      {/* Mobile qty pad + cart bar */}
+      <div className="border-t border-cacao-800/10 bg-card md:hidden">
+        <div className="px-3 pt-2">
+          <PosNumpad
+            value={qtyBuffer}
+            onDigit={appendQtyDigit}
+            onClear={() => setQtyBuffer("")}
+            onBackspace={() => setQtyBuffer((prev) => prev.slice(0, -1))}
+          />
+        </div>
+        <div className="flex items-center justify-between gap-3 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <Button
+            variant="outline"
+            className="min-h-11 gap-2"
+            onClick={() => setCartOpen(true)}
+          >
+            <ShoppingCart className="size-4" />
+            السلة ({items.length})
+          </Button>
+          <CurrencyDisplay amount={totals.total} className="font-semibold" />
+          <Button
+            className="relative min-h-11 min-w-24 gap-1.5 pe-8"
+            disabled={items.length === 0}
+            onClick={startCheckout}
+          >
+            {collectionAmount > 0 ? "دفع" : "تسجيل"}
+            <PosKeyBadge
+              label="F4"
+              tone="onPrimary"
+              className="absolute end-1.5 top-1/2 -translate-y-1/2"
+            />
+          </Button>
+        </div>
       </div>
 
       <Dialog open={cartOpen} onOpenChange={setCartOpen}>
@@ -899,9 +1111,23 @@ export default function PosPage() {
                           >
                             <Minus className="size-4" />
                           </Button>
-                          <span className="w-10 text-center text-base tabular-nums">
-                            {item.quantity}
-                          </span>
+                          <Input
+                            type="number"
+                            min={0.001}
+                            step={1}
+                            inputMode="decimal"
+                            value={item.quantity}
+                            onChange={(event) => {
+                              const quantity = Number.parseFloat(
+                                event.target.value,
+                              );
+                              if (Number.isFinite(quantity) && quantity > 0) {
+                                updateQuantity(item.id, quantity);
+                              }
+                            }}
+                            aria-label={`كمية ${item.nameAr}`}
+                            className="h-11 w-20 px-1 text-center text-base tabular-nums"
+                          />
                           <Button
                             variant="outline"
                             size="icon"
@@ -932,21 +1158,35 @@ export default function PosPage() {
               className="text-lg font-semibold"
             />
           </div>
-          <DialogFooter className="grid grid-cols-[auto_1fr] gap-2 sm:grid">
+          <DialogFooter className="grid grid-cols-[auto_auto_1fr] gap-2 sm:grid">
             <Button
               variant="outline"
-              className="min-h-11"
+              className="relative min-h-11 min-w-11"
               disabled={items.length === 0}
               onClick={() => {
                 setCartOpen(false);
                 setDiscountOpen(true);
               }}
-              aria-label="إضافة خصم"
+              aria-label="إضافة خصم (F5)"
             >
               <BadgePercent className="size-4" />
+              <PosKeyBadge label="F5" className="absolute -end-1 -top-1 scale-90" />
             </Button>
             <Button
-              className="min-h-11 w-full"
+              variant="outline"
+              className="relative min-h-11 min-w-11"
+              disabled={items.length === 0}
+              onClick={() => {
+                setCartOpen(false);
+                setCouponOpen(true);
+              }}
+              aria-label="كوبون (F10)"
+            >
+              <Ticket className="size-4" />
+              <PosKeyBadge label="F10" className="absolute -end-1 -top-1 scale-90" />
+            </Button>
+            <Button
+              className="relative min-h-11 w-full gap-2 pe-10"
               disabled={items.length === 0}
               onClick={() => {
                 setCartOpen(false);
@@ -954,6 +1194,11 @@ export default function PosPage() {
               }}
             >
               {collectionAmount > 0 ? "متابعة التحصيل" : "تسجيل الطلب"}
+              <PosKeyBadge
+                label="F4"
+                tone="onPrimary"
+                className="absolute end-2 top-1/2 -translate-y-1/2"
+              />
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1151,13 +1396,16 @@ export default function PosPage() {
       </Dialog>
 
       {lastOrder ? (
-        <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] start-3 z-40 flex max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-lg border border-cacao-800/10 bg-card p-3 shadow-lg no-print md:bottom-4 md:start-4">
+        <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] start-3 z-40 flex max-w-[calc(100vw-1.5rem)] flex-wrap items-center gap-2 rounded-lg border border-cacao-800/10 bg-card p-3 shadow-lg no-print md:bottom-4 md:start-4">
           <span className="truncate text-sm">آخر فاتورة: {lastOrder.orderNumber}</span>
           <PrintReceipt
             order={lastOrder}
             payment={lastPayment}
             taxRate={settings.taxRate}
           />
+          {settings.autoWhatsAppOnSale ? (
+            <WhatsAppOrderShareButton order={lastOrder} size="sm" />
+          ) : null}
           <Button
             variant="ghost"
             size="icon"

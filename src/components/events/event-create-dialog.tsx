@@ -112,6 +112,9 @@ export function EventCreateDialog({
     "pickup",
   );
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryZone, setDeliveryZone] = useState("");
+  const [deliveryFee, setDeliveryFee] = useState("0");
+  const [deliveryInstructions, setDeliveryInstructions] = useState("");
   const [giftMessage, setGiftMessage] = useState("");
   const [packagingColors, setPackagingColors] = useState<string[]>([]);
   const [deposit, setDeposit] = useState("");
@@ -130,6 +133,10 @@ export function EventCreateDialog({
   );
   const parsedQuantity = Math.max(0, Number.parseFloat(quantity) || 0);
   const parsedUnitPrice = Math.max(0, Number.parseFloat(unitPrice) || 0);
+  const parsedDeliveryFee =
+    fulfillment === "delivery"
+      ? Math.max(0, Number.parseFloat(deliveryFee) || 0)
+      : 0;
   const totals = useMemo(
     () =>
       calculateOrderTotals({
@@ -140,9 +147,15 @@ export function EventCreateDialog({
             discount: 0,
           },
         ],
+        deliveryFee: parsedDeliveryFee,
         taxRate: state.settings.taxRate,
       }),
-    [parsedQuantity, parsedUnitPrice, state.settings.taxRate],
+    [
+      parsedDeliveryFee,
+      parsedQuantity,
+      parsedUnitPrice,
+      state.settings.taxRate,
+    ],
   );
 
   const scheduleConflicts = useMemo(() => {
@@ -174,6 +187,9 @@ export function EventCreateDialog({
     setDeliveryTime("18:00");
     setFulfillment("pickup");
     setDeliveryAddress("");
+    setDeliveryZone("");
+    setDeliveryFee("0");
+    setDeliveryInstructions("");
     setGiftMessage("");
     setPackagingColors([]);
     setDeposit("");
@@ -266,6 +282,12 @@ export function EventCreateDialog({
           wholesalePricing: false,
         }).id;
       }
+      const resolvedCustomer =
+        customerId === NEW_CUSTOMER_VALUE
+          ? { name: customerName.trim(), phone: customerPhone.replace(/\s+/g, "") }
+          : currentState.customers.find(
+              (customer) => customer.id === resolvedCustomerId,
+            );
 
       const order = createOrder({
         branchId: settings.branchId,
@@ -284,6 +306,17 @@ export function EventCreateDialog({
           fulfillment === "delivery"
             ? deliveryAddress.trim()
             : "استلام من المتجر",
+        deliveryFee: parsedDeliveryFee,
+        deliveryZone:
+          fulfillment === "delivery" ? deliveryZone.trim() || null : null,
+        deliveryRecipientName:
+          fulfillment === "delivery" ? resolvedCustomer?.name ?? null : null,
+        deliveryPhone:
+          fulfillment === "delivery" ? resolvedCustomer?.phone ?? null : null,
+        deliveryInstructions:
+          fulfillment === "delivery"
+            ? deliveryInstructions.trim() || null
+            : null,
         notes: notes.trim() || null,
         createdBy: session?.userId ?? currentState.users[0]?.id,
         event: {
@@ -518,7 +551,14 @@ export function EventCreateDialog({
                   variant={
                     fulfillment === option.value ? "default" : "outline"
                   }
-                  onClick={() => setFulfillment(option.value)}
+                  onClick={() => {
+                    setFulfillment(option.value);
+                    setDeliveryFee(
+                      option.value === "delivery"
+                        ? String(getSettings().defaultDeliveryFee)
+                        : "0",
+                    );
+                  }}
                 >
                   {option.label}
                 </Button>
@@ -526,14 +566,52 @@ export function EventCreateDialog({
             </div>
 
             {fulfillment === "delivery" ? (
-              <div className="space-y-2">
-                <Label htmlFor="event-address">عنوان التوصيل</Label>
-                <Input
-                  id="event-address"
-                  value={deliveryAddress}
-                  onChange={(event) => setDeliveryAddress(event.target.value)}
-                  placeholder="المدينة، الحي، الشارع"
-                />
+              <div className="space-y-4 rounded-xl border border-pistachio-400/20 bg-pistachio-400/[0.04] p-4">
+                <div className="grid gap-4 sm:grid-cols-[1fr_160px]">
+                  <div className="space-y-2">
+                    <Label htmlFor="event-delivery-zone">منطقة التوصيل</Label>
+                    <Input
+                      id="event-delivery-zone"
+                      value={deliveryZone}
+                      onChange={(event) => setDeliveryZone(event.target.value)}
+                      placeholder="طرابلس المركز"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="event-delivery-fee">سعر التوصيل</Label>
+                    <Input
+                      id="event-delivery-fee"
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={deliveryFee}
+                      onChange={(event) => setDeliveryFee(event.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="event-address">عنوان التوصيل</Label>
+                  <Input
+                    id="event-address"
+                    value={deliveryAddress}
+                    onChange={(event) => setDeliveryAddress(event.target.value)}
+                    placeholder="المدينة، الحي، الشارع وأقرب علامة"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="event-delivery-instructions">
+                    تعليمات التوصيل
+                  </Label>
+                  <Textarea
+                    id="event-delivery-instructions"
+                    value={deliveryInstructions}
+                    onChange={(event) =>
+                      setDeliveryInstructions(event.target.value)
+                    }
+                    placeholder="اتصل قبل الوصول أو أي تعليمات للسائق"
+                    className="min-h-16"
+                  />
+                </div>
               </div>
             ) : null}
           </section>
@@ -660,6 +738,15 @@ export function EventCreateDialog({
                     className="inline text-xs"
                   />
                 </p>
+                {totals.deliveryFee > 0 ? (
+                  <p>
+                    التوصيل{" "}
+                    <CurrencyDisplay
+                      amount={totals.deliveryFee}
+                      className="inline text-xs"
+                    />
+                  </p>
+                ) : null}
               </div>
             </div>
             {Number.parseFloat(deposit) > 0 ? (

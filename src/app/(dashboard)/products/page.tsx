@@ -9,6 +9,7 @@ import {
 import {
   AlertTriangle,
   Boxes,
+  FileUp,
   FolderPlus,
   PackagePlus,
   Pencil,
@@ -19,6 +20,7 @@ import {
 
 import { CategoryCreateDialog } from "@/components/products/category-create-dialog";
 import { ProductEditorDialog } from "@/components/products/product-editor-dialog";
+import { ProductImportDialog } from "@/components/products/product-import-dialog";
 import { ProductImage } from "@/components/shared/product-image";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -62,6 +64,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [editorOpen, setEditorOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [autoSelectCategoryId, setAutoSelectCategoryId] = useState<string | null>(
     null,
@@ -176,6 +179,14 @@ export default function ProductsPage() {
         description="إضافة وتسعير وتصنيف الأصناف وربط الرصيد الافتتاحي والصلاحية"
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Button
+              variant="outline"
+              className="w-full gap-2 sm:w-auto"
+              onClick={() => setImportOpen(true)}
+            >
+              <FileUp className="size-4" />
+              استيراد Excel
+            </Button>
             <Button
               variant="outline"
               className="w-full gap-2 sm:w-auto"
@@ -491,6 +502,14 @@ export default function ProductsPage() {
             setSelectedProduct(null);
             setEditorOpen(true);
           }
+        }}
+      />
+
+      <ProductImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={() => {
+          void loadCatalog();
         }}
       />
     </div>

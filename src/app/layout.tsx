@@ -1,21 +1,23 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Sans_Arabic, JetBrains_Mono } from "next/font/google";
+import { Cairo, Outfit } from "next/font/google";
 
 import { AppProviders } from "@/components/providers/app-providers";
 
 import "./globals.css";
 
-const plexArabic = IBM_Plex_Sans_Arabic({
+/** Match rkeaz-group: Cairo for Arabic UI */
+const cairo = Cairo({
   subsets: ["arabic", "latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-plex-arabic",
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-cairo",
   display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
+/** Numerics / Latin companion like rkeaz Outfit */
+const outfit = Outfit({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-jetbrains",
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-outfit",
   display: "swap",
 });
 
@@ -55,9 +57,12 @@ export default function RootLayout({
       dir="rtl"
       data-scroll-behavior="smooth"
       suppressHydrationWarning
-      className={`${plexArabic.variable} ${jetbrainsMono.variable}`}
+      className={`${cairo.variable} ${outfit.variable}`}
     >
-      <body className="min-h-svh font-sans antialiased">
+      <body
+        className="min-h-svh font-sans antialiased"
+        suppressHydrationWarning
+      >
         <AppProviders>{children}</AppProviders>
       </body>
     </html>

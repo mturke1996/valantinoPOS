@@ -17,6 +17,7 @@ interface CommandCenterHeroProps {
   newOrders: number;
   todayDeliveries: number;
   urgentCount: number;
+  walkInSalesEnabled?: boolean;
 }
 
 export function CommandCenterHero({
@@ -24,6 +25,7 @@ export function CommandCenterHero({
   newOrders,
   todayDeliveries,
   urgentCount,
+  walkInSalesEnabled = true,
 }: CommandCenterHeroProps) {
   return (
     <section className="relative overflow-hidden rounded-2xl border border-cacao-800/10 bg-card p-5 sm:p-6">
@@ -73,7 +75,7 @@ export function CommandCenterHero({
           <Button asChild>
             <Link href="/pos" className="gap-2">
               <ShoppingCart className="size-4" />
-              نقطة البيع
+              {walkInSalesEnabled ? "نقطة البيع" : "طلب تجهيز جديد"}
             </Link>
           </Button>
           <Button

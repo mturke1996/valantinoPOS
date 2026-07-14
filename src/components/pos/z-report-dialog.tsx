@@ -1,8 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
-import { Download, Printer } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Download, FileDown, Printer } from "lucide-react";
+import { toast } from "sonner";
 
+import {
+  createDocumentPdf,
+  downloadBlob,
+  ZReportTemplate,
+  type ZReportStats,
+} from "@/components/documents";
+import { openPrintWindow, a5PrintStyles } from "@/components/documents/print-window";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { getOrders, getState, getSettings } from "@/lib/data/store";
-import { formatDateTime, formatNumber } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils";
 import type { Shift } from "@/types";
 
 interface ZReportDialogProps {
@@ -31,8 +39,10 @@ export function ZReportDialog({
   cashierName,
 }: ZReportDialogProps) {
   const settings = getSettings();
+  const printRef = useRef<HTMLDivElement>(null);
+  const [busy, setBusy] = useState(false);
 
-  const report = useMemo(() => {
+  const report = useMemo((): ZReportStats | null => {
     if (!shift) return null;
     const orders = getOrders().filter((o) => o.shiftId === shift.id);
     const payments = getState().payments.filter(
@@ -51,7 +61,6 @@ export function ZReportDialog({
 
     return {
       orders: orders.length,
-      payments: payments.length,
       cashSales,
       cardSales,
       transferSales,
@@ -62,33 +71,35 @@ export function ZReportDialog({
   if (!shift || !report) return null;
 
   const printReport = () => {
-    const html = `
-      <html dir="rtl"><head><title>Z-Report ${shift.id}</title>
-      <style>body{font-family:system-ui;padding:24px} table{width:100%;border-collapse:collapse} td{padding:6px 0;border-bottom:1px solid #eee}</style>
-      </head><body>
-      <h1>تقرير إغلاق الوردية (Z-Report)</h1>
-      <p>${settings.branchName}</p>
-      <table>
-        <tr><td>الكاشير</td><td>${cashierName ?? "—"}</td></tr>
-        <tr><td>فتح</td><td>${formatDateTime(shift.openedAt)}</td></tr>
-        <tr><td>إغلاق</td><td>${shift.closedAt ? formatDateTime(shift.closedAt) : "—"}</td></tr>
-        <tr><td>رصيد افتتاحي</td><td>${formatNumber(shift.openingFloat)} ${settings.currencySymbol}</td></tr>
-        <tr><td>المتوقع نقداً</td><td>${formatNumber(shift.expectedCash)} ${settings.currencySymbol}</td></tr>
-        <tr><td>العد الفعلي</td><td>${shift.closingCount != null ? formatNumber(shift.closingCount) : "—"} ${settings.currencySymbol}</td></tr>
-        <tr><td>الفرق</td><td>${shift.variance != null ? formatNumber(shift.variance) : "—"} ${settings.currencySymbol}</td></tr>
-        <tr><td>عدد الطلبات</td><td>${report.orders}</td></tr>
-        <tr><td>مبيعات نقدية</td><td>${formatNumber(report.cashSales)} ${settings.currencySymbol}</td></tr>
-        <tr><td>مبيعات بطاقة</td><td>${formatNumber(report.cardSales)} ${settings.currencySymbol}</td></tr>
-        <tr><td>مبيعات تحويل</td><td>${formatNumber(report.transferSales)} ${settings.currencySymbol}</td></tr>
-        <tr><td>إجمالي التحصيل</td><td>${formatNumber(report.totalSales)} ${settings.currencySymbol}</td></tr>
-      </table>
-      </body></html>`;
-    const win = window.open("", "_blank", "width=480,height=720");
-    if (!win) return;
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    win.print();
+    const node = printRef.current;
+    if (!node) return;
+    openPrintWindow({
+      title: `Z-Report ${shift.id}`,
+      bodyHtml: node.innerHTML,
+      styles: a5PrintStyles(),
+      width: 520,
+      height: 800,
+      includeAppStyles: true,
+    });
+  };
+
+  const downloadPdf = async () => {
+    const node = printRef.current;
+    if (!node) return;
+    setBusy(true);
+    try {
+      const { blob } = await createDocumentPdf(
+        node,
+        `z-report-${shift.id.slice(0, 8)}.pdf`,
+        "a5",
+      );
+      downloadBlob(blob, `z-report-${shift.id.slice(0, 8)}.pdf`);
+      toast.success("تم تنزيل تقرير Z");
+    } catch {
+      toast.error("تعذر إنشاء ملف PDF");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -128,9 +139,7 @@ export function ZReportDialog({
               <span>الفرق</span>
               <CurrencyDisplay
                 amount={shift.variance ?? 0}
-                className={
-                  (shift.variance ?? 0) < 0 ? "text-destructive" : ""
-                }
+                className={(shift.variance ?? 0) < 0 ? "text-destructive" : ""}
               />
             </div>
           </div>
@@ -158,10 +167,27 @@ export function ZReportDialog({
             </div>
           </div>
         </div>
-        <DialogFooter>
+
+        {/* Off-screen branded template for print/PDF */}
+        <div className="pointer-events-none fixed start-[-10000px] top-0 w-[148mm]">
+          <div ref={printRef}>
+            <ZReportTemplate
+              shift={shift}
+              report={report}
+              cashierName={cashierName}
+              settings={settings}
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="flex-wrap gap-2">
           <Button variant="outline" onClick={printReport}>
             <Printer className="size-4" />
             طباعة
+          </Button>
+          <Button variant="outline" disabled={busy} onClick={() => void downloadPdf()}>
+            <FileDown className="size-4" />
+            PDF
           </Button>
           <Button onClick={() => onOpenChange(false)}>
             <Download className="size-4" />

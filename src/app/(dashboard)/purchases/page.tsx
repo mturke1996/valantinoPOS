@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, ShoppingBag } from "lucide-react";
+import { FileText, Plus, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 
+import { PurchaseOrderDialog } from "@/components/documents/purchase-order-dialog";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
@@ -55,6 +56,7 @@ export default function PurchasesPage() {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState<string | null>(null);
+  const [printPo, setPrintPo] = useState<PurchaseOrder | null>(null);
   const [supplierId, setSupplierId] = useState("");
   const [productId, setProductId] = useState("");
   const [quantity, setQuantity] = useState("10");
@@ -189,17 +191,25 @@ export default function PurchasesPage() {
                     {po.expectedDate ? formatDate(po.expectedDate) : "—"}
                   </td>
                   <td className="p-3">
-                    {po.status !== "received" ? (
+                    <div className="flex flex-wrap gap-2">
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setReceiveOpen(po.id)}
+                        onClick={() => setPrintPo(po)}
                       >
-                        استلام
+                        <FileText className="size-3.5" />
+                        طباعة
                       </Button>
-                    ) : (
-                      "—"
-                    )}
+                      {po.status !== "received" ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setReceiveOpen(po.id)}
+                        >
+                          استلام
+                        </Button>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -306,6 +316,16 @@ export default function PurchasesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {printPo ? (
+        <PurchaseOrderDialog
+          open={Boolean(printPo)}
+          onOpenChange={(next) => {
+            if (!next) setPrintPo(null);
+          }}
+          purchaseOrder={printPo}
+        />
+      ) : null}
     </div>
   );
 }

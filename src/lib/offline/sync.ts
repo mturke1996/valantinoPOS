@@ -49,6 +49,11 @@ function orderRow(order: Order, branchId: string) {
     delivery_date: order.deliveryDate,
     delivery_time: order.deliveryTime,
     delivery_address: order.deliveryAddress,
+    delivery_fee: order.deliveryFee,
+    delivery_zone: order.deliveryZone,
+    delivery_recipient_name: order.deliveryRecipientName,
+    delivery_phone: order.deliveryPhone,
+    delivery_instructions: order.deliveryInstructions,
     notes: order.notes,
     assigned_to: order.assignedTo,
     shift_id: order.shiftId,
@@ -192,6 +197,37 @@ async function runOfflineSyncQueue(): Promise<number> {
         );
         if (eventError) throw eventError;
       }
+
+      const statusHistory = payload.statusHistory as
+        | {
+            id: string;
+            orderId: string;
+            fromStatus: string | null;
+            toStatus: string;
+            changedBy: string | null;
+            changedAt: string;
+            notes: string | null;
+          }
+        | null
+        | undefined;
+      if (statusHistory?.id) {
+        const { error: historyError } = await supabase
+          .from("order_status_history")
+          .upsert(
+            {
+              id: statusHistory.id,
+              branch_id: syncBranchId,
+              order_id: statusHistory.orderId,
+              from_status: statusHistory.fromStatus,
+              to_status: statusHistory.toStatus,
+              changed_by: asCloudUuid(statusHistory.changedBy),
+              changed_at: statusHistory.changedAt,
+              notes: statusHistory.notes,
+            },
+            { onConflict: "id" },
+          );
+        if (historyError) throw historyError;
+      }
       return;
     }
 
@@ -204,6 +240,13 @@ async function runOfflineSyncQueue(): Promise<number> {
           delivery_date: order.deliveryDate,
           delivery_time: order.deliveryTime,
           delivery_address: order.deliveryAddress,
+          delivery_fee: order.deliveryFee,
+          delivery_zone: order.deliveryZone,
+          delivery_recipient_name: order.deliveryRecipientName,
+          delivery_phone: order.deliveryPhone,
+          delivery_instructions: order.deliveryInstructions,
+          total: order.total,
+          payment_status: order.paymentStatus,
           notes: order.notes,
           updated_at: order.updatedAt,
         })
@@ -243,12 +286,69 @@ async function runOfflineSyncQueue(): Promise<number> {
           cash_amount: payment.cashAmount,
           card_amount: payment.cardAmount,
           reference: payment.reference,
-          created_by: (payload.createdBy as string | null) ?? null,
+          created_by: asCloudUuid(
+            (payload.createdBy as string | null) ?? null,
+          ),
           created_at: payment.createdAt,
         },
         { onConflict: "id" },
       );
       if (error) throw error;
+
+      const orderPatch = payload.orderPatch as
+        | {
+            id: string;
+            paidAmount: number;
+            paymentStatus: string;
+            status?: string;
+            updatedAt: string;
+          }
+        | undefined;
+      if (orderPatch?.id) {
+        const patch: Record<string, unknown> = {
+          paid_amount: orderPatch.paidAmount,
+          payment_status: orderPatch.paymentStatus,
+          updated_at: orderPatch.updatedAt,
+        };
+        if (orderPatch.status) patch.status = orderPatch.status;
+        const { error: orderError } = await supabase
+          .from("orders")
+          .update(patch)
+          .eq("id", orderPatch.id)
+          .eq("branch_id", syncBranchId);
+        if (orderError) throw orderError;
+      }
+
+      const history = payload.statusHistory as
+        | {
+            id: string;
+            orderId: string;
+            fromStatus: string | null;
+            toStatus: string;
+            changedBy: string | null;
+            changedAt: string;
+            notes: string | null;
+          }
+        | null
+        | undefined;
+      if (history?.id) {
+        const { error: historyError } = await supabase
+          .from("order_status_history")
+          .upsert(
+            {
+              id: history.id,
+              branch_id: syncBranchId,
+              order_id: history.orderId,
+              from_status: history.fromStatus,
+              to_status: history.toStatus,
+              changed_by: asCloudUuid(history.changedBy),
+              changed_at: history.changedAt,
+              notes: history.notes,
+            },
+            { onConflict: "id" },
+          );
+        if (historyError) throw historyError;
+      }
       return;
     }
 
@@ -262,6 +362,37 @@ async function runOfflineSyncQueue(): Promise<number> {
         .eq("id", payload.orderId)
         .eq("branch_id", syncBranchId);
       if (error) throw error;
+
+      const history = payload.statusHistory as
+        | {
+            id: string;
+            orderId: string;
+            fromStatus: string | null;
+            toStatus: string;
+            changedBy: string | null;
+            changedAt: string;
+            notes: string | null;
+          }
+        | null
+        | undefined;
+      if (history?.id) {
+        const { error: historyError } = await supabase
+          .from("order_status_history")
+          .upsert(
+            {
+              id: history.id,
+              branch_id: syncBranchId,
+              order_id: history.orderId,
+              from_status: history.fromStatus,
+              to_status: history.toStatus,
+              changed_by: asCloudUuid(history.changedBy),
+              changed_at: history.changedAt,
+              notes: history.notes,
+            },
+            { onConflict: "id" },
+          );
+        if (historyError) throw historyError;
+      }
       return;
     }
 
@@ -490,6 +621,16 @@ async function runOfflineSyncQueue(): Promise<number> {
         loyaltyRedeemRate: settings.loyaltyRedeemRate,
         orderNumberPrefix: settings.orderNumberPrefix,
         invoiceNumberPrefix: settings.invoiceNumberPrefix,
+        walkInSalesEnabled: settings.walkInSalesEnabled,
+        defaultDeliveryFee: settings.defaultDeliveryFee,
+        freeDeliveryThreshold: settings.freeDeliveryThreshold,
+        thermalPaperWidth: settings.thermalPaperWidth,
+        invoiceFooter: settings.invoiceFooter,
+        whatsappCountryCode: settings.whatsappCountryCode,
+        deliveryZones: settings.deliveryZones,
+        autoWhatsAppOnSale: settings.autoWhatsAppOnSale,
+        taxNumber: settings.taxNumber,
+        commercialRegister: settings.commercialRegister,
       };
       const branchValue = {
         branchName: settings.branchName,

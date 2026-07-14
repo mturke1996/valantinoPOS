@@ -9,6 +9,7 @@ import { arSA } from "date-fns/locale";
 import {
   dayKeyFromOrder,
   MonthCalendar,
+  type DayTypeCounts,
 } from "@/components/calendar/month-calendar";
 import { EventCreateDialog } from "@/components/events/event-create-dialog";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
@@ -56,6 +57,25 @@ export default function CalendarPage() {
     return map;
   }, [orders]);
 
+  const typeCountsByDay = useMemo(() => {
+    const map = new Map<string, DayTypeCounts>();
+    for (const order of orders) {
+      if (!order.deliveryDate) continue;
+      const key = dayKeyFromOrder(order.deliveryDate);
+      const current = map.get(key) ?? {};
+      const type =
+        order.type === "delivery"
+          ? "delivery"
+          : order.type === "event"
+            ? "event"
+            : order.type === "reservation"
+              ? "reservation"
+              : "other";
+      map.set(key, { ...current, [type]: (current[type] ?? 0) + 1 });
+    }
+    return map;
+  }, [orders]);
+
   const selectedOrders = useMemo(() => {
     if (!selectedDate) return [];
     return orders.filter((order) =>
@@ -86,13 +106,41 @@ export default function CalendarPage() {
       />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_1fr]">
-        <MonthCalendar
-          month={month}
-          onMonthChange={setMonth}
-          selectedDate={selectedDate}
-          onSelectDate={setSelectedDate}
-          countsByDay={countsByDay}
-        />
+        <div className="space-y-3">
+          <MonthCalendar
+            month={month}
+            onMonthChange={setMonth}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            countsByDay={countsByDay}
+            typeCountsByDay={typeCountsByDay}
+          />
+          <div className="flex flex-wrap gap-x-3 gap-y-2 px-1 text-xs text-muted-foreground">
+            {[
+              {
+                label: "توصيل",
+                className: "bg-pistachio-400/30 ring-1 ring-pistachio-400/40",
+              },
+              {
+                label: "مناسبة",
+                className: "bg-gold-400/35 ring-1 ring-gold-400/45",
+              },
+              {
+                label: "حجز",
+                className: "bg-berry-500/25 ring-1 ring-berry-500/35",
+              },
+              {
+                label: "استلام",
+                className: "bg-cacao-800/15 ring-1 ring-cacao-800/25",
+              },
+            ].map((item) => (
+              <span key={item.label} className="flex items-center gap-1.5">
+                <span className={`size-3.5 rounded-md ${item.className}`} />
+                {item.label}
+              </span>
+            ))}
+          </div>
+        </div>
 
         <Card className="border-cacao-800/8 shadow-none">
           <CardHeader>

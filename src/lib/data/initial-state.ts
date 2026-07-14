@@ -1,3 +1,4 @@
+import { DEFAULT_DELIVERY_ZONES } from "@/lib/constants/delivery-zones";
 import { LIBYA_LOCALE } from "@/lib/constants/locale";
 import { LOYALTY_TIERS } from "@/lib/constants/loyalty";
 import { generateId, nowISO } from "@/lib/utils";
@@ -9,7 +10,7 @@ const BRANCH_ID = generateId();
 export function createInitialState(): AppState {
   const ts = nowISO();
   return {
-    version: 2,
+    version: 4,
     initializedAt: ts,
     settings: {
       branchId: BRANCH_ID,
@@ -21,11 +22,21 @@ export function createInitialState(): AppState {
       currency: LIBYA_LOCALE.currency,
       currencySymbol: LIBYA_LOCALE.currencySymbol,
       locale: LIBYA_LOCALE.locale,
-      logoUrl: null,
+      logoUrl: "/images/valentino-logo.png",
       loyaltyPointsPerSar: 1,
       loyaltyRedeemRate: 0.05,
       orderNumberPrefix: "VAL",
       invoiceNumberPrefix: "INV",
+      walkInSalesEnabled: true,
+      defaultDeliveryFee: 15,
+      freeDeliveryThreshold: 200,
+      thermalPaperWidth: 80,
+      invoiceFooter: "شكراً لاختياركم فالنتينو للشوكولاتة",
+      whatsappCountryCode: "218",
+      deliveryZones: DEFAULT_DELIVERY_ZONES.map((z) => ({ ...z })),
+      autoWhatsAppOnSale: true,
+      taxNumber: null,
+      commercialRegister: null,
     },
     products: [],
     categories: [],

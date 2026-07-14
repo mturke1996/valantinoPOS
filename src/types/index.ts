@@ -242,6 +242,11 @@ export interface Order extends Timestamps, SoftDeletable {
   deliveryDate: string | null;
   deliveryTime: string | null;
   deliveryAddress: string | null;
+  deliveryFee: number;
+  deliveryZone: string | null;
+  deliveryRecipientName: string | null;
+  deliveryPhone: string | null;
+  deliveryInstructions: string | null;
   notes: string | null;
   assignedTo: string | null;
   shiftId: string | null;
@@ -424,6 +429,13 @@ export interface AuditLog {
   createdAt: string;
 }
 
+export interface DeliveryZone {
+  id: string;
+  name: string;
+  city: string;
+  fee: number;
+}
+
 export interface Settings {
   branchId: string;
   branchName: string;
@@ -439,6 +451,19 @@ export interface Settings {
   loyaltyRedeemRate: number;
   orderNumberPrefix: string;
   invoiceNumberPrefix: string;
+  walkInSalesEnabled: boolean;
+  defaultDeliveryFee: number;
+  freeDeliveryThreshold: number | null;
+  thermalPaperWidth: 58 | 80;
+  invoiceFooter: string;
+  whatsappCountryCode: string;
+  /** Preset delivery zones (Tripoli / Benghazi, etc.) */
+  deliveryZones: DeliveryZone[];
+  /** After POS sale, prompt WhatsApp share when phone is available */
+  autoWhatsAppOnSale: boolean;
+  /** Tax / commercial identifiers for invoice QR */
+  taxNumber: string | null;
+  commercialRegister: string | null;
 }
 
 export interface UserProfile {
@@ -529,6 +554,11 @@ export interface CreateOrderInput {
   deliveryDate?: string | null;
   deliveryTime?: string | null;
   deliveryAddress?: string | null;
+  deliveryFee?: number;
+  deliveryZone?: string | null;
+  deliveryRecipientName?: string | null;
+  deliveryPhone?: string | null;
+  deliveryInstructions?: string | null;
   notes?: string | null;
   assignedTo?: string | null;
   shiftId?: string | null;
@@ -572,6 +602,7 @@ export interface LineTotalInput {
 export interface OrderTotalsInput {
   items: LineTotalInput[];
   discountAmount?: number;
+  deliveryFee?: number;
   taxRate: number;
 }
 
@@ -579,6 +610,7 @@ export interface OrderTotalsResult {
   subtotal: number;
   discountAmount: number;
   taxAmount: number;
+  deliveryFee: number;
   total: number;
 }
 

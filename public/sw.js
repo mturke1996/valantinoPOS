@@ -1,4 +1,4 @@
-const CACHE_NAME = "valentino-pos-v1";
+const CACHE_NAME = "valentino-pos-v2";
 const PRECACHE = ["/", "/manifest.json", "/icon"];
 
 self.addEventListener("install", (event) => {
@@ -46,5 +46,24 @@ self.addEventListener("fetch", (event) => {
         }
         throw new Error("offline");
       }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = event.notification.data?.url || "/notifications";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(
+      (clients) => {
+        const existing = clients.find((client) =>
+          new URL(client.url).origin === self.location.origin,
+        );
+        if (existing) {
+          existing.navigate(target);
+          return existing.focus();
+        }
+        return self.clients.openWindow(target);
+      },
+    ),
   );
 });

@@ -34,7 +34,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getState } from "@/lib/data/store";
 import { useStoreSubscription } from "@/hooks/use-store-subscription";
 import { getDashboardStats } from "@/lib/services/dashboard.service";
-import { getTodayOperations } from "@/lib/services/operations.service";
+import {
+  getTodayOperations,
+  getUpcomingPreparation,
+} from "@/lib/services/operations.service";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import type { DashboardStats } from "@/types";
 import { ORDER_STATUSES } from "@/lib/constants/order-status";
@@ -53,6 +56,11 @@ export default function DashboardPage() {
   const todayOperations = useMemo(() => {
     if (!stats) return [];
     return getTodayOperations(getState());
+  }, [stats]);
+
+  const upcomingPreparation = useMemo(() => {
+    if (!stats) return [];
+    return getUpcomingPreparation(getState(), 7);
   }, [stats]);
 
   const chartData = useMemo(() => {
@@ -99,9 +107,16 @@ export default function DashboardPage() {
         newOrders={stats.newOrders}
         todayDeliveries={todayOperations.length}
         urgentCount={stats.urgentAlerts.length}
+        walkInSalesEnabled={getState().settings.walkInSalesEnabled}
       />
 
       <ServiceRibbon items={todayOperations} />
+      <ServiceRibbon
+        items={upcomingPreparation}
+        title="طلبات تحتاج تجهيز خلال 7 أيام"
+        emptyLabel="لا توجد طلبات تجهيز قريبة — الجدول هادئ"
+        className="border-gold-400/20 bg-gold-400/[0.025]"
+      />
 
       {stats.urgentAlerts.length > 0 ? (
         <div className="flex flex-wrap gap-2">
@@ -123,7 +138,11 @@ export default function DashboardPage() {
         description="مؤشرات الأداء والطلبات"
         actions={
           <Button asChild variant="outline">
-            <Link href="/pos">فتح نقطة البيع</Link>
+            <Link href="/pos">
+              {getState().settings.walkInSalesEnabled
+                ? "فتح نقطة البيع"
+                : "إضافة طلب تجهيز"}
+            </Link>
           </Button>
         }
       />

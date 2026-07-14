@@ -41,6 +41,19 @@ describe("pricing.service", () => {
     expect(result.total).toBe(0);
   });
 
+  it("adds delivery pricing after discount and tax", () => {
+    const result = calculateOrderTotals({
+      items: [{ quantity: 2, unitPrice: 50 }],
+      discountAmount: 10,
+      deliveryFee: 15,
+      taxRate: 10,
+    });
+
+    expect(result.deliveryFee).toBe(15);
+    expect(result.taxAmount).toBe(9);
+    expect(result.total).toBe(114);
+  });
+
   it("resolves wholesale vs retail price", () => {
     expect(resolveUnitPrice(100, 80, false)).toBe(100);
     expect(resolveUnitPrice(100, 80, true)).toBe(80);

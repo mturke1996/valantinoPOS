@@ -18,14 +18,20 @@ function idsFromSyncItem(item: SyncQueueItem): string[] {
       if (order?.id) ids.push(order.id);
       const event = payload.event as { id?: string } | undefined;
       if (event?.id) ids.push(event.id);
+      const history = payload.statusHistory as { id?: string } | undefined;
+      if (history?.id) ids.push(history.id);
     }
     if (item.action === "process_payment") {
       const payment = payload.payment as { id?: string; orderId?: string } | undefined;
       if (payment?.id) ids.push(payment.id);
       if (payment?.orderId) ids.push(payment.orderId);
+      const history = payload.statusHistory as { id?: string } | undefined;
+      if (history?.id) ids.push(history.id);
     }
     if (item.action === "update_status" || item.action === "delete_order") {
       if (typeof payload.orderId === "string") ids.push(payload.orderId);
+      const history = payload.statusHistory as { id?: string } | undefined;
+      if (history?.id) ids.push(history.id);
     }
     if (
       item.action === "create_product" ||

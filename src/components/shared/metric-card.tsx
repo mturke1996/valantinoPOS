@@ -59,7 +59,7 @@ export function MetricCard({
         </div>
 
         <div className="space-y-3">
-          <p className="font-mono text-3xl font-semibold tabular-nums tracking-tight text-foreground">
+          <p className="font-sans text-3xl font-semibold tabular-nums tracking-tight text-foreground">
             {value}
           </p>
           {deltaLabel ? (

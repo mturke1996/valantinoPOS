@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ShieldCheck } from "lucide-react";
@@ -121,12 +122,16 @@ export default function LoginPage() {
 
       <div className="relative z-10 w-full max-w-md space-y-8">
         <div className="text-center">
-          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-cacao-800 shadow-lg">
-            <span className="text-2xl font-bold text-cream-50">V</span>
+          <div className="mx-auto mb-5 flex w-full max-w-[280px] items-center justify-center">
+            <Image
+              src="/images/valentino-logo.png"
+              alt="Valentino Chocolate"
+              width={1024}
+              height={338}
+              priority
+              className="h-auto w-full object-contain drop-shadow-[0_8px_24px_rgba(36,24,12,0.12)]"
+            />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-cacao-800 dark:text-cream-50">
-            Valentino
-          </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             نظام إدارة الشوكولاتة الفاخرة — ليبيا
           </p>

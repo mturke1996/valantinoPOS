@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { CurrencyDisplay } from "@/components/shared/currency-display";
+import { DeliveryZoneSelect } from "@/components/shared/delivery-zone-select";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -39,6 +40,7 @@ import type {
   PosSaleContext,
   PosSaleMode,
 } from "@/features/pos/stores/cart.store";
+import { getSettings } from "@/lib/data/store";
 import type { Customer, EventType } from "@/types";
 import { cn, roundMoney } from "@/lib/utils";
 
@@ -189,17 +191,40 @@ export function PosSaleContextDialog({
 }: PosSaleContextDialogProps) {
   const [draft, setDraft] = useState(value);
   const [error, setError] = useState<string | null>(null);
+  const settings = getSettings();
   const minDate = format(new Date(), "yyyy-MM-dd");
   const scheduled = draft.mode !== "walk_in";
   const delivery =
     draft.mode === "delivery" || draft.fulfillment === "delivery";
   const collectedNow = getCollectionAmount(draft, total);
+  const availableModes = settings.walkInSalesEnabled
+    ? SALE_MODES
+    : SALE_MODES.filter((mode) => mode.value !== "walk_in");
 
   useEffect(() => {
     if (!open) return;
-    setDraft(value);
+    const next = {
+      ...value,
+      deliveryFee: value.deliveryFee ?? settings.defaultDeliveryFee,
+      deliveryZone: value.deliveryZone ?? "",
+      deliveryRecipientName:
+        value.deliveryRecipientName ?? customer?.name ?? "",
+      deliveryPhone:
+        value.deliveryPhone ?? customer?.whatsapp ?? customer?.phone ?? "",
+      deliveryInstructions: value.deliveryInstructions ?? "",
+    };
+    setDraft(
+      !settings.walkInSalesEnabled && next.mode === "walk_in"
+        ? {
+            ...next,
+            mode: "delivery",
+            fulfillment: "delivery",
+            paymentPlan: "later",
+          }
+        : next,
+    );
     setError(null);
-  }, [open, value]);
+  }, [customer, open, settings.defaultDeliveryFee, settings.walkInSalesEnabled, value]);
 
   const updateDraft = (patch: Partial<PosSaleContext>) => {
     setDraft((current) => ({ ...current, ...patch }));
@@ -210,6 +235,8 @@ export function PosSaleContextDialog({
     updateDraft({
       mode,
       fulfillment: mode === "delivery" ? "delivery" : "pickup",
+      deliveryFee:
+        mode === "delivery" ? settings.defaultDeliveryFee : draft.deliveryFee,
       paymentPlan: mode === "walk_in" ? "full" : draft.paymentPlan,
       depositAmount: mode === "walk_in" ? 0 : draft.depositAmount,
     });
@@ -248,6 +275,15 @@ export function PosSaleContextDialog({
     onSave({
       ...draft,
       deliveryAddress: delivery ? draft.deliveryAddress.trim() : "",
+      deliveryFee: delivery ? Math.max(0, draft.deliveryFee) : 0,
+      deliveryZone: delivery ? draft.deliveryZone.trim() : "",
+      deliveryRecipientName: delivery
+        ? draft.deliveryRecipientName.trim()
+        : "",
+      deliveryPhone: delivery ? draft.deliveryPhone.trim() : "",
+      deliveryInstructions: delivery
+        ? draft.deliveryInstructions.trim()
+        : "",
       guestCount: Math.max(1, Math.floor(draft.guestCount)),
       notes: draft.notes.trim(),
     });
@@ -266,7 +302,7 @@ export function PosSaleContextDialog({
 
         <DialogBody className="space-y-6 py-4">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {SALE_MODES.map(({ value: mode, label, description, icon: Icon }) => {
+            {availableModes.map(({ value: mode, label, description, icon: Icon }) => {
               const active = draft.mode === mode;
               return (
                 <button
@@ -384,7 +420,15 @@ export function PosSaleContextDialog({
                               : "outline"
                           }
                           className="justify-start gap-2"
-                          onClick={() => updateDraft({ fulfillment })}
+                          onClick={() =>
+                            updateDraft({
+                              fulfillment,
+                              deliveryFee:
+                                fulfillment === "delivery"
+                                  ? settings.defaultDeliveryFee
+                                  : draft.deliveryFee,
+                            })
+                          }
                         >
                           <Icon className="size-4" />
                           {label}
@@ -395,20 +439,118 @@ export function PosSaleContextDialog({
                 ) : null}
 
                 {delivery ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="pos-delivery-address">عنوان التوصيل</Label>
-                    <div className="relative">
-                      <MapPin className="absolute start-3 top-3 size-4 text-muted-foreground" />
+                  <div className="space-y-4 rounded-xl border border-pistachio-400/20 bg-pistachio-400/[0.04] p-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="pos-delivery-recipient">
+                          اسم المستلم
+                        </Label>
+                        <Input
+                          id="pos-delivery-recipient"
+                          value={draft.deliveryRecipientName}
+                          onChange={(event) =>
+                            updateDraft({
+                              deliveryRecipientName: event.target.value,
+                            })
+                          }
+                          placeholder={customer?.name ?? "اسم المستلم"}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="pos-delivery-phone">
+                          هاتف المستلم
+                        </Label>
+                        <Input
+                          id="pos-delivery-phone"
+                          dir="ltr"
+                          className="text-start"
+                          value={draft.deliveryPhone}
+                          onChange={(event) =>
+                            updateDraft({ deliveryPhone: event.target.value })
+                          }
+                          placeholder={customer?.phone ?? "+218..."}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-[1fr_160px]">
+                      <div className="space-y-2">
+                        <Label>المنطقة</Label>
+                        <DeliveryZoneSelect
+                          value={
+                            settings.deliveryZones.find(
+                              (z) =>
+                                z.id === draft.deliveryZone ||
+                                z.name === draft.deliveryZone,
+                            )?.id ?? ""
+                          }
+                          zones={settings.deliveryZones}
+                          onChange={(zoneId, fee) => {
+                            const zone = settings.deliveryZones.find(
+                              (z) => z.id === zoneId,
+                            );
+                            updateDraft({
+                              deliveryZone: zone?.name ?? zoneId,
+                              deliveryFee: fee,
+                            });
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="pos-delivery-fee">سعر التوصيل</Label>
+                        <Input
+                          id="pos-delivery-fee"
+                          type="number"
+                          min={0}
+                          step={0.5}
+                          value={draft.deliveryFee}
+                          onChange={(event) =>
+                            updateDraft({
+                              deliveryFee: Math.max(
+                                0,
+                                Number.parseFloat(event.target.value) || 0,
+                              ),
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="pos-delivery-address">عنوان التوصيل</Label>
+                      <div className="relative">
+                        <MapPin className="absolute start-3 top-3 size-4 text-muted-foreground" />
+                        <Textarea
+                          id="pos-delivery-address"
+                          value={draft.deliveryAddress}
+                          onChange={(event) =>
+                            updateDraft({ deliveryAddress: event.target.value })
+                          }
+                          placeholder="الحي، الشارع، رقم المبنى وأقرب علامة"
+                          className="min-h-20 ps-9"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="pos-delivery-instructions">
+                        تعليمات السائق والتسليم
+                      </Label>
                       <Textarea
-                        id="pos-delivery-address"
-                        value={draft.deliveryAddress}
+                        id="pos-delivery-instructions"
+                        value={draft.deliveryInstructions}
                         onChange={(event) =>
-                          updateDraft({ deliveryAddress: event.target.value })
+                          updateDraft({
+                            deliveryInstructions: event.target.value,
+                          })
                         }
-                        placeholder="الحي، الشارع، رقم المبنى وأقرب علامة"
-                        className="min-h-20 ps-9"
+                        placeholder="اتصل قبل الوصول، بوابة المنزل، وقت مناسب..."
+                        className="min-h-16"
                       />
                     </div>
+                    {settings.freeDeliveryThreshold !== null ? (
+                      <p className="text-xs text-muted-foreground">
+                        يصبح التوصيل مجانياً تلقائياً عند وصول الطلب إلى{" "}
+                        <CurrencyDisplay amount={settings.freeDeliveryThreshold} />.
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
 

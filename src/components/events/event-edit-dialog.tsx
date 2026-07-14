@@ -72,6 +72,9 @@ export function EventEditDialog({
   const [deliveryDate, setDeliveryDate] = useState("");
   const [deliveryTime, setDeliveryTime] = useState("18:00");
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryZone, setDeliveryZone] = useState("");
+  const [deliveryFee, setDeliveryFee] = useState("0");
+  const [deliveryInstructions, setDeliveryInstructions] = useState("");
   const [giftMessage, setGiftMessage] = useState("");
   const [packagingColors, setPackagingColors] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
@@ -84,6 +87,9 @@ export function EventEditDialog({
     setDeliveryDate(order.deliveryDate ?? "");
     setDeliveryTime(order.deliveryTime ?? "18:00");
     setDeliveryAddress(order.deliveryAddress ?? "");
+    setDeliveryZone(order.deliveryZone ?? "");
+    setDeliveryFee(String(order.deliveryFee ?? 0));
+    setDeliveryInstructions(order.deliveryInstructions ?? "");
     setGiftMessage(event.giftCardMessage ?? "");
     setPackagingColors(event.packagingColors ?? []);
     setNotes(event.specialNotes ?? order.notes ?? "");
@@ -136,6 +142,16 @@ export function EventEditDialog({
           fulfillment === "delivery"
             ? deliveryAddress.trim()
             : "استلام من المتجر",
+        deliveryFee:
+          fulfillment === "delivery"
+            ? Math.max(0, Number.parseFloat(deliveryFee) || 0)
+            : 0,
+        deliveryZone:
+          fulfillment === "delivery" ? deliveryZone.trim() || null : null,
+        deliveryInstructions:
+          fulfillment === "delivery"
+            ? deliveryInstructions.trim() || null
+            : null,
         notes: notes.trim() || null,
       });
       if (!result) throw new Error("تعذر تحديث المناسبة");
@@ -235,13 +251,49 @@ export function EventEditDialog({
               </div>
             </div>
             {fulfillment === "delivery" ? (
-              <div className="space-y-2">
-                <Label htmlFor="edit-address">عنوان التوصيل</Label>
-                <Input
-                  id="edit-address"
-                  value={deliveryAddress}
-                  onChange={(e) => setDeliveryAddress(e.target.value)}
-                />
+              <div className="space-y-4 rounded-xl border border-pistachio-400/20 bg-pistachio-400/[0.04] p-4">
+                <div className="grid gap-3 sm:grid-cols-[1fr_160px]">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-delivery-zone">المنطقة</Label>
+                    <Input
+                      id="edit-delivery-zone"
+                      value={deliveryZone}
+                      onChange={(e) => setDeliveryZone(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-delivery-fee">سعر التوصيل</Label>
+                    <Input
+                      id="edit-delivery-fee"
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={deliveryFee}
+                      onChange={(e) => setDeliveryFee(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-address">عنوان التوصيل</Label>
+                  <Input
+                    id="edit-address"
+                    value={deliveryAddress}
+                    onChange={(e) => setDeliveryAddress(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-delivery-instructions">
+                    تعليمات التسليم
+                  </Label>
+                  <Textarea
+                    id="edit-delivery-instructions"
+                    value={deliveryInstructions}
+                    onChange={(e) =>
+                      setDeliveryInstructions(e.target.value)
+                    }
+                    className="min-h-16"
+                  />
+                </div>
               </div>
             ) : (
               <Badge variant="outline">استلام من المتجر</Badge>

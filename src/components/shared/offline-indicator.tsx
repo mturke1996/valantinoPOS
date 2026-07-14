@@ -1,23 +1,29 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CloudOff, CloudUpload, RotateCcw } from "lucide-react";
+import { CloudOff, CloudUpload, Radio, RotateCcw } from "lucide-react";
 
 import {
   getFailedSyncCount,
   getPendingSyncCount,
   retryFailedSyncItems,
   subscribeSyncQueue,
+  wakePendingSyncItems,
 } from "@/lib/offline/db";
 import { flushOfflineSyncQueue } from "@/lib/offline/sync";
+import { useAppHydrationStatus } from "@/hooks/use-app-hydration";
 import { useOnlineStatus } from "@/hooks/use-online-status";
+import { useRealtimeStatus } from "@/hooks/use-realtime-status";
 import { cn } from "@/lib/utils";
 
 export function OfflineIndicator({ className }: { className?: string }) {
   const online = useOnlineStatus();
+  const realtime = useRealtimeStatus();
+  const hydration = useAppHydrationStatus();
   const [pending, setPending] = useState(0);
   const [failed, setFailed] = useState(0);
   const [busy, setBusy] = useState(false);
+  const initialSync = hydration === "syncing";
 
   const refresh = useCallback(async () => {
     const [pendingCount, failedCount] = await Promise.all([
@@ -42,13 +48,12 @@ export function OfflineIndicator({ className }: { className?: string }) {
     };
   }, [online, refresh]);
 
-  if (online && pending === 0 && failed === 0) return null;
-
   const retry = async () => {
     if (!online || busy) return;
     setBusy(true);
     try {
       if (failed > 0) await retryFailedSyncItems();
+      await wakePendingSyncItems();
       await flushOfflineSyncQueue().catch(() => 0);
       await refresh();
     } finally {
@@ -71,8 +76,10 @@ export function OfflineIndicator({ className }: { className?: string }) {
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default",
         failed > 0
           ? "bg-destructive/10 text-destructive"
-          : online
+          : online && realtime === "connected"
             ? "bg-pistachio-400/15 text-pistachio-400"
+            : online
+              ? "bg-gold-400/15 text-gold-500"
             : "bg-caramel-500/15 text-caramel-500",
         className,
       )}
@@ -84,12 +91,29 @@ export function OfflineIndicator({ className }: { className?: string }) {
           <span>تعذرت المزامنة ({failed})</span>
         </>
       ) : online ? (
-        <>
-          <CloudUpload className={cn("size-3.5", busy && "animate-pulse")} />
-          <span>
-            {busy ? "جاري المزامنة" : "مزامنة"} ({pending})
-          </span>
-        </>
+        initialSync ? (
+          <>
+            <CloudUpload className="size-3.5 animate-pulse" />
+            <span>تحديث البيانات</span>
+          </>
+        ) : realtime === "connected" && pending === 0 ? (
+          <>
+            <Radio className="size-3.5" />
+            <span>مزامنة فورية</span>
+          </>
+        ) : (
+          <>
+            <CloudUpload className={cn("size-3.5", busy && "animate-pulse")} />
+            <span>
+              {busy
+                ? "جاري المزامنة"
+                : realtime === "degraded"
+                  ? "إعادة الاتصال"
+                  : "مزامنة"}{" "}
+              {pending > 0 ? `(${pending})` : ""}
+            </span>
+          </>
+        )
       ) : (
         <>
           <CloudOff className="size-3.5" />

@@ -12,8 +12,10 @@ const PUBLIC_PATHS = [
   "/login",
   "/register",
   "/api/health",
+  "/api/public",
   "/auth/callback",
   "/icon",
+  "/catalog",
 ];
 
 function isPublicPath(pathname: string): boolean {
@@ -130,13 +132,23 @@ export async function middleware(request: NextRequest) {
       .select("role_key, is_active")
       .eq("id", session.userId)
       .maybeSingle();
-    if (profile?.is_active !== false) {
-      userRole = mapProfileRole(profile?.role_key);
+    if (profile && profile.is_active !== false) {
+      userRole = mapProfileRole(profile.role_key);
     }
   }
 
+  // Authenticated but no resolvable/active role — deny dashboard access
+  if (!userRole) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("error", "inactive_profile");
+    return withSessionCookies(
+      NextResponse.redirect(loginUrl),
+      session.response,
+    );
+  }
+
   const accessPath = pathname === "/" ? "/dashboard" : pathname;
-  if (userRole && !canAccessPath(accessPath, userRole)) {
+  if (!canAccessPath(accessPath, userRole)) {
     const fallback = getDefaultPathForRole(userRole);
     return withSessionCookies(
       NextResponse.redirect(new URL(fallback, request.url)),

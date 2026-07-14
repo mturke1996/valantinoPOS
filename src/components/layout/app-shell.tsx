@@ -27,7 +27,7 @@ export interface AppShellProps {
 
 export function AppShell({
   children,
-  userRole = "admin",
+  userRole,
   fullscreen = false,
   notificationCount = 0,
   userName,
@@ -81,7 +81,7 @@ export function AppShell({
         />
 
         <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2 sm:px-4">
-          <div className="mx-auto w-full max-w-[1600px] animate-fade-up">
+          <div className="mx-auto w-full max-w-[1600px]">
             {children}
           </div>
         </main>

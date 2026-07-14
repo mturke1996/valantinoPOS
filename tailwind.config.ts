@@ -7,8 +7,21 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-plex-arabic)", "system-ui", "sans-serif"],
-        mono: ["var(--font-jetbrains)", "ui-monospace", "monospace"],
+        sans: [
+          "var(--font-cairo)",
+          "Cairo",
+          "Tajawal",
+          "system-ui",
+          "sans-serif",
+        ],
+        mono: [
+          "var(--font-outfit)",
+          "Outfit",
+          "var(--font-cairo)",
+          "ui-monospace",
+          "monospace",
+        ],
+        arabic: ["var(--font-cairo)", "Cairo", "Tajawal", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
