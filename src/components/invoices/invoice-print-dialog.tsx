@@ -118,6 +118,15 @@ export function InvoicePrintDialog({
 
   const handleShare = async () => {
     setWorking("share");
+    const phone = resolveOrderWhatsAppPhone(
+      order,
+      customer,
+      settings.whatsappCountryCode,
+    );
+    const preOpened =
+      phone && typeof window !== "undefined"
+        ? window.open("about:blank", "_blank")
+        : null;
     try {
       const { file } = await getPdf();
       const message = buildOrderWhatsAppMessage({
@@ -127,11 +136,6 @@ export function InvoicePrintDialog({
         event,
         invoice,
       });
-      const phone = resolveOrderWhatsAppPhone(
-        order,
-        customer,
-        settings.whatsappCountryCode,
-      );
 
       const result = await shareOrderPdfOnWhatsApp({
         file,
@@ -139,13 +143,14 @@ export function InvoicePrintDialog({
         phone,
         fileName,
         onDownloadFallback: downloadBlob,
+        preOpenedWindow: preOpened,
       });
 
       if (result === "shared") {
         toast.success("تمت المشاركة — اختر واتساب من ورقة المشاركة");
       } else if (result === "whatsapp_text") {
         toast.success(
-          "تم تنزيل PDF وفتح واتساب — أرفق الملف من التنزيلات في المحادثة",
+          "تم تنزيل PDF وفتح واتساب — أرفق الملف من التنزيلات إن لزم",
         );
       } else {
         toast.message("تم تنزيل PDF", {
@@ -153,6 +158,7 @@ export function InvoicePrintDialog({
         });
       }
     } catch (error) {
+      preOpened?.close();
       if (error instanceof DOMException && error.name === "AbortError") return;
       toast.error(error instanceof Error ? error.message : "تعذرت المشاركة");
     } finally {

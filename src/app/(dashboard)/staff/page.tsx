@@ -114,15 +114,6 @@ export default function StaffPage() {
         }
       />
 
-      <div className="rounded-xl border border-gold-400/20 bg-gold-400/[0.06] p-4 text-sm text-muted-foreground">
-        أضف الموظف هنا بالبريد وكلمة المرور — يدخل مباشرة من صفحة تسجيل الدخول.
-        يتطلب ذلك مفتاح{" "}
-        <code className="rounded bg-cacao-800/5 px-1 font-mono text-xs">
-          SUPABASE_SERVICE_ROLE_KEY
-        </code>{" "}
-        في البيئة.
-      </div>
-
       {users.length === 0 ? (
         <EmptyState
           icon={UserCog}

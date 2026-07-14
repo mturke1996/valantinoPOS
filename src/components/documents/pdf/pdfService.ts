@@ -43,11 +43,30 @@ export async function generatePdfBlob(
   return asPdf.toBlob();
 }
 
+/** Reject if generation takes longer than `timeoutMs` (guards against react-pdf stream hangs). */
+export async function generatePdfBlobWithTimeout(
+  component: ReactElement,
+  timeoutMs = 20_000,
+): Promise<Blob> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error("انتهت مهلة إنشاء PDF — حاول مرة أخرى")),
+      timeoutMs,
+    );
+  });
+  try {
+    return await Promise.race([generatePdfBlob(component), timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export async function createReactPdf(
   component: ReactElement,
   fileName: string,
 ): Promise<{ blob: Blob; file: File }> {
-  const blob = await generatePdfBlob(component);
+  const blob = await generatePdfBlobWithTimeout(component);
   return {
     blob,
     file: new File([blob], fileName, { type: "application/pdf" }),

@@ -5,6 +5,7 @@ import {
   CalendarClock,
   MapPin,
   ReceiptText,
+  Trash2,
   Truck,
   UserRound,
   Wallet,
@@ -34,6 +35,7 @@ import {
   getOrderStatusConfig,
 } from "@/lib/constants/order-status";
 import {
+  deleteOrder,
   ensureInvoiceForOrder,
   getOpenShift,
   getSettings,
@@ -86,7 +88,11 @@ export function OrderDetailDialog({
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [invoiceTarget, setInvoiceTarget] = useState<Invoice | null>(null);
   const [deliveryOpen, setDeliveryOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   if (!order) return null;
+
+  const isManager = getAuthSession()?.role === "admin";
 
   const state = getState();
   const customer = order.customerId
@@ -139,6 +145,22 @@ export function OrderDetailDialog({
       setInvoiceOpen(true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "تعذر فتح الفاتورة");
+    }
+  };
+
+  const confirmDelete = () => {
+    setDeleting(true);
+    try {
+      const ok = deleteOrder(order.id);
+      if (!ok) throw new Error("تعذر حذف الطلب");
+      toast.success("تم حذف الطلب");
+      setConfirmDeleteOpen(false);
+      onOpenChange(false);
+      onUpdated();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "فشل حذف الطلب");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -458,55 +480,75 @@ export function OrderDetailDialog({
             ) : null}
         </DialogBody>
 
-        <DialogFooter className="flex-col gap-2 border-t border-cacao-800/8 bg-card sm:flex-row">
-          <Button
-            variant="ghost"
-            className="min-h-11 w-full sm:w-auto"
-            onClick={() => onOpenChange(false)}
-          >
-            إغلاق
-          </Button>
-          {balance > 0 ? (
+        <DialogFooter className="flex flex-col gap-3 border-t border-cacao-800/8 bg-card px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {balance > 0 ? (
+              <Button
+                variant="outline"
+                className="min-h-11 flex-1 sm:flex-none"
+                onClick={collectBalance}
+              >
+                <Wallet className="size-4" />
+                تحصيل المتبقي
+              </Button>
+            ) : null}
             <Button
               variant="outline"
-              className="min-h-11 w-full sm:w-auto"
-              onClick={collectBalance}
+              className="min-h-11 flex-1 sm:flex-none"
+              onClick={openInvoice}
             >
-              <Wallet className="size-4" />
-              تحصيل المتبقي
+              <ReceiptText className="size-4" />
+              فاتورة / PDF / طباعة
             </Button>
-          ) : null}
-          <Button
-            variant="outline"
-            className="min-h-11 w-full sm:w-auto"
-            onClick={openInvoice}
-          >
-            <ReceiptText className="size-4" />
-            فاتورة / PDF / طباعة
-          </Button>
-          <WhatsAppOrderShareButton
-            order={order}
-            variant="outline"
-            className="min-h-11 w-full border-pistachio-400/40 text-pistachio-400 hover:bg-pistachio-400/10 sm:w-auto"
-            label="واتساب + PDF"
-          />
-          {order.deliveryDate ||
-          order.deliveryAddress ||
-          order.type === "delivery" ? (
-            <Button
+            <WhatsAppOrderShareButton
+              order={order}
               variant="outline"
-              className="min-h-11 w-full sm:w-auto"
-              onClick={() => setDeliveryOpen(true)}
+              className="min-h-11 flex-1 border-pistachio-400/40 text-pistachio-400 hover:bg-pistachio-400/10 sm:flex-none"
+              label="واتساب + PDF"
+            />
+            {order.deliveryDate ||
+            order.deliveryAddress ||
+            order.type === "delivery" ? (
+              <Button
+                variant="outline"
+                className="min-h-11 flex-1 sm:flex-none"
+                onClick={() => setDeliveryOpen(true)}
+              >
+                <Truck className="size-4" />
+                واصل استلام
+              </Button>
+            ) : null}
+            {nextStatus ? (
+              <Button
+                className="min-h-11 flex-1 sm:flex-none"
+                onClick={advanceOrder}
+              >
+                نقل إلى {nextConfig?.labelAr ?? nextStatus}
+              </Button>
+            ) : null}
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            {isManager ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => setConfirmDeleteOpen(true)}
+              >
+                <Trash2 className="size-4" />
+                حذف الطلب
+              </Button>
+            ) : (
+              <span aria-hidden className="flex-1" />
+            )}
+            <Button
+              variant="ghost"
+              className="min-h-11"
+              onClick={() => onOpenChange(false)}
             >
-              <Truck className="size-4" />
-              واصل استلام
+              إغلاق
             </Button>
-          ) : null}
-          {nextStatus ? (
-            <Button className="min-h-11 w-full sm:w-auto" onClick={advanceOrder}>
-              نقل إلى {nextConfig?.labelAr ?? nextStatus}
-            </Button>
-          ) : null}
+          </div>
         </DialogFooter>
       </DialogContent>
       </Dialog>
@@ -526,6 +568,36 @@ export function OrderDetailDialog({
         onOpenChange={setDeliveryOpen}
         order={order}
       />
+      <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="size-5 text-destructive" />
+              حذف الطلب
+            </DialogTitle>
+          </DialogHeader>
+          <DialogBody className="py-4 text-sm text-muted-foreground">
+            سيتم حذف الطلب «{order.orderNumber}» نهائياً من النظام. لا يمكن
+            التراجع عن هذا الإجراء.
+          </DialogBody>
+          <DialogFooter className="flex-row justify-end gap-2 sm:justify-end">
+            <Button
+              variant="ghost"
+              onClick={() => setConfirmDeleteOpen(false)}
+              disabled={deleting}
+            >
+              إلغاء
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleting}
+            >
+              {deleting ? "جاري الحذف..." : "تأكيد الحذف"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -578,6 +578,8 @@ export function updateProduct(
     isBundle: patch.isBundle ?? current.isBundle,
     isActive: patch.isActive ?? current.isActive,
     trackStock: patch.trackStock ?? current.trackStock,
+    imageUrl:
+      patch.imageUrl === undefined ? current.imageUrl : patch.imageUrl,
   });
   validateProductInput(state, normalized, id);
 

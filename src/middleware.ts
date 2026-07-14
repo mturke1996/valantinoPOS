@@ -15,7 +15,6 @@ const PUBLIC_PATHS = [
   "/api/public",
   "/auth/callback",
   "/icon",
-  "/catalog",
 ];
 
 function isPublicPath(pathname: string): boolean {

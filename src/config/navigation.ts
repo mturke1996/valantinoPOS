@@ -53,25 +53,11 @@ export const NAV_ITEMS: NavItem[] = [
     searchKeywords: ["orders", "طلبات"],
   },
   {
-    label: "شاشة التحضير",
-    href: "/kitchen",
-    icon: "ChefHat",
-    roles: ["admin", "warehouse", "sales", "cashier"],
-    searchKeywords: ["kitchen", "تحضير", "مطبخ", "تجهيز"],
-  },
-  {
     label: "الفواتير",
     href: "/invoices",
     icon: "Receipt",
     roles: ["admin", "accountant", "sales"],
     searchKeywords: ["invoices", "فواتير", "مدفوعات"],
-  },
-  {
-    label: "كتالوج الطلب",
-    href: "/catalog",
-    icon: "Store",
-    roles: ["admin", "sales"],
-    searchKeywords: ["catalog", "كتالوج", "أونلاين", "طلب"],
   },
   {
     label: "المناسبات",
@@ -205,6 +191,13 @@ export function canAccessPath(
     normalizedPath.startsWith("/suppliers/")
   ) {
     return canAccessPath("/purchases", userRole);
+  }
+  // Removed screens — keep bookmarks working via orders access.
+  if (
+    normalizedPath === "/kitchen" ||
+    normalizedPath.startsWith("/kitchen/")
+  ) {
+    return canAccessPath("/orders", userRole);
   }
   const item = NAV_ITEMS.find(
     (candidate) =>

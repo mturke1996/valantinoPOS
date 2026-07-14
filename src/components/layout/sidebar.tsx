@@ -7,7 +7,6 @@ import {
   BarChart3,
   Bell,
   CalendarDays,
-  ChefHat,
   ClipboardList,
   Clock,
   FileBarChart,
@@ -21,7 +20,6 @@ import {
   Settings,
   ShoppingBag,
   ShoppingCart,
-  Store,
   Tag,
   Truck,
   Undo2,
@@ -51,7 +49,6 @@ const ICON_MAP: Record<string, LucideIcon> = {
   ShoppingCart,
   Clock,
   Package,
-  ChefHat,
   PartyPopper,
   CalendarDays,
   Users,
@@ -69,7 +66,6 @@ const ICON_MAP: Record<string, LucideIcon> = {
   UserCog,
   ScrollText,
   Settings,
-  Store,
 };
 
 function NavIcon({ name }: { name: string }) {

@@ -19,6 +19,9 @@ const PAYMENT_STATUS_AR: Record<string, string> = {
   refunded: "مسترجع",
 };
 
+/** wa.me URLs break when the query string is too long */
+const WHATSAPP_TEXT_MAX = 1600;
+
 /** Normalize Libyan / international phone for wa.me */
 export function normalizeWhatsAppPhone(
   raw: string | null | undefined,
@@ -71,16 +74,16 @@ export function buildOrderWhatsAppMessage(input: {
     "عميلنا العزيز";
 
   const lines: string[] = [
-    `السلام عليكم ${name} 👋`,
+    `السلام عليكم ${name}`,
     "",
     `*${settings.branchName}*`,
     `تفاصيل طلبكم جاهزة`,
     "",
-    `📋 رقم الطلب: *${order.orderNumber}*`,
+    `رقم الطلب: *${order.orderNumber}*`,
   ];
 
   if (invoice?.invoiceNumber) {
-    lines.push(`🧾 رقم الفاتورة: *${invoice.invoiceNumber}*`);
+    lines.push(`رقم الفاتورة: *${invoice.invoiceNumber}*`);
   }
 
   lines.push(`نوع الطلب: ${orderTypeLabel(order, event)}`);
@@ -145,7 +148,7 @@ export function buildOrderWhatsAppMessage(input: {
   if (balance > 0) {
     lines.push(`*المتبقي: ${formatMoneyLabel(balance, settings)}*`);
   } else {
-    lines.push("الحالة المالية: مسدّد بالكامل ✅");
+    lines.push("الحالة المالية: مسدّد بالكامل");
   }
 
   if (order.notes) {
@@ -170,40 +173,101 @@ export function buildOrderWhatsAppMessage(input: {
   return lines.join("\n");
 }
 
+export function truncateWhatsAppText(message: string, max = WHATSAPP_TEXT_MAX): string {
+  if (message.length <= max) return message;
+  const cut = message.slice(0, max - 40);
+  return `${cut}\n\n…(اختُصر النص — التفاصيل في ملف PDF)`;
+}
+
+export function isMobileUserAgent(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent ?? "");
+}
+
+/** Open wa.me without losing the click gesture (popup blockers). Returns true if a
+ * window/anchor was used to open the chat. */
+export function openWhatsAppChat(
+  phone: string,
+  message: string,
+  preOpened?: Window | null,
+): boolean {
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(
+    truncateWhatsAppText(message),
+  )}`;
+
+  if (preOpened && !preOpened.closed) {
+    try {
+      preOpened.location.href = url;
+      return true;
+    } catch {
+      /* cross-origin — fall through to a fresh open */
+    }
+  }
+
+  const opened = window.open(url, "_blank", "noopener,noreferrer");
+  if (opened) return true;
+
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.target = "_blank";
+  anchor.rel = "noopener noreferrer";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  return true;
+}
+
 export async function shareOrderPdfOnWhatsApp(options: {
   file: File;
   message: string;
   phone: string | null;
   fileName: string;
   onDownloadFallback?: (blob: Blob, fileName: string) => void;
+  /** Window opened synchronously on click to dodge popup blockers */
+  preOpenedWindow?: Window | null;
 }): Promise<"shared" | "whatsapp_text" | "download_only"> {
-  const { file, message, phone, fileName, onDownloadFallback } = options;
+  const {
+    file,
+    message,
+    phone,
+    fileName,
+    onDownloadFallback,
+    preOpenedWindow,
+  } = options;
 
-  const sharePayload: ShareData = {
-    title: fileName.replace(/\.pdf$/i, ""),
-    text: message,
-    files: [file],
-  };
-
-  if (
-    typeof navigator !== "undefined" &&
-    navigator.share &&
-    navigator.canShare?.({ files: [file] })
-  ) {
-    await navigator.share(sharePayload);
-    return "shared";
+  // Web Share with files is reliable mainly on mobile; desktop often claims
+  // support then fails or never opens WhatsApp.
+  if (isMobileUserAgent() && typeof navigator !== "undefined" && navigator.share) {
+    try {
+      const sharePayload: ShareData = {
+        title: fileName.replace(/\.pdf$/i, ""),
+        text: message,
+        files: [file],
+      };
+      const canShareFiles =
+        typeof navigator.canShare !== "function" ||
+        navigator.canShare({ files: [file] });
+      if (canShareFiles) {
+        await navigator.share(sharePayload);
+        preOpenedWindow?.close();
+        return "shared";
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        preOpenedWindow?.close();
+        throw error;
+      }
+      // Fall through to wa.me
+    }
   }
 
   onDownloadFallback?.(file, fileName);
 
   if (phone) {
-    window.open(
-      `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
-      "_blank",
-      "noopener,noreferrer",
-    );
+    openWhatsAppChat(phone, message, preOpenedWindow);
     return "whatsapp_text";
   }
 
+  preOpenedWindow?.close();
   return "download_only";
 }
