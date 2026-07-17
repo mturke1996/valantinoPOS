@@ -1,24 +1,38 @@
 import { Document, Page, Text, View } from "@react-pdf/renderer";
 
-import { ar, arDate, arDateTime } from "@/components/documents/pdf/arabicPDF";
+import {
+  ar,
+  arDate,
+  arDateTime,
+  arMixed,
+} from "@/components/documents/pdf/arabicPDF";
+import {
+  PdfTable,
+  type PdfColumn,
+} from "@/components/documents/pdf/PdfTable";
 import {
   INK,
-  PDF_PAGINATION,
   PdfContinuationBanner,
   PdfDocFooter,
   PdfDocHeader,
+  PdfLtrText,
   PdfMoneyText,
   PdfSignatureRow,
   makePdfStyles,
 } from "@/components/documents/pdf/pdfKit";
 import type { Customer, Order, Settings } from "@/types";
 
-const cols = {
-  desc: { flex: 1, textAlign: "right" as const },
-  qty: { width: 52, textAlign: "center" as const },
-  total: { width: 90, textAlign: "left" as const },
-  check: { width: 40, textAlign: "center" as const },
-};
+const PRICE_COLUMNS: PdfColumn[] = [
+  { key: "desc", label: "الصنف", flex: 3.5, kind: "multiline", bold: true },
+  { key: "qty", label: "الكمية", flex: 1, kind: "num" },
+  { key: "total", label: "القيمة", flex: 1.5, kind: "money" },
+];
+
+const CHECK_COLUMNS: PdfColumn[] = [
+  { key: "desc", label: "الصنف", flex: 3.5, kind: "multiline", bold: true },
+  { key: "qty", label: "الكمية", flex: 1, kind: "num" },
+  { key: "check", label: "✓", flex: 0.7, kind: "check" },
+];
 
 export interface DeliveryReceiptPdfProps {
   order: Order;
@@ -70,7 +84,9 @@ export function DeliveryReceiptPDF({
             </View>
             <View style={s.kvItem}>
               <Text style={s.kvLabel}>{ar("الهاتف")}</Text>
-              <Text style={s.kvValue}>{phone}</Text>
+              <PdfLtrText size={10} bold style={s.kvValue}>
+                {phone}
+              </PdfLtrText>
             </View>
             <View style={s.kvItem}>
               <Text style={s.kvLabel}>{ar("موعد التسليم")}</Text>
@@ -112,7 +128,7 @@ export function DeliveryReceiptPDF({
               <View style={[s.kvItem, { width: "100%" }]}>
                 <Text style={s.kvLabel}>{ar("تعليمات")}</Text>
                 <Text style={s.kvValue}>
-                  {ar(order.deliveryInstructions)}
+                  {arMixed(order.deliveryInstructions)}
                 </Text>
               </View>
             ) : null}
@@ -123,39 +139,22 @@ export function DeliveryReceiptPDF({
           {arDateTime(order.createdAt)}
         </Text>
 
-        <View
-          style={s.tableHead}
-          wrap={false}
-          minPresenceAhead={PDF_PAGINATION.tableHead}
-        >
-          {!hidePrices ? (
-            <Text style={[s.th, cols.total]}>{ar("القيمة")}</Text>
-          ) : (
-            <Text style={[s.th, cols.check]}>✓</Text>
-          )}
-          <Text style={[s.th, cols.qty]}>{ar("الكمية")}</Text>
-          <Text style={[s.th, cols.desc]}>{ar("الصنف")}</Text>
-        </View>
         <PdfContinuationBanner label="— تابع أصناف التسليم —" />
-        {order.items.map((item, i) => (
-          <View
-            key={item.id}
-            style={[s.tableRow, i % 2 === 1 ? s.rowEven : {}]}
-            wrap={false}
-          >
-            {!hidePrices ? (
-              <View style={cols.total}>
-                <PdfMoneyText amount={item.total} currency={currency} />
-              </View>
-            ) : (
-              <Text style={[s.td, cols.check, { color: INK.faint }]}>☐</Text>
-            )}
-            <Text style={[s.td, cols.qty]}>{item.quantity}</Text>
-            <Text style={[s.tdBold, cols.desc]}>
-              {ar(item.productNameAr)}
-            </Text>
-          </View>
-        ))}
+        <PdfTable
+          columns={hidePrices ? CHECK_COLUMNS : PRICE_COLUMNS}
+          currency={currency}
+          repeatHeader
+          emptyMessage="لا توجد أصناف للتسليم"
+          rows={order.items.map((item) => {
+            const row: Record<string, string | number> = {
+              desc: item.productNameAr,
+              qty: item.quantity,
+            };
+            if (hidePrices) row.check = "☐";
+            else row.total = item.total;
+            return row;
+          })}
+        />
 
         {!hidePrices ? (
           <View

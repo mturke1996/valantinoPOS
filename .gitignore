@@ -44,3 +44,7 @@ next-env.d.ts
 .agents/
 .claude/
 .cursor/
+
+# ephemeral local auth/debug scripts (may contain secrets)
+scripts/__*.ps1
+scripts/.cookie*

@@ -5,7 +5,12 @@ import {
   arDate,
   arDateLong,
   arDateTime,
+  arMixed,
   arMoney,
+  hasArabic,
+  ltr,
+  LTR_MARK,
+  pdfDisplayValue,
 } from "@/components/documents/pdf/arabicPDF";
 import { toPdfPaperSize } from "@/components/documents/pdf/pdfService";
 import { invoicePaymentStatusMeta } from "@/components/documents/brand";
@@ -13,13 +18,18 @@ import { isAllowedLogoUrl } from "@/components/documents/pdf/pdfAssets";
 import { createDocumentPdf } from "@/components/documents/pdf-export";
 
 describe("arabicPDF", () => {
-  it("formats money with sign and currency", () => {
-    expect(arMoney(1234.5, "د.ل")).toBe("1,234.50\u00A0د.ل");
-    expect(arMoney(-10, "د.ل")).toBe("-10.00\u00A0د.ل");
+  it("formats money with LTR isolation and currency", () => {
+    const money = arMoney(1234.5, "د.ل");
+    expect(money).toContain("1,234.50");
+    expect(money).toContain("د.ل");
+    expect(money.startsWith(LTR_MARK)).toBe(true);
+    expect(arMoney(-10, "د.ل")).toContain("-10.00");
   });
 
-  it("formats date-only strings at local noon", () => {
-    expect(arDate("2026-07-14")).toMatch(/^\d{2}\/\d{2}\/2026$/);
+  it("formats date-only strings at local noon as LTR", () => {
+    const d = arDate("2026-07-14");
+    expect(d).toMatch(/\d{2}\/\d{2}\/2026/);
+    expect(d.includes(LTR_MARK)).toBe(true);
   });
 
   it("returns em dash for invalid dates", () => {
@@ -31,6 +41,28 @@ describe("arabicPDF", () => {
   it("passes through Arabic text", () => {
     expect(ar("فاتورة")).toBe("فاتورة");
     expect(ar(null)).toBe("");
+  });
+
+  it("isolates Latin/digit runs inside Arabic (arMixed)", () => {
+    const mixed = arMixed("صنف VAL-123 فاخر");
+    expect(mixed).toContain("صنف");
+    expect(mixed).toContain(`${LTR_MARK}VAL-123${LTR_MARK}`);
+    expect(mixed).toContain("فاخر");
+  });
+
+  it("ltr wraps phones and SKUs", () => {
+    expect(ltr("0912345678")).toBe(`${LTR_MARK}0912345678${LTR_MARK}`);
+  });
+
+  it("pdfDisplayValue routes pure Arabic / mixed / Latin", () => {
+    expect(pdfDisplayValue("شوكولاتة")).toBe("شوكولاتة");
+    expect(pdfDisplayValue("صنف A1")).toContain(LTR_MARK);
+    expect(pdfDisplayValue("SKU-9")).toBe(`${LTR_MARK}SKU-9${LTR_MARK}`);
+  });
+
+  it("detects Arabic script", () => {
+    expect(hasArabic("فاتورة")).toBe(true);
+    expect(hasArabic("INV-1")).toBe(false);
   });
 
   it("formats long Arabic weekday dates", () => {

@@ -9,13 +9,20 @@ import {
   arDate,
   arDateLong,
   arDateTime,
+  arMixed,
+  ltr,
 } from "@/components/documents/pdf/arabicPDF";
+import {
+  PdfTable,
+  type PdfColumn,
+} from "@/components/documents/pdf/PdfTable";
 import {
   INK,
   PDF_PAGINATION,
   PdfContinuationBanner,
   PdfDocFooter,
   PdfDocHeader,
+  PdfLtrText,
   PdfMoneyText,
   PdfNotesBox,
   makePdfStyles,
@@ -34,12 +41,12 @@ import type {
   Settings,
 } from "@/types";
 
-const cols = {
-  desc: { flex: 1, textAlign: "right" as const, paddingRight: 4 },
-  qty: { width: 44, textAlign: "center" as const },
-  price: { width: 72, textAlign: "center" as const },
-  total: { width: 80, textAlign: "left" as const, paddingLeft: 4 },
-};
+const INVOICE_COLUMNS: PdfColumn[] = [
+  { key: "desc", label: "الصنف", flex: 3.2, kind: "multiline", bold: true },
+  { key: "qty", label: "الكمية", flex: 0.9, kind: "num" },
+  { key: "price", label: "السعر", flex: 1.3, kind: "money" },
+  { key: "total", label: "الإجمالي", flex: 1.4, kind: "money" },
+];
 
 const STATUS_INK = {
   success: INK.success,
@@ -151,7 +158,7 @@ export function InvoicePDF({
           </View>
           <View style={{ alignItems: "flex-start" }}>
             <Text style={[s.tdBold, { fontSize: compact ? 8 : 9 }]}>
-              {ar(`طلب ${order.orderNumber}`)}
+              {ar("طلب")} {ltr(order.orderNumber)}
             </Text>
             <Text style={[s.td, { color: INK.muted, marginTop: 2 }]}>
               {arDateTime(invoice.createdAt)}
@@ -167,7 +174,13 @@ export function InvoicePDF({
             </View>
             <View style={s.dateRow}>
               <Text style={s.dateLabel}>{ar("الطلب")}</Text>
-              <Text style={s.dateVal}>{order.orderNumber}</Text>
+              <PdfLtrText
+                size={8.5}
+                bold
+                style={s.dateVal}
+              >
+                {order.orderNumber}
+              </PdfLtrText>
             </View>
             <View style={s.dateRow}>
               <Text style={s.dateLabel}>{ar("النوع")}</Text>
@@ -184,7 +197,9 @@ export function InvoicePDF({
             <Text style={s.clientLbl}>{ar("إلى السيد / السادة")}</Text>
             <Text style={s.clientName}>{ar(customerName)}</Text>
             {customerPhone ? (
-              <Text style={s.clientSub}>{customerPhone}</Text>
+              <PdfLtrText size={8.5} color={INK.muted} style={s.clientSub}>
+                {customerPhone}
+              </PdfLtrText>
             ) : null}
           </View>
         </View>
@@ -220,7 +235,7 @@ export function InvoicePDF({
                 </Text>
                 {event?.guestCount ? (
                   <Text style={s.clientSub}>
-                    {ar(`${event.guestCount} ضيف/قطعة`)}
+                    {arMixed(`${event.guestCount} ضيف/قطعة`)}
                   </Text>
                 ) : null}
               </View>
@@ -246,7 +261,7 @@ export function InvoicePDF({
                   {ar("الساعة")}
                 </Text>
                 <Text style={[s.clientName, { marginTop: 2 }]}>
-                  {order.deliveryTime || "—"}
+                  {ltr(order.deliveryTime || "—")}
                 </Text>
               </View>
             </View>
@@ -268,7 +283,9 @@ export function InvoicePDF({
               {order.deliveryPhone ? (
                 <View style={s.kvItem}>
                   <Text style={s.kvLabel}>{ar("الهاتف")}</Text>
-                  <Text style={s.kvValue}>{order.deliveryPhone}</Text>
+                  <PdfLtrText size={10} bold style={s.kvValue}>
+                    {order.deliveryPhone}
+                  </PdfLtrText>
                 </View>
               ) : null}
               {order.deliveryZone ? (
@@ -298,45 +315,25 @@ export function InvoicePDF({
           </View>
         ) : null}
 
-        <View
-          style={s.tableHead}
-          wrap={false}
-          minPresenceAhead={PDF_PAGINATION.tableHead}
-        >
-          <Text style={[s.th, cols.total]}>{ar("الإجمالي")}</Text>
-          <Text style={[s.th, cols.price]}>{ar("السعر")}</Text>
-          <Text style={[s.th, cols.qty]}>{ar("الكمية")}</Text>
-          <Text style={[s.th, cols.desc]}>{ar("الصنف")}</Text>
-        </View>
         <PdfContinuationBanner
           compact={compact}
           label="— تابع أصناف الفاتورة —"
         />
-        {order.items.map((item, i) => (
-          <View
-            key={item.id}
-            style={[s.tableRow, i % 2 === 1 ? s.rowEven : {}]}
-            wrap={false}
-          >
-            <View style={cols.total}>
-              <PdfMoneyText amount={item.total} currency={currency} />
-            </View>
-            <PdfMoneyText
-              amount={item.unitPrice}
-              currency={currency}
-              containerStyle={cols.price}
-            />
-            <Text style={[s.td, cols.qty]}>{item.quantity}</Text>
-            <View style={cols.desc}>
-              <Text style={s.tdBold}>{ar(item.productNameAr)}</Text>
-              {item.notes ? (
-                <Text style={[s.td, { color: INK.faint, fontSize: 7.5 }]}>
-                  {ar(item.notes)}
-                </Text>
-              ) : null}
-            </View>
-          </View>
-        ))}
+        <PdfTable
+          columns={INVOICE_COLUMNS}
+          currency={currency}
+          compact={compact}
+          repeatHeader
+          emptyMessage="لا توجد أصناف في هذه الفاتورة"
+          rows={order.items.map((item) => ({
+            desc: item.notes
+              ? `${item.productNameAr}\n${item.notes}`
+              : item.productNameAr,
+            qty: item.quantity,
+            price: item.unitPrice,
+            total: item.total,
+          }))}
+        />
 
         <View style={s.totalsBox} wrap={false}>
           <View style={s.totalLine}>
@@ -355,7 +352,7 @@ export function InvoicePDF({
           <View style={s.totalLine}>
             <PdfMoneyText amount={order.taxAmount} currency={currency} />
             <Text style={s.totalLbl}>
-              {ar(`الضريبة (${settings.taxRate}%)`)}
+              {arMixed(`الضريبة (${settings.taxRate}%)`)}
             </Text>
           </View>
           {order.deliveryFee > 0 || order.type === "delivery" ? (
@@ -412,9 +409,9 @@ export function InvoicePDF({
                 }}
               >
                 <Text style={[s.td, { color: INK.muted }]}>
-                  {ar(
-                    `${PAYMENT_LABELS[payment.method] ?? payment.method} · ${arDateTime(payment.createdAt)}`,
-                  )}
+                  {ar(PAYMENT_LABELS[payment.method] ?? payment.method)}
+                  {" · "}
+                  {arDateTime(payment.createdAt)}
                 </Text>
                 <PdfMoneyText amount={payment.amount} currency={currency} />
               </View>
@@ -424,7 +421,7 @@ export function InvoicePDF({
 
         {order.notes ? (
           <PdfNotesBox s={s}>
-            <Text style={s.notesTxt}>{ar(order.notes)}</Text>
+            <Text style={s.notesTxt}>{arMixed(order.notes)}</Text>
           </PdfNotesBox>
         ) : null}
 

@@ -1,6 +1,10 @@
 import { Document, Page, Text, View } from "@react-pdf/renderer";
 
-import { ar, arDateTime } from "@/components/documents/pdf/arabicPDF";
+import {
+  ar,
+  arDateTime,
+  pdfDisplayValue,
+} from "@/components/documents/pdf/arabicPDF";
 import {
   INK,
   PdfDocFooter,
@@ -115,6 +119,7 @@ export function ZReportPDF({
             <Text
               style={[
                 s.tdBold,
+                { textAlign: "right" },
                 row.emphasize ? { color: INK.goldDeep } : {},
               ]}
             >
@@ -127,7 +132,9 @@ export function ZReportPDF({
                 style={row.emphasize ? { color: INK.goldDeep } : undefined}
               />
             ) : (
-              <Text style={s.td}>{ar(row.value ?? "—")}</Text>
+              <Text style={[s.td, { textAlign: "left" }]}>
+                {pdfDisplayValue(row.value ?? "—")}
+              </Text>
             )}
           </View>
         ))}

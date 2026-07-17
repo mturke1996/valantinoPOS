@@ -1,4 +1,13 @@
-export { ar, arDate, arDateLong, arDateTime, arMoney } from "./arabicPDF";
+export {
+  ar,
+  arDate,
+  arDateLong,
+  arDateTime,
+  arMixed,
+  arMoney,
+  ltr,
+  pdfDisplayValue,
+} from "./arabicPDF";
 export { buildQrDataUri, fetchLogoDataUri } from "./pdfAssets";
 export { ensurePdfFontsLoaded, PDF_FONT_FAMILY } from "./pdfFonts";
 export { InvoicePDF } from "./InvoicePDF";
@@ -9,6 +18,8 @@ export { DeliveryReceiptPDF } from "./DeliveryReceiptPDF";
 export type { DeliveryReceiptPdfProps } from "./DeliveryReceiptPDF";
 export { PurchaseOrderPDF } from "./PurchaseOrderPDF";
 export type { PurchaseOrderPdfProps } from "./PurchaseOrderPDF";
+export { PdfTable, PdfTableHead, PdfSectionTitle } from "./PdfTable";
+export type { PdfColumn, PdfColKind, PdfCellValue } from "./PdfTable";
 export {
   createDeliveryReceiptPdf,
   createInvoicePdf,
@@ -20,3 +31,4 @@ export {
   toPdfPaperSize,
 } from "./pdfService";
 export type { PdfPaperSize } from "./pdfKit";
+export { PdfArabicText, PdfLtrText, PdfMoneyText } from "./pdfKit";

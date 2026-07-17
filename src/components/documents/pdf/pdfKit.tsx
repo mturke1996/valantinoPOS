@@ -2,7 +2,7 @@ import React from "react";
 import { Image, StyleSheet, Text, View } from "@react-pdf/renderer";
 
 import { DOC_INK } from "@/components/documents/brand";
-import { ar } from "@/components/documents/pdf/arabicPDF";
+import { ar, arMixed, ltr } from "@/components/documents/pdf/arabicPDF";
 import { PDF_FONT_FAMILY } from "@/components/documents/pdf/pdfFonts";
 import type { Settings } from "@/types";
 
@@ -423,6 +423,84 @@ export function makePdfStyles(compact = false) {
   });
 }
 
+/**
+ * Arabic body text — right-aligned, wraps without hyphenation
+ * (hyphenation is disabled globally in pdfFonts for Tajawal).
+ */
+export function PdfArabicText({
+  children,
+  style,
+  bold = false,
+  size = 9,
+  color = INK.text,
+}: {
+  children: string | number | null | undefined;
+  style?: object;
+  bold?: boolean;
+  size?: number;
+  color?: string;
+}) {
+  return (
+    <Text
+      wrap
+      style={
+        [
+          {
+            fontSize: size,
+            fontWeight: bold ? 700 : 400,
+            color,
+            fontFamily: PDF_FONT_FAMILY,
+            textAlign: "right",
+            lineHeight: 1.45,
+          },
+          style,
+        ] as never
+      }
+    >
+      {arMixed(children)}
+    </Text>
+  );
+}
+
+/** LTR-isolated text for phones, SKUs, order numbers. */
+export function PdfLtrText({
+  children,
+  style,
+  size = 9,
+  color = INK.text,
+  bold = false,
+}: {
+  children: string | number | null | undefined;
+  style?: object;
+  size?: number;
+  color?: string;
+  bold?: boolean;
+}) {
+  return (
+    <Text
+      wrap={false}
+      style={
+        [
+          {
+            fontSize: size,
+            fontWeight: bold ? 700 : 400,
+            color,
+            fontFamily: PDF_FONT_FAMILY,
+            textAlign: "left",
+          },
+          style,
+        ] as never
+      }
+    >
+      {ltr(children)}
+    </Text>
+  );
+}
+
+/**
+ * Money as separate number + currency Text nodes (row-reverse)
+ * so Arabic currency never flips digits — rkeaz-group pattern.
+ */
 export function PdfMoneyText({
   amount,
   currency,
@@ -467,7 +545,7 @@ export function PdfMoneyText({
           ] as never
         }
       >
-        {`${sign}${formatted}`}
+        {ltr(`${sign}${formatted}`)}
       </Text>
       <Text
         style={{
@@ -478,7 +556,7 @@ export function PdfMoneyText({
           fontFamily: PDF_FONT_FAMILY,
         }}
       >
-        {currency}
+        {ar(currency)}
       </Text>
     </View>
   );
@@ -517,16 +595,18 @@ export function PdfDocHeader({
             <Image src={logoUri} style={s.logo} />
           ) : null}
           <View style={s.brandText}>
-            <Text style={s.branchName}>{ar(settings.branchName)}</Text>
+            <Text style={s.branchName}>{arMixed(settings.branchName)}</Text>
             <Text style={s.titleAr}>{ar(titleAr)}</Text>
           </View>
         </View>
         <View style={s.metaCol}>
           <View style={s.badge}>
-            <Text style={s.badgeText}>{titleEn}</Text>
+            <Text style={s.badgeText}>{ltr(titleEn)}</Text>
           </View>
-          <Text style={s.refLine}>{refLine}</Text>
-          {contact ? <Text style={s.contactLine}>{ar(contact)}</Text> : null}
+          <Text style={s.refLine}>{ltr(refLine)}</Text>
+          {contact ? (
+            <Text style={s.contactLine}>{arMixed(contact)}</Text>
+          ) : null}
           {statusLabel ? (
             <Text style={[s.statusPill, { color: statusColor ?? INK.muted }]}>
               {ar(statusLabel)}
@@ -552,7 +632,7 @@ export function PdfDocFooter({
       <Text
         style={s.footerText}
         render={({ pageNumber, totalPages }) =>
-          ar(`صفحة ${pageNumber} من ${totalPages}`)
+          arMixed(`صفحة ${pageNumber} من ${totalPages}`)
         }
       />
     </View>
