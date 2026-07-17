@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { ReceiptText, Save, Settings, ShoppingBag, Truck } from "lucide-react";
 import { toast } from "sonner";
 
+import { DocumentCodeSettingsCard } from "@/components/settings/document-code-settings-card";
 import { TelegramSettingsCard } from "@/components/settings/telegram-settings-card";
 import { ImageUploadField } from "@/components/shared/image-upload-field";
 import { PageHeader } from "@/components/shared/page-header";
@@ -296,6 +297,8 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        <DocumentCodeSettingsCard settings={settings} onUpdate={update} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

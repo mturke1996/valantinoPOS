@@ -2,7 +2,7 @@ import { isValidStatusTransition } from "@/lib/constants/order-status";
 import { createInitialState } from "@/lib/data/initial-state";
 import { createSeedState } from "@/lib/data/seed";
 import { formatMoneyLabel } from "@/lib/formatters";
-import { buildInvoiceQrPayload } from "@/lib/services/invoice.service";
+import { buildDocumentCodeValue } from "@/lib/services/invoice.service";
 import {
   addMovement,
   fefoDeduct,
@@ -150,6 +150,16 @@ function normalizeStoredState(state: AppState): AppState {
           : defaults.settings.telegramNotificationsEnabled,
       taxNumber: state.settings?.taxNumber ?? null,
       commercialRegister: state.settings?.commercialRegister ?? null,
+      documentCodeEnabled:
+        typeof state.settings?.documentCodeEnabled === "boolean"
+          ? state.settings.documentCodeEnabled
+          : defaults.settings.documentCodeEnabled,
+      documentCodeMode: state.settings?.documentCodeMode ??
+        defaults.settings.documentCodeMode,
+      documentCodeCustomValue:
+        typeof state.settings?.documentCodeCustomValue === "string"
+          ? state.settings.documentCodeCustomValue
+          : defaults.settings.documentCodeCustomValue,
       branchPhone:
         state.settings?.branchPhone &&
         state.settings.branchPhone !== "+218" &&
@@ -1626,7 +1636,7 @@ export function processPayment(input: ProcessPaymentInput): Payment {
       newState.orders.find((item) => item.id === input.orderId) ?? order;
     const invoice: Invoice = {
       ...invoiceDraft,
-      qrPayload: buildInvoiceQrPayload({
+      qrPayload: buildDocumentCodeValue({
         invoice: invoiceDraft,
         order: paidOrder,
         settings: state.settings,
@@ -2530,7 +2540,11 @@ export function printInvoice(invoiceId: string): Invoice | null {
 
   const updated: Invoice = {
     ...invoice,
-    qrPayload: buildInvoiceQrPayload({ invoice, order, settings: state.settings }),
+    qrPayload: buildDocumentCodeValue({
+      invoice,
+      order,
+      settings: state.settings,
+    }),
     printedAt: nowISO(),
   };
 
@@ -2566,7 +2580,7 @@ export function ensureInvoiceForOrder(orderId: string): Invoice {
   };
   const invoice: Invoice = {
     ...draft,
-    qrPayload: buildInvoiceQrPayload({
+    qrPayload: buildDocumentCodeValue({
       invoice: draft,
       order,
       settings: state.settings,

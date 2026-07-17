@@ -10,6 +10,7 @@ import {
 } from "@/components/documents/print-window";
 import { Button } from "@/components/ui/button";
 import { getSettings, getState, printInvoice } from "@/lib/data/store";
+import { buildDocumentCodeValue } from "@/lib/services/invoice.service";
 import type { Order, Payment } from "@/types";
 
 interface PrintReceiptProps {
@@ -60,7 +61,15 @@ export function PrintReceipt({
           settings={settings}
           payment={payment}
           event={event}
-          qrPayload={invoice?.qrPayload ?? null}
+          qrPayload={
+            invoice
+              ? buildDocumentCodeValue({
+                  invoice,
+                  order,
+                  settings,
+                })
+              : null
+          }
         />
       </div>
       <Button variant="outline" size="sm" className="gap-1.5" onClick={handlePrint}>

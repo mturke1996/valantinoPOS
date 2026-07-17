@@ -13,7 +13,7 @@ import {
 } from "@/components/documents/pdf";
 import { Button } from "@/components/ui/button";
 import { ensureInvoiceForOrder, getState } from "@/lib/data/store";
-import { buildInvoiceQrPayload } from "@/lib/services/invoice.service";
+import { buildDocumentCodeValue } from "@/lib/services/invoice.service";
 import {
   buildOrderWhatsAppMessage,
   isMobileUserAgent,
@@ -115,9 +115,11 @@ export function WhatsAppOrderShareButton({
   // render in a 20s timeout, so a hung stream rejects instead of freezing.
   const buildFile = async (ctx: ShareContext): Promise<File> => {
     const ensured = ensureInvoiceForOrder(order.id);
-    const qrPayload =
-      ensured.qrPayload ??
-      buildInvoiceQrPayload({ invoice: ensured, order, settings: ctx.settings });
+    const qrPayload = buildDocumentCodeValue({
+      invoice: ensured,
+      order,
+      settings: ctx.settings,
+    });
     const [logoUri, qrUri] = await Promise.all([
       fetchLogoDataUri(ctx.settings),
       buildQrDataUri(qrPayload),

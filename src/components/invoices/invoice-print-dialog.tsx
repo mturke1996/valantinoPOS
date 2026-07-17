@@ -37,7 +37,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { getState, printInvoice } from "@/lib/data/store";
-import { buildInvoiceQrPayload } from "@/lib/services/invoice.service";
+import { buildDocumentCodeValue } from "@/lib/services/invoice.service";
 import {
   buildOrderWhatsAppMessage,
   resolveOrderWhatsAppPhone,
@@ -76,9 +76,8 @@ export function InvoicePrintDialog({
   const paymentMeta = invoicePaymentStatusMeta(order.paymentStatus);
   const sizeLabel = paperSize.toUpperCase();
   const fileName = `${invoice.invoiceNumber}-${sizeLabel}.pdf`;
-  const qrPayload =
-    invoice.qrPayload ??
-    buildInvoiceQrPayload({ invoice, order, settings });
+  // Always rebuild from current settings so QR customization applies immediately
+  const qrPayload = buildDocumentCodeValue({ invoice, order, settings });
 
   const getPdf = async () => {
     const [logoUri, qrUri] = await Promise.all([

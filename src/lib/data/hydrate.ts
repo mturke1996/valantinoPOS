@@ -229,6 +229,23 @@ function parseSettingsRows(
       typeof app?.commercialRegister === "string"
         ? (app.commercialRegister as string | null)
         : current.commercialRegister,
+    documentCodeEnabled:
+      typeof app?.documentCodeEnabled === "boolean"
+        ? app.documentCodeEnabled
+        : current.documentCodeEnabled,
+    documentCodeMode:
+      app?.documentCodeMode === "invoice_data" ||
+      app?.documentCodeMode === "order_number" ||
+      app?.documentCodeMode === "invoice_number" ||
+      app?.documentCodeMode === "custom_url" ||
+      app?.documentCodeMode === "custom_text" ||
+      app?.documentCodeMode === "hidden"
+        ? app.documentCodeMode
+        : current.documentCodeMode,
+    documentCodeCustomValue:
+      typeof app?.documentCodeCustomValue === "string"
+        ? app.documentCodeCustomValue
+        : current.documentCodeCustomValue,
   };
 }
 

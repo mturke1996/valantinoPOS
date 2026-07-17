@@ -471,6 +471,20 @@ export interface Settings {
   /** Tax / commercial identifiers for invoice QR */
   taxNumber: string | null;
   commercialRegister: string | null;
+  /**
+   * Scannable code on PDF invoices / receipts.
+   * When false or mode is `hidden`, no QR is rendered.
+   */
+  documentCodeEnabled: boolean;
+  documentCodeMode:
+    | "invoice_data"
+    | "order_number"
+    | "invoice_number"
+    | "custom_url"
+    | "custom_text"
+    | "hidden";
+  /** Used when mode is custom_url or custom_text — supports {orderNumber} tokens */
+  documentCodeCustomValue: string;
 }
 
 export interface UserProfile {

@@ -632,6 +632,9 @@ async function runOfflineSyncQueue(): Promise<number> {
         telegramNotificationsEnabled: settings.telegramNotificationsEnabled,
         taxNumber: settings.taxNumber,
         commercialRegister: settings.commercialRegister,
+        documentCodeEnabled: settings.documentCodeEnabled,
+        documentCodeMode: settings.documentCodeMode,
+        documentCodeCustomValue: settings.documentCodeCustomValue,
       };
       const branchValue = {
         branchName: settings.branchName,
