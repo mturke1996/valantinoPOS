@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ArrowLeft,
   CalendarClock,
   ChevronLeft,
+  Eye,
   MapPin,
   Package,
   Truck,
@@ -257,66 +259,184 @@ export default function OrdersPage() {
               }
             />
           ) : (
-            <div className="overflow-hidden rounded-xl border border-cacao-800/10 bg-white">
-              {/* Desktop header */}
-              <div className="hidden grid-cols-[1.1fr_1fr_0.7fr_0.9fr_0.85fr_0.9fr_auto] gap-3 border-b border-cacao-800/8 bg-cream-50/80 px-4 py-2.5 text-[11px] font-semibold text-muted-foreground md:grid">
-                <span>الطلب</span>
-                <span>العميل</span>
-                <span>النوع</span>
-                <span>الحالة</span>
-                <span>الموعد</span>
-                <span className="text-end">المبلغ</span>
-                <span className="w-[7.5rem]" />
-              </div>
+            <div className="rounded-xl border border-cacao-800/10 bg-white">
+                {/* Desktop header */}
+                <div className="hidden items-center gap-4 border-b border-cacao-800/8 bg-cream-50/80 px-4 py-2.5 text-[11px] font-semibold text-muted-foreground md:flex">
+                  <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto_auto_minmax(0,0.9fr)] items-center gap-3">
+                    <span>الطلب</span>
+                    <span>العميل</span>
+                    <span>النوع</span>
+                    <span>الحالة</span>
+                    <span>الموعد</span>
+                  </div>
+                  <span className="w-28 shrink-0 text-end">المبلغ</span>
+                  <span className="w-[7.5rem] shrink-0 text-end">إجراءات</span>
+                </div>
 
-              <ul className="divide-y divide-cacao-800/8">
-                {filtered.map((order) => {
-                  const balance = Math.max(0, order.total - order.paidAmount);
-                  const next = getNextOrderStatus(order.status);
-                  const customer = customerNameFor(order);
-                  const selected = order.id === selectedOrderId;
+                <ul className="divide-y divide-cacao-800/8">
+                  {filtered.map((order) => {
+                    const balance = Math.max(0, order.total - order.paidAmount);
+                    const next = getNextOrderStatus(order.status);
+                    const customer = customerNameFor(order);
+                    const selected = order.id === selectedOrderId;
 
-                  return (
-                    <li
-                      key={order.id}
-                      className={cn(
-                        "transition-colors",
-                        selected && "bg-gold-400/[0.07]",
-                      )}
-                    >
-                      {/* Mobile row */}
-                      <div className="space-y-3 p-3.5 md:hidden">
-                        <button
-                          type="button"
-                          className="flex w-full items-start justify-between gap-3 text-start"
-                          onClick={() => setSelectedOrderId(order.id)}
-                        >
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="font-semibold">
-                                {order.orderNumber}
-                              </span>
-                              <Badge variant="outline" className="h-5 text-[10px]">
-                                {TYPE_LABEL[order.type] ?? order.type}
-                              </Badge>
+                    return (
+                      <li
+                        key={order.id}
+                        className={cn(
+                          "transition-colors",
+                          selected && "bg-gold-400/[0.07]",
+                        )}
+                      >
+                        {/* Mobile row */}
+                        <div className="space-y-3 p-3.5 md:hidden">
+                          <button
+                            type="button"
+                            className="flex w-full items-start justify-between gap-3 text-start"
+                            onClick={() => setSelectedOrderId(order.id)}
+                          >
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="font-semibold">
+                                  {order.orderNumber}
+                                </span>
+                                <Badge
+                                  variant="outline"
+                                  className="h-5 text-[10px]"
+                                >
+                                  {TYPE_LABEL[order.type] ?? order.type}
+                                </Badge>
+                              </div>
+                              <p className="mt-1 truncate text-sm text-muted-foreground">
+                                {customer}
+                              </p>
                             </div>
-                            <p className="mt-1 truncate text-sm text-muted-foreground">
-                              {customer}
-                            </p>
-                          </div>
-                          <ChevronLeft className="mt-1 size-4 shrink-0 text-muted-foreground" />
-                        </button>
+                            <ChevronLeft className="mt-1 size-4 shrink-0 text-muted-foreground" />
+                          </button>
 
-                        <div className="flex flex-wrap items-center gap-2">
-                          <StatusBadge status={order.status} type="order" />
-                          <StatusBadge
-                            status={order.paymentStatus}
-                            type="payment"
-                          />
+                          <div className="flex flex-wrap items-center gap-2">
+                            <StatusBadge status={order.status} type="order" />
+                            <StatusBadge
+                              status={order.paymentStatus}
+                              type="payment"
+                            />
+                          </div>
+
+                          <div className="flex items-end justify-between gap-3">
+                            <div className="min-w-0">
+                              <CurrencyDisplay
+                                amount={order.total}
+                                className="text-sm font-semibold"
+                              />
+                              {balance > 0 ? (
+                                <p className="mt-0.5 text-[11px] text-caramel-500">
+                                  متبقي{" "}
+                                  <CurrencyDisplay
+                                    amount={balance}
+                                    className="inline text-[11px]"
+                                  />
+                                </p>
+                              ) : null}
+                            </div>
+                            <div className="shrink-0 text-end text-[11px] text-muted-foreground">
+                              {order.deliveryDate ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <CalendarClock className="size-3" />
+                                  {formatDate(order.deliveryDate, "dd/MM")}
+                                  {order.deliveryTime
+                                    ? ` · ${order.deliveryTime}`
+                                    : ""}
+                                </span>
+                              ) : (
+                                formatDate(order.createdAt, "dd/MM HH:mm")
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="w-full"
+                              onClick={() => setSelectedOrderId(order.id)}
+                            >
+                              <Eye className="size-4" />
+                              عرض
+                            </Button>
+                            <WhatsAppOrderShareButton
+                              order={order}
+                              variant="outline"
+                              size="sm"
+                              label="واتساب"
+                              className="w-full"
+                            />
+                          </div>
+                          {next ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full"
+                              disabled={advancingId === order.id}
+                              onClick={() => advanceStatus(order)}
+                            >
+                              نقل إلى{" "}
+                              {getOrderStatusConfig(next)?.labelAr ?? next}
+                            </Button>
+                          ) : null}
                         </div>
 
-                        <div className="flex items-end justify-between gap-3">
-                          <div>
+                        {/* Desktop row: info grows, amount + actions never shrink */}
+                        <div className="hidden items-center gap-4 px-4 py-3 md:flex">
+                          <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto_auto_minmax(0,0.9fr)] items-center gap-3">
+                            <button
+                              type="button"
+                              className="min-w-0 text-start"
+                              onClick={() => setSelectedOrderId(order.id)}
+                            >
+                              <p className="truncate font-semibold hover:text-gold-400">
+                                {order.orderNumber}
+                              </p>
+                              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                {formatDate(order.createdAt, "dd/MM HH:mm")}
+                              </p>
+                            </button>
+                            <button
+                              type="button"
+                              className="min-w-0 truncate text-start text-sm"
+                              onClick={() => setSelectedOrderId(order.id)}
+                            >
+                              {customer}
+                            </button>
+                            <span className="shrink-0">
+                              <Badge variant="outline" className="text-[10px]">
+                                {TYPE_LABEL[order.type] ?? order.type}
+                              </Badge>
+                            </span>
+                            <div className="shrink-0">
+                              <StatusBadge status={order.status} type="order" />
+                            </div>
+                            <div className="min-w-0 text-xs text-muted-foreground">
+                              {order.deliveryDate ? (
+                                <span className="inline-flex max-w-full items-center gap-1 truncate">
+                                  {order.type === "delivery" ? (
+                                    <Truck className="size-3.5 shrink-0" />
+                                  ) : (
+                                    <MapPin className="size-3.5 shrink-0" />
+                                  )}
+                                  <span className="truncate">
+                                    {formatDate(order.deliveryDate, "dd/MM")}
+                                    {order.deliveryTime
+                                      ? ` ${order.deliveryTime}`
+                                      : ""}
+                                  </span>
+                                </span>
+                              ) : (
+                                "—"
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="w-28 shrink-0 text-end tabular-nums">
                             <CurrencyDisplay
                               amount={order.total}
                               className="text-sm font-semibold"
@@ -329,140 +449,54 @@ export default function OrdersPage() {
                                   className="inline text-[11px]"
                                 />
                               </p>
-                            ) : null}
-                          </div>
-                          <div className="text-end text-[11px] text-muted-foreground">
-                            {order.deliveryDate ? (
-                              <span className="inline-flex items-center gap-1">
-                                <CalendarClock className="size-3" />
-                                {formatDate(order.deliveryDate, "dd/MM")}
-                                {order.deliveryTime
-                                  ? ` · ${order.deliveryTime}`
-                                  : ""}
-                              </span>
                             ) : (
-                              formatDate(order.createdAt, "dd/MM HH:mm")
+                              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                مدفوع
+                              </p>
                             )}
                           </div>
-                        </div>
 
-                        {next ? (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            className="w-full"
-                            disabled={advancingId === order.id}
-                            onClick={() => advanceStatus(order)}
-                          >
-                            نقل إلى{" "}
-                            {getOrderStatusConfig(next)?.labelAr ?? next}
-                          </Button>
-                        ) : null}
-                        <WhatsAppOrderShareButton
-                          order={order}
-                          variant="outline"
-                          size="sm"
-                          label="واتساب + PDF"
-                          className="w-full"
-                        />
-                      </div>
-
-                      {/* Desktop row */}
-                      <div className="hidden grid-cols-[1.1fr_1fr_0.7fr_0.9fr_0.85fr_0.9fr_auto] items-center gap-3 px-4 py-3 md:grid">
-                        <button
-                          type="button"
-                          className="min-w-0 text-start"
-                          onClick={() => setSelectedOrderId(order.id)}
-                        >
-                          <p className="truncate font-semibold hover:text-gold-400">
-                            {order.orderNumber}
-                          </p>
-                          <p className="mt-0.5 text-[11px] text-muted-foreground">
-                            {formatDate(order.createdAt, "dd/MM HH:mm")}
-                          </p>
-                        </button>
-                        <button
-                          type="button"
-                          className="min-w-0 truncate text-start text-sm"
-                          onClick={() => setSelectedOrderId(order.id)}
-                        >
-                          {customer}
-                        </button>
-                        <span>
-                          <Badge variant="outline" className="text-[10px]">
-                            {TYPE_LABEL[order.type] ?? order.type}
-                          </Badge>
-                        </span>
-                        <StatusBadge status={order.status} type="order" />
-                        <div className="text-xs text-muted-foreground">
-                          {order.deliveryDate ? (
-                            <span className="inline-flex items-center gap-1">
-                              {order.type === "delivery" ? (
-                                <Truck className="size-3.5" />
-                              ) : (
-                                <MapPin className="size-3.5" />
-                              )}
-                              {formatDate(order.deliveryDate, "dd/MM")}
-                              {order.deliveryTime
-                                ? ` ${order.deliveryTime}`
-                                : ""}
-                            </span>
-                          ) : (
-                            "—"
-                          )}
-                        </div>
-                        <div className="text-end">
-                          <CurrencyDisplay
-                            amount={order.total}
-                            className="text-sm font-semibold"
-                          />
-                          {balance > 0 ? (
-                            <p className="mt-0.5 text-[11px] text-caramel-500">
-                              متبقي{" "}
-                              <CurrencyDisplay
-                                amount={balance}
-                                className="inline text-[11px]"
-                              />
-                            </p>
-                          ) : (
-                            <p className="mt-0.5 text-[11px] text-muted-foreground">
-                              مدفوع
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex w-[9.5rem] justify-end gap-1.5">
-                          <WhatsAppOrderShareButton
-                            order={order}
-                            variant="outline"
-                            size="sm"
-                            label="واتساب"
-                            className="h-8 px-2 text-[11px]"
-                          />
-                          {next ? (
-                            <Button
-                              size="sm"
+                          <div className="flex w-[7.5rem] shrink-0 items-center justify-end gap-1">
+                            <WhatsAppOrderShareButton
+                              order={order}
                               variant="outline"
-                              className="h-8 px-2 text-[11px]"
-                              disabled={advancingId === order.id}
-                              onClick={() => advanceStatus(order)}
+                              size="icon"
+                              label=""
+                              className="size-8"
+                            />
+                            {next ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="size-8"
+                                disabled={advancingId === order.id}
+                                aria-label={`نقل إلى ${getOrderStatusConfig(next)?.labelAr ?? next}`}
+                                title={`التالي: ${getOrderStatusConfig(next)?.labelAr ?? next}`}
+                                onClick={() => advanceStatus(order)}
+                              >
+                                <ArrowLeft className="size-4" />
+                              </Button>
+                            ) : (
+                              <span className="size-8" aria-hidden />
+                            )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="size-8"
+                              aria-label="عرض الطلب"
+                              title="عرض"
+                              onClick={() => setSelectedOrderId(order.id)}
                             >
-                              التالي
+                              <Eye className="size-4" />
                             </Button>
-                          ) : null}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 px-2"
-                            onClick={() => setSelectedOrderId(order.id)}
-                          >
-                            عرض
-                          </Button>
+                          </div>
                         </div>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+                      </li>
+                    );
+                  })}
+                </ul>
             </div>
           )}
         </>

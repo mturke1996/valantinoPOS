@@ -492,27 +492,19 @@ export function OrderDetailDialog({
             ) : null}
         </DialogBody>
 
-        <DialogFooter className="gap-3 border-t border-cacao-800/8 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
-          {/* Primary + secondary actions — grouped on the right (start in RTL)
-              on desktop, stacked on top on mobile. */}
-          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-            {nextStatus ? (
-              <Button
-                className="min-h-11 w-full gap-1.5 sm:w-auto"
-                onClick={advanceOrder}
-              >
-                <ArrowLeft className="size-4" />
-                نقل إلى {nextConfig?.labelAr ?? nextStatus}
-              </Button>
-            ) : null}
-            <span
-              aria-hidden
-              className="hidden h-8 w-px shrink-0 bg-cacao-800/10 sm:block"
-            />
+        <DialogFooter className="flex-col gap-3 border-t border-cacao-800/8 bg-card px-4 py-3 sm:flex-col sm:items-stretch sm:px-6 sm:py-4">
+          {nextStatus ? (
+            <Button className="min-h-11 w-full gap-1.5" onClick={advanceOrder}>
+              <ArrowLeft className="size-4" />
+              نقل إلى {nextConfig?.labelAr ?? nextStatus}
+            </Button>
+          ) : null}
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))]">
             {balance > 0 && !isTerminal ? (
               <Button
                 variant="outline"
-                className="min-h-11 flex-1 sm:flex-none"
+                className="min-h-11 w-full"
                 onClick={collectBalance}
               >
                 <Wallet className="size-4" />
@@ -521,28 +513,23 @@ export function OrderDetailDialog({
             ) : null}
             <Button
               variant="outline"
-              className="min-h-11 flex-1 sm:flex-none"
+              className="min-h-11 w-full"
               onClick={openInvoice}
             >
               <ReceiptText className="size-4" />
-              فاتورة / PDF / طباعة
+              فاتورة
             </Button>
             <WhatsAppOrderShareButton
               order={order}
               variant="outline"
-              className="min-h-11 flex-1 border-pistachio-400/40 text-pistachio-400 hover:bg-pistachio-400/10 sm:flex-none"
-              label="واتساب + PDF"
+              className="min-h-11 w-full border-pistachio-400/40 text-pistachio-400 hover:bg-pistachio-400/10"
+              label="واتساب"
             />
-          </div>
-
-          {/* Less-used actions in an overflow menu: delivery receipt, cancel, close. */}
-          <div className="flex items-center justify-end sm:justify-start">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  size="sm"
-                  className="min-h-11 gap-1.5 px-3 text-muted-foreground sm:min-h-9"
+                  className="min-h-11 w-full gap-1.5 text-muted-foreground"
                 >
                   <MoreHorizontal className="size-4" />
                   المزيد

@@ -217,6 +217,9 @@ export function WhatsAppOrderShareButton({
     }
   };
 
+  const showLabel = Boolean(label);
+  const busyLabel = working ? "جاري التجهيز..." : label;
+
   return (
     <Button
       type="button"
@@ -224,10 +227,12 @@ export function WhatsAppOrderShareButton({
       size={size}
       disabled={working}
       onClick={() => void handleClick()}
-      className={cn("gap-2", className)}
+      aria-label={showLabel ? undefined : working ? "جاري التجهيز..." : "واتساب"}
+      title={showLabel ? undefined : "واتساب + PDF"}
+      className={cn(showLabel && "gap-2", className)}
     >
-      <MessageCircle className="size-4" />
-      {working ? "جاري التجهيز..." : label}
+      <MessageCircle className="size-4 shrink-0" />
+      {showLabel ? busyLabel : null}
     </Button>
   );
 }

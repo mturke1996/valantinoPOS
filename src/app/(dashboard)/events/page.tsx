@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   CalendarClock,
+  Eye,
   MapPin,
   PartyPopper,
   Pencil,
@@ -288,15 +289,17 @@ export default function EventsPage() {
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-cacao-800/10 bg-white">
-          <div className="hidden grid-cols-[1fr_1fr_0.8fr_1.1fr_0.7fr_0.9fr_auto] gap-3 border-b border-cacao-800/8 bg-cream-50/80 px-4 py-2.5 text-[11px] font-semibold text-muted-foreground lg:grid">
-            <span>الطلب</span>
-            <span>العميل</span>
-            <span>النوع</span>
-            <span>الموعد</span>
-            <span>الحالة</span>
-            <span className="text-end">المبلغ</span>
-            <span className="w-28" />
+          <div className="rounded-xl border border-cacao-800/10 bg-white">
+          <div className="hidden items-center gap-4 border-b border-cacao-800/8 bg-cream-50/80 px-4 py-2.5 text-[11px] font-semibold text-muted-foreground lg:flex">
+            <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_auto_minmax(0,1.15fr)_auto] items-center gap-3">
+              <span>الطلب</span>
+              <span>العميل</span>
+              <span>النوع</span>
+              <span>الموعد</span>
+              <span>الحالة</span>
+            </div>
+            <span className="w-28 shrink-0 text-end">المبلغ</span>
+            <span className="w-[7.5rem] shrink-0 text-end">إجراءات</span>
           </div>
 
           <ul className="divide-y divide-cacao-800/8">
@@ -377,94 +380,7 @@ export default function EventsPage() {
                       ) : null}
                     </div>
 
-                    <div className="flex items-end justify-between gap-3">
-                      <div>
-                        <CurrencyDisplay
-                          amount={order.total}
-                          className="text-sm font-semibold"
-                        />
-                        {balance > 0 ? (
-                          <p className="mt-0.5 text-[11px] text-caramel-500">
-                            متبقي{" "}
-                            <CurrencyDisplay
-                              amount={balance}
-                              className="inline text-[11px]"
-                            />
-                          </p>
-                        ) : (
-                          <p className="mt-0.5 text-[11px] text-muted-foreground">
-                            مدفوع
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex gap-1.5">
-                        <WhatsAppOrderShareButton
-                          order={order}
-                          variant="outline"
-                          size="sm"
-                          label="واتساب"
-                          className="h-9"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="size-9"
-                          aria-label="تعديل"
-                          onClick={() =>
-                            setEditTarget({ event, order, customerName })
-                          }
-                        >
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Button asChild size="sm" variant="secondary">
-                          <Link href={`/orders?highlight=${order.id}`}>
-                            الطلب
-                          </Link>
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Desktop */}
-                  <div className="hidden grid-cols-[1fr_1fr_0.8fr_1.1fr_0.7fr_0.9fr_auto] items-center gap-3 px-4 py-3 lg:grid">
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold">
-                        {order.orderNumber}
-                      </p>
-                      {(dueToday || overdue) && (
-                        <p
-                          className={cn(
-                            "mt-0.5 text-[11px] font-medium",
-                            overdue ? "text-destructive" : "text-pistachio-400",
-                          )}
-                        >
-                          {overdue ? "متأخر" : "اليوم"}
-                        </p>
-                      )}
-                    </div>
-                    <p className="truncate text-sm">{customerName}</p>
-                    <Badge variant="outline" className="w-fit text-[10px]">
-                      {typeChip(order, event)}
-                    </Badge>
-                    <div className="text-xs text-muted-foreground">
-                      <p className="inline-flex items-center gap-1">
-                        <CalendarClock className="size-3.5" />
-                        {order.deliveryDate
-                          ? format(parseISO(order.deliveryDate), "dd MMM yyyy", {
-                              locale: ar,
-                            })
-                          : "—"}
-                        {order.deliveryTime ? ` · ${order.deliveryTime}` : ""}
-                      </p>
-                      {order.deliveryZone || order.deliveryAddress ? (
-                        <p className="mt-0.5 truncate">
-                          {order.deliveryZone || order.deliveryAddress}
-                        </p>
-                      ) : null}
-                    </div>
-                    <StatusBadge status={order.status} type="order" />
-                    <div className="text-end">
+                    <div>
                       <CurrencyDisplay
                         amount={order.total}
                         className="text-sm font-semibold"
@@ -483,13 +399,115 @@ export default function EventsPage() {
                         </p>
                       )}
                     </div>
-                    <div className="flex w-auto justify-end gap-1.5">
+                    <div className="grid grid-cols-[auto_auto_1fr] gap-1.5">
                       <WhatsAppOrderShareButton
                         order={order}
                         variant="outline"
-                        size="sm"
-                        label="واتساب"
-                        className="h-8 px-2 text-[11px]"
+                        size="icon"
+                        label=""
+                        className="size-9"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="size-9"
+                        aria-label="تعديل"
+                        onClick={() =>
+                          setEditTarget({ event, order, customerName })
+                        }
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                      <Button asChild size="sm" variant="secondary" className="w-full">
+                        <Link href={`/orders?highlight=${order.id}`}>
+                          الطلب
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Desktop: info grows, amount + actions never shrink */}
+                  <div className="hidden items-center gap-4 px-4 py-3 lg:flex">
+                    <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_auto_minmax(0,1.15fr)_auto] items-center gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold">
+                          {order.orderNumber}
+                        </p>
+                        {(dueToday || overdue) && (
+                          <p
+                            className={cn(
+                              "mt-0.5 text-[11px] font-medium",
+                              overdue
+                                ? "text-destructive"
+                                : "text-pistachio-400",
+                            )}
+                          >
+                            {overdue ? "متأخر" : "اليوم"}
+                          </p>
+                        )}
+                      </div>
+                      <p className="min-w-0 truncate text-sm">{customerName}</p>
+                      <Badge
+                        variant="outline"
+                        className="w-fit shrink-0 text-[10px]"
+                      >
+                        {typeChip(order, event)}
+                      </Badge>
+                      <div className="min-w-0 text-xs text-muted-foreground">
+                        <p className="inline-flex max-w-full items-center gap-1 truncate">
+                          <CalendarClock className="size-3.5 shrink-0" />
+                          <span className="truncate">
+                            {order.deliveryDate
+                              ? format(
+                                  parseISO(order.deliveryDate),
+                                  "dd MMM yyyy",
+                                  { locale: ar },
+                                )
+                              : "—"}
+                            {order.deliveryTime
+                              ? ` · ${order.deliveryTime}`
+                              : ""}
+                          </span>
+                        </p>
+                        {order.deliveryZone || order.deliveryAddress ? (
+                          <p className="mt-0.5 truncate">
+                            {order.deliveryZone || order.deliveryAddress}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="shrink-0">
+                        <StatusBadge status={order.status} type="order" />
+                      </div>
+                    </div>
+
+                    <div className="w-28 shrink-0 text-end tabular-nums">
+                      <CurrencyDisplay
+                        amount={order.total}
+                        className="text-sm font-semibold"
+                      />
+                      {balance > 0 ? (
+                        <p className="mt-0.5 text-[11px] text-caramel-500">
+                          متبقي{" "}
+                          <CurrencyDisplay
+                            amount={balance}
+                            className="inline text-[11px]"
+                          />
+                        </p>
+                      ) : (
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          مدفوع
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex w-[7.5rem] shrink-0 items-center justify-end gap-1">
+                      <WhatsAppOrderShareButton
+                        order={order}
+                        variant="outline"
+                        size="icon"
+                        label=""
+                        className="size-8"
                       />
                       <Button
                         type="button"
@@ -497,14 +515,24 @@ export default function EventsPage() {
                         size="icon"
                         className="size-8"
                         aria-label="تعديل"
+                        title="تعديل"
                         onClick={() =>
                           setEditTarget({ event, order, customerName })
                         }
                       >
                         <Pencil className="size-3.5" />
                       </Button>
-                      <Button asChild size="sm" variant="ghost" className="h-8 px-2">
-                        <Link href={`/orders?highlight=${order.id}`}>عرض</Link>
+                      <Button
+                        asChild
+                        variant="ghost"
+                        size="icon"
+                        className="size-8"
+                        aria-label="عرض الطلب"
+                        title="عرض"
+                      >
+                        <Link href={`/orders?highlight=${order.id}`}>
+                          <Eye className="size-4" />
+                        </Link>
                       </Button>
                     </div>
                   </div>
