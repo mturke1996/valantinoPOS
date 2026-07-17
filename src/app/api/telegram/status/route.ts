@@ -52,6 +52,7 @@ export async function GET() {
     botTokenMasked: maskTelegramToken(config.botToken || token),
     botUsername: username,
     chatId: config.chatId,
+    chatIds: config.chatIds,
     appUrl: config.appUrl,
     deepLink,
     subscribers: (subscribers ?? []).map((row) => ({

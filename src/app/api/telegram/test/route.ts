@@ -3,12 +3,13 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
   getTelegramConfigForBranch,
+  parseTelegramChatIds,
   resolveTelegramBotToken,
   resolveTelegramChatIds,
 } from "@/lib/telegram/config";
 import {
+  broadcastTelegramMessage,
   formatConnectionTestMessage,
-  sendTelegramMessage,
   telegramApi,
 } from "@/lib/telegram/bot";
 
@@ -37,7 +38,11 @@ export async function POST(request: Request) {
 
   const branchId = String(profile.branch_id);
 
-  let body: { botToken?: string; chatId?: string } = {};
+  let body: {
+    botToken?: string;
+    chatId?: string;
+    chatIds?: string[] | string;
+  } = {};
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -77,17 +82,18 @@ export async function POST(request: Request) {
     );
   }
 
-  const chatIdRaw =
-    body.chatId?.trim() ||
-    config.chatId ||
-    (await resolveTelegramChatIds(branchId))[0]?.toString();
+  const fromBody = parseTelegramChatIds(body.chatIds ?? body.chatId);
+  const chatIds =
+    fromBody.length > 0
+      ? fromBody.map(Number).filter(Number.isFinite)
+      : await resolveTelegramChatIds(branchId);
 
-  if (!chatIdRaw) {
+  if (chatIds.length === 0) {
     return NextResponse.json(
       {
         ok: false,
         botUsername,
-        error: "أدخل Chat ID لإرسال رسالة اختبار",
+        error: "أدخل Chat ID واحداً على الأقل لإرسال رسالة اختبار",
       },
       { status: 400 },
     );
@@ -100,11 +106,22 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   try {
-    await sendTelegramMessage(
-      chatIdRaw,
+    const result = await broadcastTelegramMessage(
+      chatIds,
       formatConnectionTestMessage(branch?.name),
       { token },
     );
+    if (result.sent === 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          botUsername,
+          error: "فشل الإرسال إلى كل معرفات المحادثة",
+          failed: result.failed,
+        },
+        { status: 400 },
+      );
+    }
   } catch (error) {
     return NextResponse.json(
       {
@@ -112,7 +129,7 @@ export async function POST(request: Request) {
         botUsername,
         error:
           error instanceof Error
-            ? `البوت يعمل لكن فشل الإرسال إلى Chat ID: ${error.message}`
+            ? `البوت يعمل لكن فشل الإرسال: ${error.message}`
             : "فشل إرسال رسالة الاختبار",
       },
       { status: 400 },
@@ -122,7 +139,8 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: true,
     botUsername,
-    chatId: chatIdRaw,
-    message: "تم إرسال رسالة اختبار بنجاح",
+    chatIds,
+    chatId: String(chatIds[0]),
+    message: `تم إرسال رسالة اختبار إلى ${chatIds.length} محادثة`,
   });
 }

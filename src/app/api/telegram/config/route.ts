@@ -5,6 +5,7 @@ import { upsertTelegramSubscriber } from "@/lib/telegram/admin";
 import {
   getTelegramConfigForBranch,
   maskTelegramToken,
+  parseTelegramChatIds,
   saveTelegramConfigForBranch,
 } from "@/lib/telegram/config";
 import { telegramApi } from "@/lib/telegram/bot";
@@ -48,10 +49,13 @@ export async function GET() {
     tokenSource: config.botToken ? "database" : "none",
     botUsername: config.botUsername,
     chatId: config.chatId,
+    chatIds: config.chatIds,
     appUrl: config.appUrl,
     hasWebhookSecret: Boolean(config.webhookSecret),
     storedInDatabase: Boolean(
-      config.botToken || config.chatId || config.webhookSecret,
+      config.botToken ||
+        config.chatIds.length > 0 ||
+        config.webhookSecret,
     ),
   });
 }
@@ -65,6 +69,7 @@ export async function POST(request: Request) {
     botToken?: string;
     botUsername?: string;
     chatId?: string;
+    chatIds?: string[] | string;
     keepExistingToken?: boolean;
   };
   try {
@@ -75,7 +80,9 @@ export async function POST(request: Request) {
 
   const tokenInput = body.botToken?.trim() ?? "";
   const keepExistingToken =
-    body.keepExistingToken === true || tokenInput === "" || tokenInput.includes("…");
+    body.keepExistingToken === true ||
+    tokenInput === "" ||
+    tokenInput.includes("…");
 
   if (!keepExistingToken && tokenInput) {
     try {
@@ -95,25 +102,31 @@ export async function POST(request: Request) {
     }
   }
 
+  const chatIds =
+    body.chatIds !== undefined
+      ? parseTelegramChatIds(body.chatIds)
+      : body.chatId !== undefined
+        ? parseTelegramChatIds(body.chatId)
+        : undefined;
+
   const saved = await saveTelegramConfigForBranch(branchId, {
     botToken: keepExistingToken ? undefined : tokenInput,
     keepExistingToken,
     botUsername: body.botUsername,
-    chatId: body.chatId,
+    chatIds,
   });
 
-  if (saved.chatId) {
-    const chatId = Number(saved.chatId);
-    if (Number.isFinite(chatId)) {
-      try {
-        await upsertTelegramSubscriber({
-          branchId,
-          chatId,
-          label: "إعدادات يدوية",
-        });
-      } catch {
-        // Subscriber table optional if migration missing locally
-      }
+  for (const raw of saved.chatIds) {
+    const chatId = Number(raw);
+    if (!Number.isFinite(chatId)) continue;
+    try {
+      await upsertTelegramSubscriber({
+        branchId,
+        chatId,
+        label: "إعدادات يدوية",
+      });
+    } catch {
+      // Subscriber table optional if migration missing locally
     }
   }
 
@@ -142,6 +155,7 @@ export async function POST(request: Request) {
     tokenSource: saved.botToken ? "database" : "none",
     botUsername: resolvedUsername,
     chatId: saved.chatId,
+    chatIds: saved.chatIds,
     appUrl: saved.appUrl,
     hasWebhookSecret: Boolean(saved.webhookSecret),
     storedInDatabase: true,

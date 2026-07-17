@@ -5,34 +5,35 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowLeft,
+  BarChart3,
   Package,
+  PieChart,
   ShoppingBag,
   TrendingUp,
   Users,
 } from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 
+import { DashboardCalendarPanel } from "@/components/dashboard/dashboard-calendar-panel";
 import { UpcomingEventsPanel } from "@/components/dashboard/upcoming-events-panel";
+import { SalesAreaChart } from "@/components/charts/sales-area-chart";
+import { StatusDonut } from "@/components/charts/status-donut";
+import { TopProductsChart } from "@/components/charts/top-products-chart";
+import {
+  CHART_COLORS,
+  STATUS_COLOR_HEX,
+} from "@/components/charts/chart-theme";
 import { CommandCenterHero } from "@/components/shared/command-center-hero";
 import { MetricCard } from "@/components/shared/metric-card";
-import { PageHeader } from "@/components/shared/page-header";
 import { ServiceRibbon } from "@/components/shared/service-ribbon";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
+import { StatChartCard } from "@/components/statistics/stat-chart-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getState } from "@/lib/data/store";
+import { getOrders, getState } from "@/lib/data/store";
 import { useStoreSubscription } from "@/hooks/use-store-subscription";
 import { getUpcomingEvents } from "@/lib/reminders/event-reminders";
 import { getDashboardStats } from "@/lib/services/dashboard.service";
@@ -46,10 +47,12 @@ import { ORDER_STATUSES } from "@/lib/constants/order-status";
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [orders, setOrders] = useState(() => getOrders());
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(() => {
     setStats(getDashboardStats(getState()));
+    setOrders(getOrders());
     setLoading(false);
   }, []);
 
@@ -70,24 +73,44 @@ export default function DashboardPage() {
     return getUpcomingEvents(getState(), 7);
   }, [stats]);
 
-  const chartData = useMemo(() => {
+  const areaData = useMemo(() => {
     if (!stats) return [];
-    const pipeline = ORDER_STATUSES.filter((s) => s.index >= 0).map((s) => ({
-      name: s.labelAr,
-      count: stats.ordersByStatus[s.key] ?? 0,
+    return stats.salesByDay.map((d) => ({
+      label: d.label,
+      value: d.sales,
     }));
-    return pipeline;
   }, [stats]);
 
-  const salesChart = useMemo(() => {
+  const statusMix = useMemo(() => {
     if (!stats) return [];
-    return stats.salesByDay;
+    return ORDER_STATUSES.filter((s) => s.index >= 0).map((s) => ({
+      label: s.labelAr,
+      value: stats.ordersByStatus[s.key] ?? 0,
+      color: STATUS_COLOR_HEX[s.color] ?? CHART_COLORS.cacao800,
+    }));
   }, [stats]);
+
+  const topProductsData = useMemo(() => {
+    if (!stats) return [];
+    return stats.topProducts.map((p) => ({
+      name: p.nameAr,
+      value: p.revenue,
+    }));
+  }, [stats]);
+
+  const statusTotal = useMemo(
+    () => statusMix.reduce((sum, s) => sum + s.value, 0),
+    [statusMix],
+  );
 
   if (loading) {
     return (
       <div className="space-y-6 py-4">
-        <Skeleton className="h-36 w-full rounded-2xl" />
+        <Skeleton className="h-40 w-full rounded-3xl" />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Skeleton className="h-80 rounded-2xl" />
+          <Skeleton className="h-80 rounded-2xl" />
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-32" />
@@ -108,22 +131,19 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6 py-4">
+    <div className="relative space-y-6 py-4">
+      <div
+        className="pointer-events-none absolute inset-x-0 -top-6 -z-10 h-72 bg-[radial-gradient(ellipse_at_top,_rgba(212,175,55,0.09),_transparent_60%)]"
+        aria-hidden
+      />
+
       <CommandCenterHero
         todaySales={stats.todaySales}
         newOrders={stats.newOrders}
         todayDeliveries={todayOperations.length}
         urgentCount={stats.urgentAlerts.length}
+        upcomingEventsCount={upcomingEvents.length}
         walkInSalesEnabled={getState().settings.walkInSalesEnabled}
-      />
-
-      <ServiceRibbon items={todayOperations} />
-      <UpcomingEventsPanel items={upcomingEvents} />
-      <ServiceRibbon
-        items={upcomingPreparation}
-        title="طلبات تحتاج تجهيز خلال 7 أيام"
-        emptyLabel="لا توجد طلبات تجهيز قريبة — الجدول هادئ"
-        className="border-gold-400/20 bg-gold-400/[0.025]"
       />
 
       {stats.urgentAlerts.length > 0 ? (
@@ -141,21 +161,22 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      <PageHeader
-        title="التفاصيل"
-        description="مؤشرات الأداء والطلبات"
-        actions={
-          <Button asChild variant="outline">
-            <Link href="/pos">
-              {getState().settings.walkInSalesEnabled
-                ? "فتح نقطة البيع"
-                : "إضافة طلب تجهيز"}
-            </Link>
-          </Button>
-        }
+      {/* Events + Calendar — primary operational focus */}
+      <div className="grid gap-4 xl:grid-cols-2">
+        <UpcomingEventsPanel items={upcomingEvents} />
+        <DashboardCalendarPanel orders={orders} />
+      </div>
+
+      <ServiceRibbon items={todayOperations} />
+      <ServiceRibbon
+        items={upcomingPreparation}
+        title="طلبات تحتاج تجهيز خلال 7 أيام"
+        emptyLabel="لا توجد طلبات تجهيز قريبة — الجدول هادئ"
+        className="border-gold-400/20 bg-gold-400/[0.025]"
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      {/* KPIs */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           label="مبيعات اليوم"
           value={formatCurrency(stats.todaySales)}
@@ -180,71 +201,67 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="border-cacao-800/8 shadow-none">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <TrendingUp className="size-4 text-gold-400" />
-              مبيعات الأسبوع
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={salesChart}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 11 }} width={50} />
-                  <Tooltip
-                    formatter={(value: number) => [
-                      formatCurrency(value),
-                      "المبيعات",
-                    ]}
-                  />
-                  <Bar
-                    dataKey="sales"
-                    fill="hsl(24 33% 18%)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-cacao-800/8 shadow-none">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Package className="size-4 text-caramel-500" />
-              الطلبات حسب الحالة
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis type="number" tick={{ fontSize: 11 }} />
-                  <YAxis
-                    dataKey="name"
-                    type="category"
-                    width={80}
-                    tick={{ fontSize: 11 }}
-                  />
-                  <Tooltip />
-                  <Bar
-                    dataKey="count"
-                    fill="hsl(43 65% 52%)"
-                    radius={[0, 4, 4, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Professional analytics */}
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">التحليلات</h2>
+          <p className="text-sm text-muted-foreground">
+            نظرة على المبيعات وتوزيع الطلبات والمنتجات
+          </p>
+        </div>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/statistics" className="gap-1">
+            تفاصيل أكثر
+            <ArrowLeft className="size-3.5" />
+          </Link>
+        </Button>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
+        <StatChartCard
+          title="تطور مبيعات الأسبوع"
+          subtitle="منحنى الإيراد اليومي"
+          icon={TrendingUp}
+          accent={CHART_COLORS.gold}
+          className="lg:col-span-2"
+          empty={areaData.every((d) => d.value <= 0)}
+          emptyTitle="لا توجد مبيعات هذا الأسبوع"
+          emptyDescription="ستظهر المنحنيات عند تسجيل مبيعات"
+        >
+          <SalesAreaChart data={areaData} height={280} valueLabel="المبيعات" />
+        </StatChartCard>
+
+        <StatChartCard
+          title="توزيع حالات الطلبات"
+          subtitle="لقطة حالية لخط الإنتاج"
+          icon={PieChart}
+          accent={CHART_COLORS.berry}
+          empty={statusTotal === 0}
+          emptyTitle="لا توجد طلبات"
+          emptyDescription="ستظهر التوزيعات عند وجود طلبات"
+        >
+          <StatusDonut
+            data={statusMix}
+            height={200}
+            centerValue={formatNumber(statusTotal)}
+          />
+        </StatChartCard>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <StatChartCard
+          title="الأكثر مبيعاً"
+          subtitle="حسب الإيراد"
+          icon={BarChart3}
+          accent={CHART_COLORS.caramel}
+          className="lg:col-span-1"
+          empty={topProductsData.length === 0}
+          emptyTitle="لا توجد منتجات مباعة"
+          emptyDescription="ستظهر المنتجات عند إتمام الطلبات"
+        >
+          <TopProductsChart data={topProductsData} height={260} />
+        </StatChartCard>
+
         <Card className="border-cacao-800/8 shadow-none lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">أحدث الطلبات</CardTitle>
@@ -263,11 +280,11 @@ export default function DashboardPage() {
                 description="ستظهر الطلبات الجديدة هنا"
               />
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {stats.recentOrders.map((order) => (
                   <div
                     key={order.id}
-                    className="flex items-center justify-between rounded-md border border-cacao-800/8 px-4 py-3"
+                    className="flex items-center justify-between rounded-xl border border-cacao-800/8 bg-gradient-to-l from-transparent to-cacao-800/[0.02] px-4 py-3"
                   >
                     <div className="space-y-1">
                       <p className="font-medium">{order.orderNumber}</p>
@@ -288,43 +305,12 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
-
-        <Card className="border-cacao-800/8 shadow-none">
-          <CardHeader>
-            <CardTitle className="text-base">الأكثر مبيعاً</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {stats.topProducts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">لا توجد بيانات بعد</p>
-            ) : (
-              <div className="space-y-3">
-                {stats.topProducts.map((product, i) => (
-                  <div
-                    key={product.productId}
-                    className="flex items-center justify-between gap-2"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="flex size-6 items-center justify-center rounded-sm bg-cacao-800/8 text-xs font-medium">
-                        {i + 1}
-                      </span>
-                      <span className="truncate text-sm">{product.nameAr}</span>
-                    </div>
-                    <CurrencyDisplay
-                      amount={product.revenue}
-                      className="text-xs"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card className="border-cacao-800/8 shadow-none">
           <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex size-10 items-center justify-center rounded-md bg-pistachio-400/15">
+            <div className="flex size-11 items-center justify-center rounded-2xl bg-pistachio-400/15">
               <Users className="size-5 text-pistachio-400" />
             </div>
             <div>
@@ -337,7 +323,7 @@ export default function DashboardPage() {
         </Card>
         <Card className="border-cacao-800/8 shadow-none">
           <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex size-10 items-center justify-center rounded-md bg-gold-400/15">
+            <div className="flex size-11 items-center justify-center rounded-2xl bg-gold-400/15">
               <ShoppingBag className="size-5 text-gold-400" />
             </div>
             <div>
@@ -351,7 +337,7 @@ export default function DashboardPage() {
         </Card>
         <Card className="border-cacao-800/8 shadow-none">
           <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex size-10 items-center justify-center rounded-md bg-caramel-500/15">
+            <div className="flex size-11 items-center justify-center rounded-2xl bg-caramel-500/15">
               <Package className="size-5 text-caramel-500" />
             </div>
             <div>

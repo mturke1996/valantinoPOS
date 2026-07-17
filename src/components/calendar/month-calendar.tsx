@@ -26,6 +26,8 @@ interface MonthCalendarProps {
   onSelectDate: (date: Date) => void;
   countsByDay: Map<string, number>;
   typeCountsByDay?: Map<string, DayTypeCounts>;
+  /** Smaller cells for embedding on the dashboard */
+  compact?: boolean;
 }
 
 export type CalendarMarkerType =
@@ -72,6 +74,7 @@ export function MonthCalendar({
   onSelectDate,
   countsByDay,
   typeCountsByDay,
+  compact = false,
 }: MonthCalendarProps) {
   const monthStart = startOfMonth(month);
   const monthEnd = endOfMonth(month);
@@ -80,8 +83,13 @@ export function MonthCalendar({
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd });
 
   return (
-    <div className="rounded-2xl border border-cacao-800/8 bg-card p-3 sm:p-4">
-      <div className="mb-4 flex items-center justify-between">
+    <div
+      className={cn(
+        "rounded-2xl border border-cacao-800/8 bg-card",
+        compact ? "p-2 sm:p-3" : "p-3 sm:p-4",
+      )}
+    >
+      <div className={cn("flex items-center justify-between", compact ? "mb-2.5" : "mb-4")}>
         <Button
           variant="ghost"
           size="icon"
@@ -90,7 +98,12 @@ export function MonthCalendar({
         >
           <ChevronRight className="size-4" />
         </Button>
-        <h3 className="text-base font-semibold tracking-tight">
+        <h3
+          className={cn(
+            "font-semibold tracking-tight",
+            compact ? "text-sm" : "text-base",
+          )}
+        >
           {format(month, "MMMM yyyy", { locale: arSA })}
         </h3>
         <Button
@@ -132,7 +145,10 @@ export function MonthCalendar({
               onClick={() => onSelectDate(day)}
               aria-label={`${format(day, "EEEE d MMMM yyyy", { locale: arSA })}${count > 0 ? `، ${count} طلب` : ""}`}
               className={cn(
-                "relative flex min-h-12 flex-col items-center justify-center rounded-xl border text-sm transition-[transform,box-shadow,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.97] sm:min-h-14",
+                "relative flex flex-col items-center justify-center rounded-xl border transition-[transform,box-shadow,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.97]",
+                compact
+                  ? "min-h-9 text-xs sm:min-h-10"
+                  : "min-h-12 text-sm sm:min-h-14",
                 inMonth
                   ? "border-cacao-800/8 bg-background"
                   : "border-transparent bg-muted/25 text-muted-foreground/55",
@@ -155,8 +171,13 @@ export function MonthCalendar({
                 {format(day, "d")}
               </span>
               {hasOrders ? (
-                <span className="mt-1 flex items-center gap-0.5">
-                  <span className="rounded-full bg-cacao-950/80 px-1.5 py-px text-[9px] font-bold tabular-nums text-cream-50">
+                <span className={cn("flex items-center gap-0.5", compact ? "mt-0.5" : "mt-1")}>
+                  <span
+                    className={cn(
+                      "rounded-full bg-cacao-950/80 font-bold tabular-nums text-cream-50",
+                      compact ? "px-1 py-px text-[8px]" : "px-1.5 py-px text-[9px]",
+                    )}
+                  >
                     {count}
                   </span>
                 </span>

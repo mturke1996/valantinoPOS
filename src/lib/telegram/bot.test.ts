@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildTelegramPreviewMessage,
   escapeHtml,
   formatEventReminderMessage,
   formatOrderCreatedMessage,
@@ -88,5 +89,11 @@ describe("telegram message formatting", () => {
     ]);
     expect(digest).toContain("المناسبات القادمة");
     expect(digest).toContain("VAL-1");
+  });
+
+  it("builds preview samples for settings UI", () => {
+    expect(buildTelegramPreviewMessage("reminder_3d")).toContain("قبل 3 أيام");
+    expect(buildTelegramPreviewMessage("order")).toContain("طلب");
+    expect(buildTelegramPreviewMessage("digest")).toContain("المناسبات القادمة");
   });
 });

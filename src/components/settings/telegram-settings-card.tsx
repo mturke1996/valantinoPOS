@@ -7,20 +7,24 @@ import {
   Link2,
   Loader2,
   MessageCircle,
+  Plus,
   Power,
   RefreshCw,
   Save,
   Send,
   Unplug,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { TelegramMessagePreview } from "@/components/settings/telegram-message-preview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { parseTelegramChatIds } from "@/lib/telegram/chat-ids";
 
 type TelegramStatus = {
   configured: boolean;
@@ -29,6 +33,7 @@ type TelegramStatus = {
   botTokenMasked?: string | null;
   hasToken?: boolean;
   chatId?: string | null;
+  chatIds?: string[];
   subscribers: Array<{
     id: string;
     chatId: number;
@@ -67,7 +72,8 @@ export function TelegramSettingsCard({
   const [webhookBusy, setWebhookBusy] = useState(false);
   const [botToken, setBotToken] = useState("");
   const [botUsername, setBotUsername] = useState("");
-  const [chatId, setChatId] = useState("");
+  const [chatIds, setChatIds] = useState<string[]>([]);
+  const [chatIdDraft, setChatIdDraft] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -87,10 +93,15 @@ export function TelegramSettingsCard({
           hasToken?: boolean;
           botUsername?: string | null;
           chatId?: string | null;
+          chatIds?: string[];
         };
         setBotToken(configJson.botTokenMasked ?? "");
         setBotUsername(configJson.botUsername ?? "");
-        setChatId(configJson.chatId ?? "");
+        const ids =
+          configJson.chatIds && configJson.chatIds.length > 0
+            ? configJson.chatIds
+            : parseTelegramChatIds(configJson.chatId);
+        setChatIds(ids);
         setStatus((prev) =>
           prev
             ? {
@@ -102,7 +113,8 @@ export function TelegramSettingsCard({
                   : prev.deepLink,
                 botTokenMasked: configJson.botTokenMasked,
                 hasToken: configJson.hasToken,
-                chatId: configJson.chatId,
+                chatId: ids[0] ?? null,
+                chatIds: ids,
               }
             : prev,
         );
@@ -122,6 +134,23 @@ export function TelegramSettingsCard({
     void load();
   }, [load]);
 
+  const addChatId = () => {
+    const parsed = parseTelegramChatIds(chatIdDraft);
+    if (parsed.length === 0) {
+      toast.error("أدخل Chat ID صالحاً (أرقام فقط، والمجموعات تبدأ بـ -)");
+      return;
+    }
+    setChatIds((prev) => {
+      const next = new Set([...prev, ...parsed]);
+      return [...next];
+    });
+    setChatIdDraft("");
+  };
+
+  const removeChatId = (id: string) => {
+    setChatIds((prev) => prev.filter((x) => x !== id));
+  };
+
   const saveConfig = async () => {
     setSaving(true);
     try {
@@ -134,7 +163,7 @@ export function TelegramSettingsCard({
           botToken: keepExistingToken ? undefined : botToken.trim(),
           keepExistingToken,
           botUsername: botUsername.trim() || undefined,
-          chatId: chatId.trim() || undefined,
+          chatIds,
         }),
       });
       const data = (await res.json()) as {
@@ -142,6 +171,7 @@ export function TelegramSettingsCard({
         botTokenMasked?: string;
         botUsername?: string | null;
         chatId?: string | null;
+        chatIds?: string[];
       };
       if (!res.ok) {
         toast.error(data.error ?? "تعذّر حفظ إعدادات تلجرام");
@@ -149,7 +179,7 @@ export function TelegramSettingsCard({
       }
       setBotToken(data.botTokenMasked ?? botToken);
       if (data.botUsername) setBotUsername(data.botUsername);
-      if (data.chatId !== undefined) setChatId(data.chatId ?? "");
+      if (data.chatIds) setChatIds(data.chatIds);
       toast.success("تم حفظ إعدادات بوت تلجرام");
       await load();
     } catch {
@@ -169,7 +199,7 @@ export function TelegramSettingsCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           botToken: keepExistingToken ? undefined : botToken.trim(),
-          chatId: chatId.trim() || undefined,
+          chatIds,
         }),
       });
       const data = (await res.json()) as {
@@ -255,7 +285,7 @@ export function TelegramSettingsCard({
             </Label>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
               تذكير المناسبات قبل 3 أيام ويومين ويوم واحد، مع تنبيهات الطلبات
-              والدفعات
+              والدفعات — تُرسل لكل Chat ID المضافة
             </p>
           </div>
           <Switch
@@ -282,7 +312,7 @@ export function TelegramSettingsCard({
             </p>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="telegramBotUsername">اسم المستخدم للبوت</Label>
             <Input
               id="telegramBotUsername"
@@ -294,21 +324,71 @@ export function TelegramSettingsCard({
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="telegramChatId">Chat ID</Label>
-            <Input
-              id="telegramChatId"
-              dir="ltr"
-              className="text-start font-mono"
-              placeholder="مثال: 123456789"
-              value={chatId}
-              onChange={(e) => setChatId(e.target.value.replace(/[^\d-]/g, ""))}
-            />
+          <div className="space-y-3 sm:col-span-2">
+            <Label htmlFor="telegramChatIdDraft">معرفات المحادثة (Chat IDs)</Label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                id="telegramChatIdDraft"
+                dir="ltr"
+                className="text-start font-mono"
+                placeholder="123456789 أو -100123… للمجموعات"
+                value={chatIdDraft}
+                onChange={(e) =>
+                  setChatIdDraft(e.target.value.replace(/[^\d\s,;-]/g, ""))
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addChatId();
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2 shrink-0"
+                onClick={addChatId}
+              >
+                <Plus className="size-4" />
+                إضافة
+              </Button>
+            </div>
             <p className="text-xs text-muted-foreground">
-              أرسل رسالة للبوت ثم احصل على Chat ID من @userinfobot أو عبر /start
+              يمكنك إضافة أكثر من حساب أو مجموعة. افصل بينها بفاصلة أو أضِف واحداً
+              تلو الآخر. للحصول على Chat ID: أرسل للبوت ثم استخدم @userinfobot
+              أو /start.
             </p>
+
+            {chatIds.length > 0 ? (
+              <ul className="flex flex-wrap gap-2">
+                {chatIds.map((id) => (
+                  <li key={id}>
+                    <Badge
+                      variant="outline"
+                      className="gap-1.5 border-gold-400/25 bg-gold-400/5 py-1.5 pe-1 ps-2.5 font-mono text-xs"
+                    >
+                      {id}
+                      <button
+                        type="button"
+                        className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-cacao-800/10 hover:text-foreground"
+                        onClick={() => removeChatId(id)}
+                        aria-label={`حذف ${id}`}
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="rounded-lg border border-dashed border-cacao-800/15 px-3 py-2 text-xs text-muted-foreground">
+                لم يُضف أي Chat ID بعد — أضف واحداً على الأقل لاستلام التنبيهات
+              </p>
+            )}
           </div>
         </div>
+
+        <TelegramMessagePreview />
 
         <div className="space-y-3 rounded-xl border border-cacao-800/8 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -422,7 +502,8 @@ export function TelegramSettingsCard({
                 ? "البوت جاهز"
                 : "أدخل التوكن واحفظ"}
           </Badge>
-          <Badge variant="outline">{activeCount} حساب مرتبط</Badge>
+          <Badge variant="outline">{chatIds.length} Chat ID</Badge>
+          <Badge variant="outline">{activeCount} مشترك عبر /start</Badge>
           <Badge variant="outline">قبل 3 أيام · يومين · يوم</Badge>
         </div>
 
@@ -445,14 +526,14 @@ export function TelegramSettingsCard({
             variant="outline"
             className="gap-2"
             onClick={() => void testConnection()}
-            disabled={busy}
+            disabled={busy || chatIds.length === 0}
           >
             {testing ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
               <Send className="size-4" />
             )}
-            اختبار الاتصال
+            اختبار لكل المحادثات
           </Button>
           <Button
             type="button"
@@ -494,7 +575,7 @@ export function TelegramSettingsCard({
         {status?.subscribers.length ? (
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground">
-              الحسابات المرتبطة
+              الحسابات المرتبطة عبر /start
             </p>
             <ul className="space-y-1.5">
               {status.subscribers.map((sub) => (

@@ -1,10 +1,16 @@
 import { resolveAppBaseUrl } from "@/lib/constants/app";
 import { createTelegramAdminClient } from "@/lib/telegram/admin";
+import { parseTelegramChatIds } from "@/lib/telegram/chat-ids";
+
+export { parseTelegramChatIds } from "@/lib/telegram/chat-ids";
 
 export type TelegramBranchConfig = {
   botToken: string | null;
   botUsername: string | null;
+  /** Primary chat id (first entry) — kept for backwards compatibility */
   chatId: string | null;
+  /** All destination chat ids (users / groups) */
+  chatIds: string[];
   webhookSecret: string | null;
   /** Public app URL used for webhook (stored in DB) */
   appUrl: string | null;
@@ -14,6 +20,7 @@ const EMPTY: TelegramBranchConfig = {
   botToken: null,
   botUsername: null,
   chatId: null,
+  chatIds: [],
   webhookSecret: null,
   appUrl: null,
 };
@@ -37,6 +44,13 @@ export function maskTelegramToken(token: string | null | undefined): string | nu
   return `${trimmed.slice(0, 4)}…${trimmed.slice(-4)}`;
 }
 
+function readChatIdsFromValue(value: Record<string, unknown>): string[] {
+  const fromArray = parseTelegramChatIds(value.chatIds);
+  const fromLegacy = parseTelegramChatIds(value.chatId);
+  const merged = new Set([...fromArray, ...fromLegacy]);
+  return [...merged];
+}
+
 export async function getTelegramConfigForBranch(
   branchId: string,
 ): Promise<TelegramBranchConfig> {
@@ -51,6 +65,7 @@ export async function getTelegramConfigForBranch(
     .maybeSingle();
 
   const value = (data?.value ?? {}) as Record<string, unknown>;
+  const chatIds = readChatIdsFromValue(value);
   return {
     botToken:
       typeof value.botToken === "string" && value.botToken.trim()
@@ -60,10 +75,8 @@ export async function getTelegramConfigForBranch(
       typeof value.botUsername === "string" && value.botUsername.trim()
         ? value.botUsername.trim().replace(/^@/, "")
         : null,
-    chatId:
-      typeof value.chatId === "string" || typeof value.chatId === "number"
-        ? String(value.chatId).trim()
-        : null,
+    chatId: chatIds[0] ?? null,
+    chatIds,
     webhookSecret:
       typeof value.webhookSecret === "string" && value.webhookSecret.trim()
         ? value.webhookSecret.trim()
@@ -81,6 +94,7 @@ export async function saveTelegramConfigForBranch(
     botToken?: string | null;
     botUsername?: string | null;
     chatId?: string | null;
+    chatIds?: string[] | string | null;
     webhookSecret?: string | null;
     appUrl?: string | null;
     keepExistingToken?: boolean;
@@ -92,6 +106,14 @@ export async function saveTelegramConfigForBranch(
   }
 
   const current = await getTelegramConfigForBranch(branchId);
+
+  let chatIds = current.chatIds;
+  if (input.chatIds !== undefined) {
+    chatIds = parseTelegramChatIds(input.chatIds);
+  } else if (input.chatId !== undefined) {
+    chatIds = parseTelegramChatIds(input.chatId);
+  }
+
   const next: TelegramBranchConfig = {
     botToken:
       input.keepExistingToken || input.botToken === undefined
@@ -101,10 +123,8 @@ export async function saveTelegramConfigForBranch(
       input.botUsername === undefined
         ? current.botUsername
         : input.botUsername?.trim().replace(/^@/, "") || null,
-    chatId:
-      input.chatId === undefined
-        ? current.chatId
-        : input.chatId?.trim() || null,
+    chatId: chatIds[0] ?? null,
+    chatIds,
     webhookSecret:
       input.webhookSecret === undefined
         ? current.webhookSecret
@@ -119,7 +139,14 @@ export async function saveTelegramConfigForBranch(
     {
       branch_id: branchId,
       key: "telegram",
-      value: next,
+      value: {
+        botToken: next.botToken,
+        botUsername: next.botUsername,
+        chatId: next.chatId,
+        chatIds: next.chatIds,
+        webhookSecret: next.webhookSecret,
+        appUrl: next.appUrl,
+      },
     },
     { onConflict: "branch_id,key" },
   );
@@ -158,8 +185,9 @@ export async function resolveTelegramChatIds(
 ): Promise<number[]> {
   const config = await getTelegramConfigForBranch(branchId);
   const ids = new Set<number>();
-  if (config.chatId) {
-    const parsed = Number(config.chatId);
+
+  for (const raw of config.chatIds) {
+    const parsed = Number(raw);
     if (Number.isFinite(parsed)) ids.add(parsed);
   }
 
