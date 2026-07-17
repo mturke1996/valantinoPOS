@@ -9,6 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ImgbbUploadResult } from "@/lib/imgbb";
+import { pickBestImageUrl } from "@/lib/imgbb";
+import {
+  prepareImageForUpload,
+  UPLOAD_HARD_MAX_BYTES,
+  UPLOAD_MAX_EDGE,
+} from "@/lib/images/prepare-upload";
 import { cn } from "@/lib/utils";
 
 interface ImageUploadFieldProps {
@@ -19,6 +25,10 @@ interface ImageUploadFieldProps {
   previewAlt?: string;
   disabled?: boolean;
   className?: string;
+}
+
+function formatMb(bytes: number): string {
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
 export function ImageUploadField({
@@ -37,8 +47,13 @@ export function ImageUploadField({
   const uploadFile = async (file: File) => {
     setUploading(true);
     try {
+      if (file.size > UPLOAD_HARD_MAX_BYTES) {
+        throw new Error("حجم الصورة يجب ألا يتجاوز 32 ميجابايت");
+      }
+
+      const prepared = await prepareImageForUpload(file);
       const form = new FormData();
-      form.append("image", file);
+      form.append("image", prepared.file);
       form.append("name", uploadName);
 
       const res = await fetch("/api/upload/image", {
@@ -48,8 +63,16 @@ export function ImageUploadField({
       const data = (await res.json()) as ImgbbUploadResult & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "فشل رفع الصورة");
 
-      onChange(data.displayUrl || data.url);
-      toast.success("تم رفع الصورة بنجاح");
+      // Always persist the original ImgBB URL (not medium/display)
+      onChange(pickBestImageUrl(data));
+
+      if (prepared.optimized) {
+        toast.success(
+          `تم رفع صورة عالية الجودة (${formatMb(prepared.originalBytes)} → ${formatMb(prepared.outputBytes)})`,
+        );
+      } else {
+        toast.success("تم رفع الصورة الأصلية بجودة عالية");
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "فشل رفع الصورة");
     } finally {
@@ -95,20 +118,14 @@ export function ImageUploadField({
             alt={previewAlt}
             size="hero"
             rounded="xl"
-            className="max-w-full sm:max-w-[220px]"
+            className="max-w-full sm:max-w-[280px]"
+            priority
           />
           <div className="min-w-0 flex-1 space-y-3">
             <p className="text-sm text-muted-foreground">
-              اسحب صورة هنا أو اختر ملفاً — JPG/PNG/WebP حتى 8MB. تُرفع عبر{" "}
-              <a
-                href="https://api.imgbb.com/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gold-600 underline-offset-2 hover:underline"
-              >
-                ImgBB
-              </a>
-              .
+              ارفع صورة عالية الجودة (JPG / PNG / WebP حتى 32MB، حتى{" "}
+              {UPLOAD_MAX_EDGE}px). يُحفظ الرابط الأصلي الكامل وليس النسخة
+              المصغّرة. الصور الكبيرة تُحسَّن بلطف قبل الرفع دون فقدان وضوح ملحوظ.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button
@@ -144,7 +161,7 @@ export function ImageUploadField({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="image-url-fallback" className="text-xs text-muted-foreground">
-                أو الصق رابط صورة مباشر
+                أو الصق رابط الصورة الأصلية المباشر
               </Label>
               <Input
                 id="image-url-fallback"
@@ -163,7 +180,7 @@ export function ImageUploadField({
         <Input
           ref={inputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
+          accept="image/jpeg,image/png,image/webp,image/gif,image/avif,.jpg,.jpeg,.png,.webp,.gif,.avif"
           className="sr-only"
           onChange={onFileChange}
           disabled={disabled || uploading}

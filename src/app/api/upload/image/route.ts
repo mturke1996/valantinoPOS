@@ -3,12 +3,15 @@ import { NextResponse } from "next/server";
 import { parseImgbbResponse, type ImgbbApiResponse } from "@/lib/imgbb";
 import { createClient } from "@/lib/supabase/server";
 
-const MAX_BYTES = 8 * 1024 * 1024;
+/** Align with ImgBB free max (32MB). Client prep keeps Vercel payloads smaller. */
+const MAX_BYTES = 32 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
   "image/jpeg",
+  "image/jpg",
   "image/png",
   "image/webp",
   "image/gif",
+  "image/avif",
 ]);
 const UPLOAD_ROLES = new Set([
   "manager",
@@ -34,8 +37,20 @@ function sniffImageMime(buffer: Buffer): string | null {
       return candidate.mime;
     }
   }
+  // AVIF: ftyp....avif
+  if (
+    buffer.length >= 12 &&
+    buffer.slice(4, 8).toString("ascii") === "ftyp" &&
+    buffer.slice(8, 12).toString("ascii").includes("av")
+  ) {
+    return "image/avif";
+  }
   return null;
 }
+
+export const runtime = "nodejs";
+/** Allow larger multipart bodies when the host supports it */
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -81,15 +96,17 @@ export async function POST(request: Request) {
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "لم يُرسل ملف صورة" }, { status: 400 });
   }
-  if (!ALLOWED_TYPES.has(file.type)) {
+
+  const declaredType = (file.type || "").toLowerCase();
+  if (declaredType && !ALLOWED_TYPES.has(declaredType)) {
     return NextResponse.json(
-      { error: "نوع الملف غير مدعوم — استخدم JPG أو PNG أو WebP" },
+      { error: "نوع الملف غير مدعوم — استخدم JPG أو PNG أو WebP بجودة عالية" },
       { status: 400 },
     );
   }
   if (file.size > MAX_BYTES) {
     return NextResponse.json(
-      { error: "حجم الصورة يجب ألا يتجاوز 8 ميجابايت" },
+      { error: "حجم الصورة يجب ألا يتجاوز 32 ميجابايت" },
       { status: 400 },
     );
   }

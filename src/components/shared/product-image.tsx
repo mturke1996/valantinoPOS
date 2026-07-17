@@ -13,16 +13,17 @@ const SIZE_CLASS: Record<ProductImageSize, string> = {
   md: "size-20",
   lg: "size-28",
   xl: "size-36",
-  hero: "h-44 w-full",
+  hero: "h-56 w-full",
 };
 
+/** Request denser sources for retina / POS tiles */
 const PIXEL_SIZE: Record<ProductImageSize, number> = {
-  xs: 40,
-  sm: 56,
-  md: 80,
-  lg: 112,
-  xl: 144,
-  hero: 352,
+  xs: 80,
+  sm: 112,
+  md: 160,
+  lg: 224,
+  xl: 288,
+  hero: 960,
 };
 
 interface ProductImageProps {
@@ -84,12 +85,14 @@ export function ProductImage({
         fill
         sizes={
           size === "hero"
-            ? "(max-width: 768px) 100vw, 320px"
+            ? "(max-width: 768px) 100vw, 560px"
             : `(max-width: 768px) ${dimension}px, ${dimension}px`
         }
         className="object-cover object-center transition-transform duration-300 group-hover:scale-[1.03]"
         priority={priority}
+        // Remote host (ImgBB) — avoid Next optimizer re-encoding to keep source sharpness
         unoptimized
+        quality={95}
       />
       <div
         className="pointer-events-none absolute inset-0 bg-gradient-to-t from-cacao-900/15 via-transparent to-transparent"
