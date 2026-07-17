@@ -201,20 +201,13 @@ function fillBucket(
     orders += 1;
     costs += orderCost(order, state);
   }
-  let expenses = 0;
-  for (const expense of state.expenses) {
-    const d = parseISO(expense.date);
-    if (isWithinInterval(d, { start: bucket.start, end: bucket.end })) {
-      expenses += expense.amount;
-    }
-  }
   return {
     key: bucket.key,
     label: bucket.label,
     sales,
     orders,
     costs,
-    expenses,
+    expenses: 0,
   };
 }
 
@@ -251,12 +244,7 @@ function aggregateInWindow(
     orders += 1;
     costs += orderCost(order, state);
   }
-  let expenses = 0;
-  for (const expense of state.expenses) {
-    const d = parseISO(expense.date);
-    if (isWithinInterval(d, { start, end })) expenses += expense.amount;
-  }
-  return { sales, orders, costs, expenses };
+  return { sales, orders, costs, expenses: 0 };
 }
 
 function buildTopProducts(
@@ -300,7 +288,7 @@ function buildStatusMix(state: AppState): StatisticsData["statusMix"] {
 
 /**
  * Computes all statistics-series for the given time range from the live store.
- * Pure derived data — same sources as dashboard.service (orders/expenses/products).
+ * Pure derived data — same sources as dashboard.service (orders/products).
  */
 export function useStatisticsData(
   state: AppState,

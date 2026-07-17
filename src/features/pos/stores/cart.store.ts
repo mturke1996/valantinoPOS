@@ -62,7 +62,6 @@ export interface CartItem {
   unitPrice: number;
   quantity: number;
   discount: number;
-  stockQuantity: number;
 }
 
 export interface HeldCart {
@@ -161,7 +160,6 @@ export const useCartStore = create<CartState>()(
             unitPrice,
             quantity,
             discount: 0,
-            stockQuantity: product.stockQuantity,
           };
           return { items: [...state.items, item] };
         });

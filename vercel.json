@@ -3,6 +3,12 @@
   "framework": "nextjs",
   "installCommand": "pnpm install",
   "buildCommand": "pnpm build",
+  "crons": [
+    {
+      "path": "/api/cron/reminders",
+      "schedule": "*/15 * * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/sw.js",

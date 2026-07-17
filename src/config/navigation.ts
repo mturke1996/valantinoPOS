@@ -85,28 +85,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/products",
     icon: "Tag",
     roles: ["admin", "warehouse", "sales"],
-    searchKeywords: ["products", "منتجات", "فئات"],
-  },
-  {
-    label: "المخزون",
-    href: "/inventory",
-    icon: "ClipboardList",
-    roles: ["admin", "warehouse"],
-    searchKeywords: ["inventory", "مخزون", "دفعات", "fefo"],
-  },
-  {
-    label: "المشتريات",
-    href: "/purchases",
-    icon: "ShoppingBag",
-    roles: ["admin", "warehouse", "accountant"],
-    searchKeywords: ["purchases", "مشتريات", "استلام"],
-  },
-  {
-    label: "المصروفات",
-    href: "/expenses",
-    icon: "Wallet",
-    roles: ["admin", "accountant"],
-    searchKeywords: ["expenses", "مصروفات"],
+    searchKeywords: ["products", "منتجات", "فئات", "كتالوج"],
   },
   {
     label: "المرتجعات",
@@ -185,14 +164,23 @@ export function canAccessPath(
 ): boolean {
   if (!userRole) return false;
   const normalizedPath = pathname === "/" ? "/dashboard" : pathname;
-  // Legacy alias — page redirects to purchases.
+  // Removed screens — allow old bookmarks for roles that used them.
   if (
     normalizedPath === "/suppliers" ||
-    normalizedPath.startsWith("/suppliers/")
+    normalizedPath.startsWith("/suppliers/") ||
+    normalizedPath === "/purchases" ||
+    normalizedPath.startsWith("/purchases/") ||
+    normalizedPath === "/expenses" ||
+    normalizedPath.startsWith("/expenses/") ||
+    normalizedPath === "/inventory" ||
+    normalizedPath.startsWith("/inventory/")
   ) {
-    return canAccessPath("/purchases", userRole);
+    return (
+      canAccessPath("/products", userRole) ||
+      canAccessPath("/reports", userRole) ||
+      canAccessPath("/dashboard", userRole)
+    );
   }
-  // Removed screens — keep bookmarks working via orders access.
   if (
     normalizedPath === "/kitchen" ||
     normalizedPath.startsWith("/kitchen/")

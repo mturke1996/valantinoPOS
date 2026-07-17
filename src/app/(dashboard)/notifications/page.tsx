@@ -7,7 +7,6 @@ import {
   BellRing,
   CalendarClock,
   CheckCheck,
-  Package,
   ShoppingBag,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -28,19 +27,17 @@ import type { Notification } from "@/types";
 
 const TYPE_LABELS: Record<string, string> = {
   order: "طلب",
-  stock: "مخزون",
   event: "مناسبة / توصيل",
   system: "نظام",
 };
 
 const TYPE_ICONS = {
   order: ShoppingBag,
-  stock: Package,
   event: CalendarClock,
   system: Bell,
 } as const;
 
-type FilterKey = "all" | "unread" | "order" | "event" | "stock";
+type FilterKey = "all" | "unread" | "order" | "event";
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -148,7 +145,6 @@ export default function NotificationsPage() {
             { key: "unread", label: "غير مقروء" },
             { key: "event", label: "مناسبات" },
             { key: "order", label: "طلبات" },
-            { key: "stock", label: "مخزون" },
           ] as const
         ).map(({ key, label }) => (
           <Button
@@ -168,7 +164,7 @@ export default function NotificationsPage() {
         <EmptyState
           icon={Bell}
           title="لا توجد إشعارات"
-          description="ستظهر هنا تنبيهات الطلبات والمناسبات والتوصيل والمخزون"
+          description="ستظهر هنا تنبيهات الطلبات والمناسبات والتوصيل"
         />
       ) : (
         <div className="space-y-2">

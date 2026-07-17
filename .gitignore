@@ -48,3 +48,11 @@ next-env.d.ts
 # ephemeral local auth/debug scripts (may contain secrets)
 scripts/__*.ps1
 scripts/.cookie*
+
+# Pake / Tauri desktop build outputs
+desktop-dist/
+src-tauri/
+*.msi
+*.dmg
+*.AppImage
+ValentinoPOS*

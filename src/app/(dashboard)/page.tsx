@@ -20,6 +20,7 @@ import {
   YAxis,
 } from "recharts";
 
+import { UpcomingEventsPanel } from "@/components/dashboard/upcoming-events-panel";
 import { CommandCenterHero } from "@/components/shared/command-center-hero";
 import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
@@ -33,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getState } from "@/lib/data/store";
 import { useStoreSubscription } from "@/hooks/use-store-subscription";
+import { getUpcomingEvents } from "@/lib/reminders/event-reminders";
 import { getDashboardStats } from "@/lib/services/dashboard.service";
 import {
   getTodayOperations,
@@ -61,6 +63,11 @@ export default function DashboardPage() {
   const upcomingPreparation = useMemo(() => {
     if (!stats) return [];
     return getUpcomingPreparation(getState(), 7);
+  }, [stats]);
+
+  const upcomingEvents = useMemo(() => {
+    if (!stats) return [];
+    return getUpcomingEvents(getState(), 7);
   }, [stats]);
 
   const chartData = useMemo(() => {
@@ -111,6 +118,7 @@ export default function DashboardPage() {
       />
 
       <ServiceRibbon items={todayOperations} />
+      <UpcomingEventsPanel items={upcomingEvents} />
       <ServiceRibbon
         items={upcomingPreparation}
         title="طلبات تحتاج تجهيز خلال 7 أيام"
@@ -281,60 +289,36 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <div className="space-y-4">
-          <Card className="border-cacao-800/8 shadow-none">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <AlertTriangle className="size-4 text-caramel-500" />
-                تنبيهات المخزون
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between rounded-md bg-caramel-500/10 px-3 py-2">
-                <span className="text-sm">منتجات منخفضة</span>
-                <Badge variant="outline">{stats.lowStockProducts}</Badge>
-              </div>
-              <div className="flex items-center justify-between rounded-md bg-berry-500/10 px-3 py-2">
-                <span className="text-sm">دفعات قاربت الانتهاء</span>
-                <Badge variant="outline">{stats.expiringBatches}</Badge>
-              </div>
-              <Button variant="outline" size="sm" className="w-full" asChild>
-                <Link href="/inventory">إدارة المخزون</Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="border-cacao-800/8 shadow-none">
-            <CardHeader>
-              <CardTitle className="text-base">الأكثر مبيعاً</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {stats.topProducts.length === 0 ? (
-                <p className="text-sm text-muted-foreground">لا توجد بيانات بعد</p>
-              ) : (
-                <div className="space-y-3">
-                  {stats.topProducts.map((product, i) => (
-                    <div
-                      key={product.productId}
-                      className="flex items-center justify-between gap-2"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="flex size-6 items-center justify-center rounded-sm bg-cacao-800/8 text-xs font-medium">
-                          {i + 1}
-                        </span>
-                        <span className="truncate text-sm">{product.nameAr}</span>
-                      </div>
-                      <CurrencyDisplay
-                        amount={product.revenue}
-                        className="text-xs"
-                      />
+        <Card className="border-cacao-800/8 shadow-none">
+          <CardHeader>
+            <CardTitle className="text-base">الأكثر مبيعاً</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {stats.topProducts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">لا توجد بيانات بعد</p>
+            ) : (
+              <div className="space-y-3">
+                {stats.topProducts.map((product, i) => (
+                  <div
+                    key={product.productId}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="flex size-6 items-center justify-center rounded-sm bg-cacao-800/8 text-xs font-medium">
+                        {i + 1}
+                      </span>
+                      <span className="truncate text-sm">{product.nameAr}</span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                    <CurrencyDisplay
+                      amount={product.revenue}
+                      className="text-xs"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">

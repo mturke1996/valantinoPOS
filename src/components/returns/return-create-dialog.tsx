@@ -22,7 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { getAuthSession } from "@/lib/auth";
 import {
   createReturn,
@@ -49,7 +48,6 @@ export function ReturnCreateDialog({
   const [orderId, setOrderId] = useState(defaultOrderId ?? "");
   const [order, setOrder] = useState<Order | null>(null);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [restockMap, setRestockMap] = useState<Record<string, boolean>>({});
   const [refundMethod, setRefundMethod] = useState<RefundMethod>("cash");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -68,13 +66,10 @@ export function ReturnCreateDialog({
     setOrder(selected);
     if (selected) {
       const qty: Record<string, number> = {};
-      const restock: Record<string, boolean> = {};
       for (const item of selected.items) {
         qty[item.id] = 0;
-        restock[item.id] = true;
       }
       setQuantities(qty);
-      setRestockMap(restock);
     }
   }, [orderId]);
 
@@ -89,7 +84,7 @@ export function ReturnCreateDialog({
         orderItemId: item.id,
         productId: item.productId,
         quantity: quantities[item.id] ?? 0,
-        restock: restockMap[item.id] ?? true,
+        restock: false,
       }));
     if (items.length === 0) {
       toast.error("حدد كمية الإرجاع");
@@ -146,7 +141,7 @@ export function ReturnCreateDialog({
           {order ? (
             <div className="space-y-3 rounded-lg border p-3">
               {order.items.map((item) => (
-                <div key={item.id} className="grid gap-2 sm:grid-cols-[1fr_96px_auto]">
+                <div key={item.id} className="grid gap-2 sm:grid-cols-[1fr_96px]">
                   <div>
                     <p className="text-sm font-medium">{item.productNameAr}</p>
                     <p className="text-xs text-muted-foreground">
@@ -167,22 +162,6 @@ export function ReturnCreateDialog({
                     dir="ltr"
                     aria-label={`كمية مرتجع ${item.productNameAr}`}
                   />
-                  <div className="flex items-center gap-2 text-xs">
-                    <Switch
-                      id={`restock-${item.id}`}
-                      checked={restockMap[item.id] ?? true}
-                      onCheckedChange={(checked) =>
-                        setRestockMap((prev) => ({
-                          ...prev,
-                          [item.id]: checked,
-                        }))
-                      }
-                      aria-label={`إعادة ${item.productNameAr} للمخزون`}
-                    />
-                    <Label htmlFor={`restock-${item.id}`} className="cursor-pointer">
-                      إعادة للمخزون
-                    </Label>
-                  </div>
                 </div>
               ))}
             </div>

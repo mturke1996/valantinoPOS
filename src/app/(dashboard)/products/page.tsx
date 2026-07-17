@@ -7,8 +7,6 @@ import {
   useState,
 } from "react";
 import {
-  AlertTriangle,
-  Boxes,
   FileUp,
   FolderPlus,
   PackagePlus,
@@ -25,7 +23,6 @@ import { ProductImage } from "@/components/shared/product-image";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
-import { StatusBadge } from "@/components/shared/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,26 +38,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStoreSubscription } from "@/hooks/use-store-subscription";
 import { getCategories, getProducts } from "@/lib/data/store";
 import { cacheProducts } from "@/lib/offline/db";
-import { isStockTracked } from "@/lib/product-stock";
 import type { Category, Product } from "@/types";
-import { cn, formatNumber, roundMoney } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 
 const ALL_CATEGORIES = "__all_categories__";
-type StockFilter = "all" | "available" | "low" | "out" | "inactive";
-
-function stockStatus(product: Product) {
-  if (!isStockTracked(product)) return "not_tracked" as const;
-  if (product.stockQuantity <= 0) return "out_of_stock" as const;
-  if (product.stockQuantity <= product.minStock) return "low_stock" as const;
-  return "in_stock" as const;
-}
+type StatusFilter = "all" | "active" | "inactive";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
-  const [stockFilter, setStockFilter] = useState<StockFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [loading, setLoading] = useState(true);
   const [editorOpen, setEditorOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
@@ -91,18 +80,8 @@ export default function ProductsPage() {
 
   const metrics = useMemo(() => {
     const active = products.filter((product) => product.isActive).length;
-    const lowStock = products.filter(
-      (product) =>
-        product.isActive && product.stockQuantity <= product.minStock,
-    ).length;
-    const inventoryValue = roundMoney(
-      products.reduce(
-        (sum, product) => sum + product.costPrice * product.stockQuantity,
-        0,
-      ),
-    );
     const bundles = products.filter((product) => product.isBundle).length;
-    return { active, lowStock, inventoryValue, bundles };
+    return { active, bundles };
   }, [products]);
 
   const filtered = useMemo(() => {
@@ -122,27 +101,15 @@ export default function ProductsPage() {
         ) {
           return false;
         }
-        if (stockFilter === "available") {
-          return product.isActive && product.stockQuantity > product.minStock;
-        }
-        if (stockFilter === "low") {
-          return (
-            product.isActive &&
-            product.stockQuantity > 0 &&
-            product.stockQuantity <= product.minStock
-          );
-        }
-        if (stockFilter === "out") {
-          return product.isActive && product.stockQuantity <= 0;
-        }
-        if (stockFilter === "inactive") return !product.isActive;
+        if (statusFilter === "active") return product.isActive;
+        if (statusFilter === "inactive") return !product.isActive;
         return true;
       })
       .sort((left, right) => {
         if (left.isActive !== right.isActive) return left.isActive ? -1 : 1;
         return left.nameAr.localeCompare(right.nameAr, "ar");
       });
-  }, [categoryFilter, deferredSearch, products, stockFilter]);
+  }, [categoryFilter, deferredSearch, products, statusFilter]);
 
   const openCreate = () => {
     if (categories.length === 0) {
@@ -176,7 +143,7 @@ export default function ProductsPage() {
     <div className="space-y-6 py-4">
       <PageHeader
         title="كتالوج الأصناف"
-        description="إضافة وتسعير وتصنيف الأصناف وربط الرصيد الافتتاحي والصلاحية"
+        description="إضافة وتسعير وتصنيف الأصناف لنقطة البيع"
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button
@@ -203,8 +170,8 @@ export default function ProductsPage() {
         }
       />
 
-      <section className="grid grid-cols-2 overflow-hidden rounded-xl border border-cacao-800/10 bg-card sm:grid-cols-[1.4fr_1fr_1fr_1fr]">
-        <div className="col-span-2 bg-cacao-800 p-5 text-cream-50 sm:col-span-1">
+      <section className="grid grid-cols-2 overflow-hidden rounded-xl border border-cacao-800/10 bg-card sm:grid-cols-2">
+        <div className="bg-cacao-800 p-5 text-cream-50">
           <div className="flex items-center gap-2 text-xs text-cream-100/70">
             <Tag className="size-4 text-gold-400" />
             الكتالوج النشط
@@ -214,29 +181,6 @@ export default function ProductsPage() {
           </p>
           <p className="mt-1 text-xs text-cream-100/60">
             من أصل {formatNumber(products.length)} صنف محفوظ
-          </p>
-        </div>
-
-        <div className="border-b border-cacao-800/10 p-5 sm:border-b-0 sm:border-s">
-          <AlertTriangle className="mb-3 size-4 text-caramel-500" />
-          <p className="text-xs text-muted-foreground">يحتاج انتباهاً</p>
-          <p className="mt-1 font-mono text-2xl font-semibold tabular-nums">
-            {formatNumber(metrics.lowStock)}
-          </p>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            منخفض أو نافد
-          </p>
-        </div>
-
-        <div className="border-b border-cacao-800/10 p-5 sm:border-b-0 sm:border-s">
-          <Boxes className="mb-3 size-4 text-pistachio-400" />
-          <p className="text-xs text-muted-foreground">قيمة المخزون</p>
-          <CurrencyDisplay
-            amount={metrics.inventoryValue}
-            className="mt-1 text-xl font-semibold"
-          />
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            بسعر التكلفة
           </p>
         </div>
 
@@ -277,17 +221,15 @@ export default function ProductsPage() {
           </SelectContent>
         </Select>
         <Select
-          value={stockFilter}
-          onValueChange={(value) => setStockFilter(value as StockFilter)}
+          value={statusFilter}
+          onValueChange={(value) => setStatusFilter(value as StatusFilter)}
         >
-          <SelectTrigger aria-label="تصفية حسب المخزون">
+          <SelectTrigger aria-label="تصفية حسب الحالة">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">كل الحالات</SelectItem>
-            <SelectItem value="available">متوفر</SelectItem>
-            <SelectItem value="low">مخزون منخفض</SelectItem>
-            <SelectItem value="out">نافد</SelectItem>
+            <SelectItem value="active">نشط</SelectItem>
             <SelectItem value="inactive">موقوف</SelectItem>
           </SelectContent>
         </Select>
@@ -299,7 +241,7 @@ export default function ProductsPage() {
           title="لا توجد أصناف مطابقة"
           description={
             products.length === 0
-              ? "ابدأ بإضافة أول صنف وربط رصيده الافتتاحي"
+              ? "ابدأ بإضافة أول صنف للكتالوج"
               : "غيّر البحث أو عوامل التصفية"
           }
           action={
@@ -373,20 +315,14 @@ export default function ProductsPage() {
                     </p>
 
                     <div className="mt-4 flex items-end justify-between gap-3 border-t border-cacao-800/10 pt-3">
-                      <div>
-                        <CurrencyDisplay
-                          amount={product.retailPrice}
-                          className="font-semibold"
-                        />
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">
-                          مخزون {formatNumber(product.stockQuantity)}
-                        </p>
-                      </div>
+                      <CurrencyDisplay
+                        amount={product.retailPrice}
+                        className="font-semibold"
+                      />
                       {product.isActive ? (
-                        <StatusBadge
-                          type="stock"
-                          status={stockStatus(product)}
-                        />
+                        <Badge variant="outline" className="text-[10px]">
+                          نشط
+                        </Badge>
                       ) : (
                         <Badge variant="secondary">موقوف</Badge>
                       )}
@@ -406,7 +342,6 @@ export default function ProductsPage() {
                     <th className="p-3 text-start font-medium">الفئة</th>
                     <th className="p-3 text-start font-medium">التكلفة</th>
                     <th className="p-3 text-start font-medium">البيع</th>
-                    <th className="p-3 text-start font-medium">المخزون</th>
                     <th className="p-3 text-start font-medium">الحالة</th>
                     <th className="p-3 text-end font-medium">إجراء</th>
                   </tr>
@@ -447,15 +382,9 @@ export default function ProductsPage() {
                           className="font-medium"
                         />
                       </td>
-                      <td className="p-3 font-mono tabular-nums">
-                        {formatNumber(product.stockQuantity)}
-                      </td>
                       <td className="p-3">
                         {product.isActive ? (
-                          <StatusBadge
-                            type="stock"
-                            status={stockStatus(product)}
-                          />
+                          <Badge variant="outline">نشط</Badge>
                         ) : (
                           <Badge variant="secondary">موقوف</Badge>
                         )}

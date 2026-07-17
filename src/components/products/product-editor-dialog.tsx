@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Barcode,
-  Boxes,
   Calculator,
   PackagePlus,
   RefreshCw,
+  Ruler,
   Save,
   Tag,
 } from "lucide-react";
@@ -36,11 +36,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   createProduct,
   getState,
-  receiveInventoryBatch,
   updateProduct,
 } from "@/lib/data/store";
 import { cacheProducts } from "@/lib/offline/db";
-import { isStockTracked } from "@/lib/product-stock";
 import type { Category, Product, UnitType } from "@/types";
 import { cn, roundMoney } from "@/lib/utils";
 
@@ -65,15 +63,8 @@ interface ProductFormState {
   unitType: UnitType;
   weightGrams: string;
   origin: string;
-  minStock: string;
   isBundle: boolean;
   isActive: boolean;
-  trackStock: boolean;
-  addOpeningStock: boolean;
-  openingQuantity: string;
-  batchNumber: string;
-  expiryDate: string;
-  openingCost: string;
   imageUrl: string | null;
 }
 
@@ -90,15 +81,8 @@ const EMPTY_FORM: ProductFormState = {
   unitType: "piece",
   weightGrams: "",
   origin: "ليبيا",
-  minStock: "5",
   isBundle: false,
   isActive: true,
-  trackStock: false,
-  addOpeningStock: false,
-  openingQuantity: "",
-  batchNumber: "",
-  expiryDate: "",
-  openingCost: "",
   imageUrl: null,
 };
 
@@ -118,15 +102,8 @@ function productToForm(product: Product | null): ProductFormState {
     weightGrams:
       product.weightGrams === null ? "" : String(product.weightGrams),
     origin: product.origin,
-    minStock: String(product.minStock),
     isBundle: product.isBundle,
     isActive: product.isActive,
-    trackStock: isStockTracked(product),
-    addOpeningStock: false,
-    openingQuantity: "",
-    batchNumber: "",
-    expiryDate: "",
-    openingCost: "",
     imageUrl: product.imageUrl ?? null,
   };
 }
@@ -167,10 +144,6 @@ export function ProductEditorDialog({
   const margin = roundMoney(retail - cost);
   const marginPercent =
     retail > 0 ? Math.round(((retail - cost) / retail) * 1000) / 10 : 0;
-  const openingValue = roundMoney(
-    numberValue(form.openingQuantity) *
-      (numberValue(form.openingCost) || cost),
-  );
   const hasPriceWarning = retail > 0 && cost > retail;
 
   const sortedCategories = useMemo(
@@ -225,20 +198,6 @@ export function ProductEditorDialog({
       toast.error("أدخل سعر البيع");
       return;
     }
-    if (form.trackStock && !editing && form.addOpeningStock) {
-      if (
-        numberValue(form.openingQuantity) <= 0 ||
-        !form.batchNumber.trim() ||
-        !form.expiryDate
-      ) {
-        toast.error("أكمل كمية ورقم وتاريخ صلاحية الدفعة الافتتاحية");
-        return;
-      }
-      if (form.expiryDate < new Date().toISOString().slice(0, 10)) {
-        toast.error("تاريخ صلاحية الدفعة يجب ألا يكون في الماضي");
-        return;
-      }
-    }
 
     setSaving(true);
     try {
@@ -259,10 +218,10 @@ export function ProductEditorDialog({
           ? numberValue(form.weightGrams)
           : null,
         origin: form.origin,
-        minStock: numberValue(form.minStock),
+        minStock: 0,
         isBundle: form.isBundle,
         isActive: form.isActive,
-        trackStock: form.trackStock,
+        trackStock: false,
         imageUrl: form.imageUrl,
       };
 
@@ -270,19 +229,6 @@ export function ProductEditorDialog({
         ? updateProduct(product.id, payload)
         : createProduct(payload);
       if (!saved) throw new Error("تعذر العثور على الصنف");
-
-      if (!product && form.trackStock && form.addOpeningStock) {
-        receiveInventoryBatch({
-          branchId: state.settings.branchId,
-          productId: saved.id,
-          batchNumber: form.batchNumber,
-          quantity: numberValue(form.openingQuantity),
-          expiryDate: form.expiryDate,
-          costPerUnit: numberValue(form.openingCost) || cost,
-          createdBy: state.users[0]?.id,
-          notes: "رصيد افتتاحي من شاشة إضافة الصنف",
-        });
-      }
 
       const refreshed =
         getState().products.find((candidate) => candidate.id === saved.id) ??
@@ -293,7 +239,7 @@ export function ProductEditorDialog({
       toast.success(
         product
           ? "تم تحديث الصنف وربطه بنقطة البيع"
-          : "تمت إضافة الصنف للكتالوج والمخزون",
+          : "تمت إضافة الصنف للكتالوج",
       );
       onSaved(refreshed);
       onOpenChange(false);
@@ -508,34 +454,11 @@ export function ProductEditorDialog({
               </section>
 
               <section className="space-y-4 border-t border-cacao-800/10 pt-6">
-                <div className="flex items-center justify-between gap-4 rounded-xl border border-gold-400/20 bg-gold-400/5 p-4">
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-semibold">تتبع المخزون</h3>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {form.trackStock
-                        ? "يُخصم من الدفعات ويظهر «نفد» عند نفاد الكمية"
-                        : "البيع متاح دائماً بدون قيود مخزون (∞)"}
-                    </p>
-                  </div>
-                  <Switch
-                    checked={form.trackStock}
-                    onCheckedChange={(checked) => {
-                      updateForm("trackStock", checked);
-                      if (!checked) {
-                        updateForm("addOpeningStock", false);
-                      } else if (!editing) {
-                        updateForm("addOpeningStock", true);
-                      }
-                    }}
-                    aria-label="تتبع المخزون"
-                  />
-                </div>
-
                 <div className="flex items-center gap-2">
-                  <Boxes className="size-4 text-gold-400" />
-                  <h3 className="text-sm font-semibold">الوحدة والمخزون</h3>
+                  <Ruler className="size-4 text-gold-400" />
+                  <h3 className="text-sm font-semibold">الوحدة والمنشأ</h3>
                 </div>
-                <div className={cn("grid gap-4 sm:grid-cols-2", !form.trackStock && "opacity-60")}>
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>وحدة البيع</Label>
                     <Select
@@ -571,23 +494,7 @@ export function ProductEditorDialog({
                       inputMode="decimal"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="product-min-stock">حد التنبيه</Label>
-                    <Input
-                      id="product-min-stock"
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={form.minStock}
-                      onChange={(event) =>
-                        updateForm("minStock", event.target.value)
-                      }
-                      dir="ltr"
-                      inputMode="numeric"
-                      disabled={!form.trackStock}
-                    />
-                  </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 sm:col-span-2">
                     <Label htmlFor="product-origin">المنشأ</Label>
                     <Input
                       id="product-origin"
@@ -634,104 +541,6 @@ export function ProductEditorDialog({
                   </div>
                 ) : null}
               </section>
-
-              {!editing && form.trackStock ? (
-                <section className="space-y-4 border-t border-cacao-800/10 pt-6">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-semibold">
-                        إضافة رصيد افتتاحي
-                      </h3>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        يربط الصنف بالمخزون ونقطة البيع مباشرة
-                      </p>
-                    </div>
-                    <Switch
-                      checked={form.addOpeningStock}
-                      onCheckedChange={(checked) =>
-                        updateForm("addOpeningStock", checked)
-                      }
-                      aria-label="إضافة رصيد افتتاحي"
-                    />
-                  </div>
-
-                  {form.addOpeningStock ? (
-                    <div className="space-y-4 rounded-lg bg-muted/40 p-4">
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="space-y-2">
-                          <Label htmlFor="opening-quantity">الكمية *</Label>
-                          <Input
-                            id="opening-quantity"
-                            type="number"
-                            min={0}
-                            step="0.001"
-                            value={form.openingQuantity}
-                            onChange={(event) =>
-                              updateForm(
-                                "openingQuantity",
-                                event.target.value,
-                              )
-                            }
-                            dir="ltr"
-                            inputMode="decimal"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="opening-batch">رقم الدفعة *</Label>
-                          <Input
-                            id="opening-batch"
-                            value={form.batchNumber}
-                            onChange={(event) =>
-                              updateForm("batchNumber", event.target.value)
-                            }
-                            dir="ltr"
-                            className="font-mono"
-                            placeholder="LOT-2026-001"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="opening-expiry">
-                            تاريخ الصلاحية *
-                          </Label>
-                          <Input
-                            id="opening-expiry"
-                            type="date"
-                            min={new Date().toISOString().slice(0, 10)}
-                            value={form.expiryDate}
-                            onChange={(event) =>
-                              updateForm("expiryDate", event.target.value)
-                            }
-                            dir="ltr"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="opening-cost">تكلفة الوحدة</Label>
-                          <Input
-                            id="opening-cost"
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            value={form.openingCost}
-                            onChange={(event) =>
-                              updateForm("openingCost", event.target.value)
-                            }
-                            placeholder={form.costPrice || "0"}
-                            dir="ltr"
-                            inputMode="decimal"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>قيمة الرصيد الافتتاحي</span>
-                        <CurrencyDisplay
-                          amount={openingValue}
-                          className="font-semibold text-foreground"
-                        />
-                      </div>
-                    </div>
-                  ) : null}
-                </section>
-              ) : null}
 
               <section className="space-y-2 border-t border-cacao-800/10 pt-6">
                 <Label htmlFor="product-description">وصف الصنف</Label>

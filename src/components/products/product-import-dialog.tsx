@@ -23,7 +23,6 @@ import {
   createProduct,
   getCategories,
   getSettings,
-  receiveInventoryBatch,
 } from "@/lib/data/store";
 import type { UnitType } from "@/types";
 
@@ -162,7 +161,7 @@ export function ProductImportDialog({
             row.categoryName,
             settings.branchId,
           );
-          const product = createProduct({
+          createProduct({
             branchId: settings.branchId,
             categoryId,
             sku: row.sku,
@@ -176,25 +175,11 @@ export function ProductImportDialog({
             unitType: mapUnitType(row.unitType),
             weightGrams: null,
             origin: "",
-            minStock: row.minStock,
+            minStock: 0,
             isBundle: false,
             isActive: true,
-            trackStock: row.trackStock,
+            trackStock: false,
           });
-
-          if (row.trackStock && row.stockQuantity > 0) {
-            const expiry = new Date();
-            expiry.setFullYear(expiry.getFullYear() + 1);
-            receiveInventoryBatch({
-              branchId: settings.branchId,
-              productId: product.id,
-              batchNumber: `IMP-${row.sku}`,
-              quantity: row.stockQuantity,
-              expiryDate: expiry.toISOString().slice(0, 10),
-              costPerUnit: row.costPrice,
-              notes: "رصيد افتتاحي من استيراد المنتجات",
-            });
-          }
 
           created += 1;
         } catch (error) {
@@ -285,7 +270,6 @@ export function ProductImportDialog({
                       <th className="px-3 py-2 text-start font-semibold">SKU</th>
                       <th className="px-3 py-2 text-start font-semibold">الفئة</th>
                       <th className="px-3 py-2 text-end font-semibold">السعر</th>
-                      <th className="px-3 py-2 text-end font-semibold">المخزون</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -303,9 +287,6 @@ export function ProductImportDialog({
                         </td>
                         <td className="px-3 py-2 text-end tabular-nums">
                           {row.retailPrice.toFixed(2)}
-                        </td>
-                        <td className="px-3 py-2 text-end tabular-nums">
-                          {row.stockQuantity}
                         </td>
                       </tr>
                     ))}

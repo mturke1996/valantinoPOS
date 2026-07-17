@@ -9,10 +9,7 @@ export interface ProductImportRow {
   retailPrice: number;
   wholesalePrice: number;
   costPrice: number;
-  minStock: number;
-  stockQuantity: number;
   unitType: "piece" | "weight" | "box";
-  trackStock: boolean;
 }
 
 export interface ProductImportResult {
@@ -108,16 +105,7 @@ export function parseProductImportFile(
         0,
       ),
       costPrice: num(raw["التكلفة"] ?? raw["cost_price"] ?? raw["cost"], 0),
-      minStock: num(raw["الحد الأدنى"] ?? raw["min_stock"] ?? raw["minStock"], 0),
-      stockQuantity: num(
-        raw["المخزون"] ?? raw["stock"] ?? raw["stock_quantity"],
-        0,
-      ),
       unitType: mapUnit(str(raw["الوحدة"] ?? raw["unit"] ?? raw["unit_type"])),
-      trackStock: (() => {
-        const v = str(raw["تتبع المخزون"] ?? raw["track_stock"] ?? "yes");
-        return !["0", "false", "لا", "no"].includes(v.toLowerCase());
-      })(),
     });
   });
 
@@ -141,10 +129,7 @@ export function buildProductImportTemplate(): Blob {
       "سعر البيع": 45,
       "سعر الجملة": 38,
       التكلفة: 22,
-      "الحد الأدنى": 10,
-      المخزون: 50,
       الوحدة: "قطعة",
-      "تتبع المخزون": "نعم",
     },
   ];
   const sheet = XLSX.utils.json_to_sheet(sample);

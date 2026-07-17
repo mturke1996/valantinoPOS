@@ -77,17 +77,21 @@ export function fefoDeduct(
     };
 
     allocations.push({ batchId: batch.id, quantity: deductQty });
+    const movementType = input.movementType ?? "sale";
     movements.push(
       addMovement({
         branchId: input.branchId,
         productId: input.productId,
         batchId: batch.id,
-        type: "sale",
+        type: movementType,
         quantity: -deductQty,
         referenceType: input.referenceType,
         referenceId: input.referenceId,
         createdBy: input.createdBy,
-        notes: `خصم FEFO — دفعة ${batch.batchNumber}`,
+        notes:
+          movementType === "adjust"
+            ? `تعديل مخزون — دفعة ${batch.batchNumber}`
+            : `خصم FEFO — دفعة ${batch.batchNumber}`,
       }),
     );
 

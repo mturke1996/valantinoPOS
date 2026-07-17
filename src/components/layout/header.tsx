@@ -68,42 +68,56 @@ export function Header({
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 mx-3 mt-[max(0.75rem,env(safe-area-inset-top))] flex h-14 items-center justify-between gap-3 rounded-lg border border-cacao-800/8 bg-background/80 px-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/70 sm:mx-4 sm:mt-4 sm:gap-4 sm:px-4",
+        "sticky top-0 z-40 mx-2 mt-[max(0.5rem,env(safe-area-inset-top))] flex h-12 items-center gap-1.5 rounded-lg border border-cacao-800/8 bg-background/80 px-1.5 backdrop-blur-md supports-[backdrop-filter]:bg-background/70",
+        "sm:mx-4 sm:mt-4 sm:h-14 sm:gap-3 sm:px-3",
         className,
       )}
     >
       <Button
         variant="ghost"
         size="icon"
-        className="size-11 shrink-0 text-cacao-800/70 lg:hidden dark:text-cream-100/70"
+        className="size-9 shrink-0 text-cacao-800/70 lg:hidden dark:text-cream-100/70 sm:size-10"
         onClick={onMenuOpen}
         aria-label="فتح القائمة"
       >
         <Menu className="size-[18px]" aria-hidden />
       </Button>
 
+      {/* Mobile: icon-only search — avoids crowding the action cluster */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-9 shrink-0 text-cacao-800/70 sm:hidden dark:text-cream-100/70"
+        onClick={onSearchOpen}
+        aria-label="بحث في النظام"
+      >
+        <Search className="size-[18px]" aria-hidden />
+      </Button>
+
+      {/* Desktop / tablet: full search field */}
       <Button
         variant="outline"
-        className="h-11 w-full max-w-sm justify-start gap-2 border-cacao-800/10 bg-cream-100/40 text-muted-foreground hover:bg-cream-100/80 dark:bg-cacao-800/20"
+        className="hidden h-10 min-w-0 flex-1 justify-start gap-2 border-cacao-800/10 bg-cream-100/40 text-muted-foreground hover:bg-cream-100/80 sm:inline-flex sm:max-w-sm dark:bg-cacao-800/20"
         onClick={onSearchOpen}
         aria-label="بحث في النظام (Ctrl+K)"
       >
         <Search className="size-4 shrink-0" aria-hidden />
-        <span className="flex-1 text-start text-sm">بحث...</span>
+        <span className="truncate text-start text-sm">بحث...</span>
         <kbd
           aria-hidden
-          className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded border border-cacao-800/10 bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex"
+          className="pointer-events-none ms-auto hidden h-5 select-none items-center gap-1 rounded border border-cacao-800/10 bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground md:inline-flex"
         >
           <span className="text-xs">Ctrl</span>+K
         </kbd>
       </Button>
 
-      <div className="flex items-center gap-1">
+      <div className="ms-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
         <OfflineIndicator />
+
         <Button
           variant="ghost"
           size="icon"
-          className="relative size-11 text-cacao-800/70 hover:bg-cacao-800/[0.04] dark:text-cream-100/70"
+          className="relative size-9 text-cacao-800/70 hover:bg-cacao-800/[0.04] dark:text-cream-100/70 sm:size-10"
           aria-label={
             notificationCount > 0
               ? `الإشعارات، ${notificationCount} غير مقروء`
@@ -115,7 +129,7 @@ export function Header({
           {notificationCount > 0 ? (
             <Badge
               aria-hidden
-              className="absolute -top-0.5 -end-0.5 flex size-5 items-center justify-center rounded-full border-0 bg-berry-500 p-0 text-[10px] text-white"
+              className="absolute -top-0.5 -end-0.5 flex size-4 items-center justify-center rounded-full border-0 bg-berry-500 p-0 text-[9px] text-white sm:size-5 sm:text-[10px]"
             >
               {notificationCount > 9 ? "9+" : notificationCount}
             </Badge>
@@ -125,9 +139,11 @@ export function Header({
         <Button
           variant="ghost"
           size="icon"
-          className="size-11 text-cacao-800/70 hover:bg-cacao-800/[0.04] dark:text-cream-100/70"
+          className="hidden size-10 text-cacao-800/70 hover:bg-cacao-800/[0.04] dark:text-cream-100/70 sm:inline-flex"
           onClick={() => setTheme(isDark ? "light" : "dark")}
-          aria-label={isDark ? "التبديل إلى الوضع الفاتح" : "التبديل إلى الوضع الداكن"}
+          aria-label={
+            isDark ? "التبديل إلى الوضع الفاتح" : "التبديل إلى الوضع الداكن"
+          }
         >
           {mounted ? (
             isDark ? (
@@ -145,10 +161,10 @@ export function Header({
             <Button
               variant="ghost"
               size="icon"
-              className="size-11 rounded-full p-0"
+              className="size-9 shrink-0 rounded-full p-0 sm:size-10"
               aria-label="قائمة المستخدم"
             >
-              <Avatar className="size-9 border border-cacao-800/10">
+              <Avatar className="size-8 border border-cacao-800/10 sm:size-9">
                 {userAvatarUrl ? (
                   <AvatarImage src={userAvatarUrl} alt={userName} />
                 ) : null}
@@ -160,9 +176,22 @@ export function Header({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuLabel className="font-normal">
-              <span className="block truncate text-sm font-medium">{userName}</span>
+              <span className="block truncate text-sm font-medium">
+                {userName}
+              </span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="cursor-pointer sm:hidden"
+              onClick={() => setTheme(isDark ? "light" : "dark")}
+            >
+              {isDark ? (
+                <Sun className="size-4" />
+              ) : (
+                <Moon className="size-4" />
+              )}
+              {isDark ? "الوضع الفاتح" : "الوضع الداكن"}
+            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={handleLogout}
               className="cursor-pointer text-berry-600 focus:text-berry-600 dark:text-berry-400"

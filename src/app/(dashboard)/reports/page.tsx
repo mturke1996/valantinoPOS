@@ -5,9 +5,7 @@ import {
   Download,
   FileBarChart,
   FileSpreadsheet,
-  Package,
   Users,
-  Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -29,22 +27,10 @@ const REPORTS = [
     icon: FileBarChart,
   },
   {
-    id: "inventory",
-    title: "تقرير المخزون",
-    description: "مستويات المخزون والدفعات والتنبيهات",
-    icon: Package,
-  },
-  {
     id: "customers",
     title: "تقرير العملاء",
     description: "الولاء والإنفاق وعدد الطلبات",
     icon: Users,
-  },
-  {
-    id: "expenses",
-    title: "تقرير المصروفات",
-    description: "المصروفات حسب الفئة والفترة",
-    icon: Wallet,
   },
   {
     id: "profit",
@@ -63,11 +49,7 @@ export default function ReportsPage() {
     const stats = getDashboardStats(state);
     setSummary({
       sales: formatCurrency(stats.monthSales),
-      inventory: `${stats.lowStockProducts} منتج منخفض`,
       customers: `${stats.newCustomers} عميل جديد`,
-      expenses: formatCurrency(
-        state.expenses.reduce((s, e) => s + e.amount, 0),
-      ),
       profit: formatCurrency(stats.netProfit),
     });
     setLoading(false);
@@ -89,7 +71,7 @@ export default function ReportsPage() {
       <div className="space-y-4 py-4">
         <Skeleton className="h-10 w-48" />
         <div className="grid gap-4 sm:grid-cols-2">
-          {Array.from({ length: 4 }).map((_, i) => (
+          {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-40" />
           ))}
         </div>

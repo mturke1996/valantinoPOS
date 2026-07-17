@@ -629,6 +629,7 @@ async function runOfflineSyncQueue(): Promise<number> {
         whatsappCountryCode: settings.whatsappCountryCode,
         deliveryZones: settings.deliveryZones,
         autoWhatsAppOnSale: settings.autoWhatsAppOnSale,
+        telegramNotificationsEnabled: settings.telegramNotificationsEnabled,
         taxNumber: settings.taxNumber,
         commercialRegister: settings.commercialRegister,
       };

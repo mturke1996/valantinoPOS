@@ -68,7 +68,12 @@ export type CouponType = "percentage" | "fixed" | "free_shipping";
 
 export type NotificationType = "order" | "stock" | "event" | "system";
 
-export type NotificationChannel = "in_app" | "email" | "whatsapp" | "push";
+export type NotificationChannel =
+  | "in_app"
+  | "email"
+  | "whatsapp"
+  | "push"
+  | "telegram";
 
 export type LoyaltyAction = "earn" | "redeem" | "adjust";
 
@@ -461,6 +466,8 @@ export interface Settings {
   deliveryZones: DeliveryZone[];
   /** After POS sale, prompt WhatsApp share when phone is available */
   autoWhatsAppOnSale: boolean;
+  /** Send order/reminder alerts to linked Telegram chats */
+  telegramNotificationsEnabled: boolean;
   /** Tax / commercial identifiers for invoice QR */
   taxNumber: string | null;
   commercialRegister: string | null;
@@ -621,6 +628,7 @@ export interface FefoDeductInput {
   referenceType?: string | null;
   referenceId?: string | null;
   createdBy?: string | null;
+  movementType?: InventoryMovementType;
 }
 
 export interface FefoDeductResult {

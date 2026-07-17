@@ -6,8 +6,6 @@ import { buildInvoiceQrPayload } from "@/lib/services/invoice.service";
 import {
   addMovement,
   fefoDeduct,
-  getAvailableStock,
-  getExpiringBatches,
   getTotalStock,
 } from "@/lib/services/inventory.service";
 import { earnPoints, redeemPoints } from "@/lib/services/loyalty.service";
@@ -46,6 +44,8 @@ import type {
   Notification,
   UserProfile,
 } from "@/types";
+import { buildDueEventReminders } from "@/lib/reminders/event-reminders";
+import { notifyTelegramFromClient } from "@/lib/telegram/client-notify";
 import { generateId, nowISO, roundMoney } from "@/lib/utils";
 
 const STORAGE_KEY = "valentino-pos-state";
@@ -122,8 +122,8 @@ function syncProductStock(state: AppState): AppState {
   const products = state.products.map((p) => ({
     ...p,
     imageUrl: p.imageUrl ?? null,
-    trackStock: p.trackStock ?? p.stockQuantity > 0,
-    stockQuantity: getTotalStock(state.batches, p.id),
+    trackStock: false,
+    stockQuantity: 0,
   }));
   return { ...state, products };
 }
@@ -144,8 +144,18 @@ function normalizeStoredState(state: AppState): AppState {
         typeof state.settings?.autoWhatsAppOnSale === "boolean"
           ? state.settings.autoWhatsAppOnSale
           : defaults.settings.autoWhatsAppOnSale,
+      telegramNotificationsEnabled:
+        typeof state.settings?.telegramNotificationsEnabled === "boolean"
+          ? state.settings.telegramNotificationsEnabled
+          : defaults.settings.telegramNotificationsEnabled,
       taxNumber: state.settings?.taxNumber ?? null,
       commercialRegister: state.settings?.commercialRegister ?? null,
+      branchPhone:
+        state.settings?.branchPhone &&
+        state.settings.branchPhone !== "+218" &&
+        state.settings.branchPhone.trim() !== ""
+          ? state.settings.branchPhone
+          : defaults.settings.branchPhone,
     },
     orders: (state.orders ?? []).map((order) => ({
       ...order,
@@ -521,7 +531,9 @@ export function createProduct(
     ...normalized,
     imageUrl: normalized.imageUrl ?? null,
     id: generateId(),
+    trackStock: false,
     stockQuantity: 0,
+    minStock: 0,
     createdAt: nowISO(),
     updatedAt: nowISO(),
     deletedAt: null,
@@ -577,7 +589,7 @@ export function updateProduct(
     minStock: patch.minStock ?? current.minStock,
     isBundle: patch.isBundle ?? current.isBundle,
     isActive: patch.isActive ?? current.isActive,
-    trackStock: patch.trackStock ?? current.trackStock,
+    trackStock: false,
     imageUrl:
       patch.imageUrl === undefined ? current.imageUrl : patch.imageUrl,
   });
@@ -586,6 +598,7 @@ export function updateProduct(
   const updated: Product = {
     ...current,
     ...normalized,
+    trackStock: false,
     deletedAt:
       patch.deletedAt === undefined ? current.deletedAt : patch.deletedAt,
     updatedAt: nowISO(),
@@ -897,36 +910,18 @@ export function createOrder(input: CreateOrderInput): Order {
     throw new Error("العميل المحدد غير موجود");
   }
 
-  const requestedByProduct = new Map<string, number>();
   for (const item of input.items) {
     if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
       throw new Error("كمية المنتج يجب أن تكون أكبر من صفر");
     }
-    requestedByProduct.set(
-      item.productId,
-      (requestedByProduct.get(item.productId) ?? 0) + item.quantity,
-    );
-  }
-  for (const [productId, quantity] of requestedByProduct) {
     const product = state.products.find(
       (candidate) =>
-        candidate.id === productId &&
+        candidate.id === item.productId &&
         candidate.isActive &&
         !candidate.deletedAt,
     );
     if (!product) {
-      throw new Error(`المنتج غير متاح: ${productId}`);
-    }
-    if (product.trackStock === false) continue;
-    const available = getAvailableStock(
-      state.batches,
-      state.orders,
-      productId,
-    );
-    if (quantity > available) {
-      throw new Error(
-        `الكمية المتاحة من ${product.nameAr} هي ${available} فقط بعد حجوزات الطلبات`,
-      );
+      throw new Error(`المنتج غير متاح: ${item.productId}`);
     }
   }
 
@@ -1144,6 +1139,22 @@ export function createOrder(input: CreateOrderInput): Order {
   // Generate upcoming prep reminders immediately for scheduled work
   if (order.deliveryDate) {
     refreshSystemReminders();
+  }
+
+  if (newState.settings.telegramNotificationsEnabled) {
+    notifyTelegramFromClient({
+      kind: "order_created",
+      orderNumber: order.orderNumber,
+      orderId: order.id,
+      customerName,
+      total: order.total,
+      currencySymbol: newState.settings.currencySymbol,
+      deliveryDate: order.deliveryDate,
+      deliveryTime: order.deliveryTime,
+      typeLabel,
+      itemCount,
+      branchId: newState.settings.branchId,
+    });
   }
 
   return order;
@@ -1409,69 +1420,11 @@ function completeOrder(
 
 function deductInventoryForOrder(
   state: AppState,
-  order: Order,
-  userId?: string | null,
+  _order: Order,
+  _userId?: string | null,
 ): AppState {
-  let batches = [...state.batches];
-  const movements = [...state.inventoryMovements];
-  const updatedItems = [...order.items];
-
-  for (let i = 0; i < updatedItems.length; i++) {
-    const item = updatedItems[i];
-    const product = state.products.find((p) => p.id === item.productId);
-    if (product && product.trackStock === false) continue;
-
-    const { updatedBatches, result } = fefoDeduct(batches, {
-      productId: item.productId,
-      quantity: item.quantity,
-      branchId: order.branchId,
-      referenceType: "order",
-      referenceId: order.id,
-      createdBy: userId,
-    });
-
-    batches = updatedBatches;
-    movements.push(...result.movements);
-
-    if (result.allocations.length > 0) {
-      updatedItems[i] = {
-        ...item,
-        batchId: result.allocations[0].batchId,
-      };
-    }
-
-    if (result.remainingQuantity > 0) {
-      throw new Error(
-        `مخزون غير كافٍ للمنتج ${item.productNameAr}: نقص ${result.remainingQuantity}`,
-      );
-    }
-  }
-
-  const orders = state.orders.map((o) =>
-    o.id === order.id ? { ...o, items: updatedItems } : o,
-  );
-
-  const nextState = { ...state, batches, inventoryMovements: movements, orders };
-  if (isBrowser() && batches.length > 0) {
-    const changedBatches = batches.filter((batch) => {
-      const previous = state.batches.find((item) => item.id === batch.id);
-      return !previous || previous.quantity !== batch.quantity;
-    });
-    if (changedBatches.length > 0) {
-      // Do not upsert absolute batch quantities after sales — multi-terminal
-      // last-write-wins would overwrite concurrent deductions. Cloud stock is
-      // adjusted atomically via inventory_movements + DB trigger.
-      queueStoreSync("sync_order_items", {
-        orderId: order.id,
-        branchId: order.branchId,
-        items: updatedItems,
-      });
-      const newMovements = movements.slice(state.inventoryMovements.length);
-      queueMovementsSync(newMovements);
-    }
-  }
-
-  return nextState;
+  // Inventory system disabled — catalog/pricing only.
+  return state;
 }
 
 export function deleteOrder(id: string): boolean {
@@ -1754,6 +1707,17 @@ export function processPayment(input: ProcessPaymentInput): Payment {
       },
       statusHistory: completionHistory,
     });
+    if (newState.settings.telegramNotificationsEnabled) {
+      notifyTelegramFromClient({
+        kind: "payment",
+        orderNumber: order.orderNumber,
+        orderId: order.id,
+        amount: input.amount,
+        currencySymbol: newState.settings.currencySymbol,
+        paymentStatus: paidOrder.paymentStatus,
+        branchId: newState.settings.branchId,
+      });
+    }
     return payment;
   }
 
@@ -1796,6 +1760,17 @@ export function processPayment(input: ProcessPaymentInput): Payment {
       updatedAt: paidOrder.updatedAt,
     },
   });
+  if (newState.settings.telegramNotificationsEnabled) {
+    notifyTelegramFromClient({
+      kind: "payment",
+      orderNumber: order.orderNumber,
+      orderId: order.id,
+      amount: input.amount,
+      currencySymbol: newState.settings.currencySymbol,
+      paymentStatus: paidOrder.paymentStatus,
+      branchId: newState.settings.branchId,
+    });
+  }
   return payment;
 }
 
@@ -1935,6 +1910,121 @@ export function deductInventory(
       inventoryMovements: [...s.inventoryMovements, ...result.movements],
     };
   });
+  queueMovementsSync(syncedMovements);
+}
+
+export interface AdjustInventoryQuantityInput {
+  productId: string;
+  branchId: string;
+  quantity: number;
+  createdBy?: string | null;
+  notes?: string | null;
+  /** Required when increasing stock; defaults to +1 year if omitted. */
+  expiryDate?: string;
+  costPerUnit?: number;
+}
+
+/**
+ * Sets absolute on-hand quantity for a tracked product.
+ * Increases create a new batch; decreases deduct FEFO across existing batches.
+ */
+export function adjustInventoryQuantity(
+  input: AdjustInventoryQuantityInput,
+): void {
+  const state = getState();
+  const product = state.products.find(
+    (candidate) =>
+      candidate.id === input.productId &&
+      candidate.branchId === input.branchId &&
+      !candidate.deletedAt,
+  );
+  if (!product) throw new Error("الصنف المحدد غير موجود");
+  if (product.trackStock === false) {
+    throw new Error("هذا الصنف لا يتتبع المخزون");
+  }
+  if (!Number.isFinite(input.quantity) || input.quantity < 0) {
+    throw new Error("الكمية يجب أن تكون صفراً أو أكبر");
+  }
+
+  const target = Math.round(input.quantity * 1000) / 1000;
+  const current = getTotalStock(state.batches, input.productId);
+  const diff = Math.round((target - current) * 1000) / 1000;
+  if (diff === 0) return;
+
+  const notes = input.notes?.trim() || "تعديل يدوي من شاشة المخزون";
+
+  if (diff > 0) {
+    const defaultExpiry = new Date();
+    defaultExpiry.setFullYear(defaultExpiry.getFullYear() + 1);
+    const expiryDate =
+      input.expiryDate?.trim() || defaultExpiry.toISOString().slice(0, 10);
+
+    receiveInventoryBatch({
+      branchId: input.branchId,
+      productId: input.productId,
+      batchNumber: `ADJ-${Date.now().toString(36).toUpperCase()}`,
+      quantity: diff,
+      expiryDate,
+      costPerUnit:
+        input.costPerUnit !== undefined
+          ? input.costPerUnit
+          : product.costPrice,
+      createdBy: input.createdBy,
+      notes,
+    });
+    return;
+  }
+
+  let syncedBatches: Batch[] = [];
+  let syncedMovements: InventoryMovement[] = [];
+  const previousBatches = state.batches;
+
+  update((s) => {
+    const { updatedBatches, result } = fefoDeduct(s.batches, {
+      productId: input.productId,
+      quantity: Math.abs(diff),
+      branchId: input.branchId,
+      referenceType: "stock_adjust",
+      referenceId: input.productId,
+      createdBy: input.createdBy,
+      movementType: "adjust",
+    });
+
+    if (result.remainingQuantity > 0) {
+      throw new Error(`مخزون غير كافٍ — نقص ${result.remainingQuantity}`);
+    }
+
+    syncedBatches = updatedBatches.filter((batch) => {
+      const previous = previousBatches.find((item) => item.id === batch.id);
+      return !previous || previous.quantity !== batch.quantity;
+    });
+    syncedMovements = result.movements.map((movement) =>
+      notes ? { ...movement, notes } : movement,
+    );
+
+    return appendAudit(
+      {
+        ...s,
+        batches: updatedBatches,
+        inventoryMovements: [
+          ...s.inventoryMovements,
+          ...syncedMovements,
+        ],
+      },
+      {
+        userId: input.createdBy ?? null,
+        action: "inventory.adjust",
+        entityType: "product",
+        entityId: input.productId,
+        oldValues: { quantity: current },
+        newValues: { quantity: target },
+      },
+    );
+  });
+
+  if (syncedBatches.length > 0) {
+    queueStoreSync("update_batches", { batches: syncedBatches });
+  }
   queueMovementsSync(syncedMovements);
 }
 
@@ -2216,8 +2306,6 @@ export function createReturn(input: CreateReturnInput): Return {
 
   const returnItems: ReturnItem[] = [];
   let totalRefund = 0;
-  let batches = [...state.batches];
-  const movements = [...state.inventoryMovements];
 
   for (const item of input.items) {
     const orderItem = order.items.find((oi) => oi.id === item.orderItemId);
@@ -2238,52 +2326,9 @@ export function createReturn(input: CreateReturnInput): Return {
       orderItemId: item.orderItemId,
       productId: item.productId,
       quantity: item.quantity,
-      restock: item.restock,
+      restock: false,
       refundAmount,
     });
-
-    if (item.restock) {
-      const product = state.products.find((p) => p.id === item.productId);
-      if (product?.trackStock !== false) {
-        const preferredBatchId = orderItem.batchId;
-        const existingBatch =
-          (preferredBatchId
-            ? batches.find(
-                (b) =>
-                  b.id === preferredBatchId &&
-                  b.branchId === input.branchId,
-              )
-            : null) ??
-          batches.find(
-            (b) =>
-              b.productId === item.productId && b.branchId === input.branchId,
-          );
-        if (existingBatch) {
-          batches = batches.map((b) =>
-            b.id === existingBatch.id
-              ? {
-                  ...b,
-                  quantity: b.quantity + item.quantity,
-                  updatedAt: nowISO(),
-                }
-              : b,
-          );
-          movements.push(
-            addMovement({
-              branchId: input.branchId,
-              productId: item.productId,
-              batchId: existingBatch.id,
-              type: "return",
-              quantity: item.quantity,
-              referenceType: "return",
-              referenceId: null,
-              notes: `إرجاع ${order.orderNumber}`,
-              createdBy: input.createdBy,
-            }),
-          );
-        }
-      }
-    }
   }
 
   const returnRecord: Return = {
@@ -2307,8 +2352,6 @@ export function createReturn(input: CreateReturnInput): Return {
   let newState: AppState = {
     ...state,
     returns: [...state.returns, returnRecord],
-    batches,
-    inventoryMovements: movements,
   };
 
   if (input.refundMethod === "cash" && input.shiftId) {
@@ -2356,9 +2399,6 @@ export function createReturn(input: CreateReturnInput): Return {
   });
 
   setState(newState);
-  // Restock applies via inventory_movements + DB trigger (avoid absolute LWW).
-  const newMovements = movements.slice(state.inventoryMovements.length);
-  queueMovementsSync(newMovements);
   queueStoreSync("create_return", { returnRecord });
   return returnRecord;
 }
@@ -2631,164 +2671,14 @@ export function markAllNotificationsRead(): void {
 export function refreshSystemReminders(): void {
   update((state) => {
     let next = state;
-    const today = new Date().toISOString().slice(0, 10);
-    const now = Date.now();
     const existingKeys = new Set(
       state.notifications.map(
         (n) => n.dedupKey ?? `${n.type}:${n.body}`,
       ),
     );
 
-    const reminderOffsets = [
-      { key: "7d", label: "بعد 7 أيام — ابدأ التجهيز", msBefore: 7 * 24 * 60 * 60 * 1000 },
-      { key: "3d", label: "بعد 3 أيام — راجع المخزون", msBefore: 3 * 24 * 60 * 60 * 1000 },
-      { key: "1d", label: "غداً — جهّز الطلب", msBefore: 24 * 60 * 60 * 1000 },
-      { key: "2h", label: "بعد ساعتين — أوشك الموعد", msBefore: 2 * 60 * 60 * 1000 },
-      { key: "30m", label: "بعد 30 دقيقة — استعد للتسليم", msBefore: 30 * 60 * 1000 },
-    ] as const;
-
-    for (const product of state.products) {
-      if (product.deletedAt || !product.isActive) continue;
-      if (product.trackStock === false) continue;
-      if (product.stockQuantity > product.minStock) continue;
-      const body = `${product.nameAr} — المخزون ${product.stockQuantity} (الحد ${product.minStock})`;
-      const key = `stock:${product.id}`;
-      if (existingKeys.has(key)) continue;
-      next = pushNotificationToState(next, {
-        userId: "system",
-        type: "stock",
-        title: "مخزون منخفض",
-        body,
-        link: "/inventory",
-        channels: ["in_app"],
-        dedupKey: key,
-      });
-      existingKeys.add(key);
-    }
-
-    // Daily digest of all low-stock items for managers
-    const lowStock = state.products.filter(
-      (p) =>
-        !p.deletedAt &&
-        p.isActive &&
-        p.trackStock !== false &&
-        p.stockQuantity <= p.minStock,
-    );
-    const lowDigestKey = `low-stock-digest:${today}`;
-    if (lowStock.length > 0 && !existingKeys.has(lowDigestKey)) {
-      const names = lowStock
-        .slice(0, 5)
-        .map((p) => p.nameAr)
-        .join("، ");
-      next = pushNotificationToState(next, {
-        userId: "system",
-        type: "stock",
-        title: `ملخص مخزون منخفض — ${lowStock.length} أصناف`,
-        body: `${names}${lowStock.length > 5 ? ` +${lowStock.length - 5}` : ""} · راجع المشتريات`,
-        link: "/inventory",
-        channels: ["in_app", "push"],
-        dedupKey: lowDigestKey,
-      });
-      existingKeys.add(lowDigestKey);
-    }
-
-    // FEFO expiry alerts (7 / 14 days)
-    for (const days of [7, 14] as const) {
-      const expiring = getExpiringBatches(state.batches, days);
-      for (const batch of expiring) {
-        const product = state.products.find((p) => p.id === batch.productId);
-        const key = `expiry:${batch.id}:${days}`;
-        if (existingKeys.has(key)) continue;
-        next = pushNotificationToState(next, {
-          userId: "system",
-          type: "stock",
-          title:
-            days <= 7
-              ? "صلاحية قريبة — خلال أسبوع"
-              : "تنبيه صلاحية — خلال أسبوعين",
-            body: `${product?.nameAr ?? "صنف"} · دفعة ${batch.batchNumber} · ينتهي ${batch.expiryDate} · كمية ${batch.quantity}`,
-          link: "/inventory",
-          channels: ["in_app", "push"],
-          dedupKey: key,
-        });
-        existingKeys.add(key);
-      }
-    }
-
-    const upcomingPrep: Array<{ order: Order; target: number }> = [];
-    for (const order of state.orders) {
-      if (order.deletedAt || !order.deliveryDate) continue;
-      if (order.status === "cancelled" || order.status === "completed") continue;
-
-      const customer = order.customerId
-        ? state.customers.find((c) => c.id === order.customerId)
-        : null;
-      const customerName = customer?.name ?? "عميل نقدي";
-      const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
-      const balance = Math.max(0, order.total - order.paidAmount);
-      const timePart = order.deliveryTime ?? "12:00";
-      const target = new Date(`${order.deliveryDate}T${timePart}`).getTime();
-      if (Number.isNaN(target)) continue;
-      if (target >= now && target <= now + 7 * 24 * 60 * 60 * 1000) {
-        upcomingPrep.push({ order, target });
-      }
-
-      // Grace window: keep reminder visible until 2h after target
-      const graceUntil = target + 2 * 60 * 60 * 1000;
-
-      for (const offset of reminderOffsets) {
-        const reminderAt = target - offset.msBefore;
-        if (now < reminderAt || now > graceUntil) continue;
-        const key = `reminder:${order.id}:${offset.key}`;
-        if (existingKeys.has(key)) continue;
-        const itemSummary = order.items
-          .slice(0, 3)
-          .map((item) => `${item.productNameAr} ×${item.quantity}`)
-          .join("، ");
-        const body = `${order.orderNumber} · ${customerName} · ${offset.label} · ${itemCount} قطعة · ${itemSummary}${order.items.length > 3 ? ` +${order.items.length - 3} أصناف` : ""}${balance > 0 ? ` · متبقي ${balance.toFixed(2)}\u00A0${state.settings.currencySymbol}` : " · مدفوع"}`;
-        next = pushNotificationToState(next, {
-          userId: "system",
-          type: "event",
-          title:
-            offset.key === "30m" || offset.key === "2h"
-              ? "عاجل — قرب الموعد"
-              : "تذكير تجهيز طلب",
-          body,
-          link: `/orders?highlight=${order.id}`,
-          channels: ["in_app", "push"],
-          dedupKey: key,
-        });
-        existingKeys.add(key);
-      }
-
-      if (order.deliveryDate !== today) continue;
-      const todayKey = `delivery-today:${order.id}`;
-      if (existingKeys.has(todayKey)) continue;
-      next = pushNotificationToState(next, {
-        userId: "system",
-        type: "event",
-        title: "تسليم اليوم",
-        body: `${order.orderNumber} · ${customerName} · اليوم${order.deliveryTime ? ` ${order.deliveryTime}` : ""}${order.deliveryAddress ? ` · ${order.deliveryAddress}` : ""}`,
-        link: `/orders?highlight=${order.id}`,
-        channels: ["in_app", "push"],
-        dedupKey: todayKey,
-      });
-      existingKeys.add(todayKey);
-    }
-
-    upcomingPrep.sort((a, b) => a.target - b.target);
-    const summaryKey = `prep-summary:${today}`;
-    if (upcomingPrep.length > 0 && !existingKeys.has(summaryKey)) {
-      const nextOrder = upcomingPrep[0]!.order;
-      next = pushNotificationToState(next, {
-        userId: "system",
-        type: "event",
-        title: `خطة التجهيز — ${upcomingPrep.length} طلبات قريبة`,
-        body: `أقرب طلب ${nextOrder.orderNumber} في ${nextOrder.deliveryDate}${nextOrder.deliveryTime ? ` الساعة ${nextOrder.deliveryTime}` : ""} · راجع المخزون والتغليف والتوصيل`,
-        link: "/calendar",
-        channels: ["in_app", "push"],
-        dedupKey: summaryKey,
-      });
+    for (const reminder of buildDueEventReminders(next, existingKeys)) {
+      next = pushNotificationToState(next, reminder);
     }
 
     return next === state ? state : next;

@@ -4,7 +4,12 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { AppShell } from "@/components/layout/app-shell";
-import { setAppHydrationStatus } from "@/hooks/use-app-hydration";
+import { Button } from "@/components/ui/button";
+import {
+  setAppHydrationBootStep,
+  setAppHydrationStatus,
+  useAppHydrationBoot,
+} from "@/hooks/use-app-hydration";
 import { useBrowserNotifications } from "@/hooks/use-browser-notifications";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 import { getState, refreshSystemReminders, subscribe } from "@/lib/data/store";
@@ -26,6 +31,45 @@ function readCachedSession(): AuthSession | null {
   return getAuthSession();
 }
 
+function BootScreen({
+  label,
+  progress,
+  error,
+  onRetry,
+}: {
+  label: string;
+  progress: number;
+  error?: boolean;
+  onRetry?: () => void;
+}) {
+  return (
+    <div className="flex h-svh items-center justify-center bg-background px-6">
+      <div className="flex w-full max-w-sm flex-col items-center gap-5 text-center">
+        <div className="size-10 animate-pulse rounded-xl bg-cacao-800/15" />
+        <div className="space-y-1.5">
+          <p className="text-sm font-medium text-cacao-800 dark:text-cream-50">
+            {error ? "تعذّر تحميل المنظومة" : "جاري تحميل المنظومة بالكامل…"}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {error ? "تحقق من الاتصال ثم أعد المحاولة" : label}
+          </p>
+        </div>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-cacao-800/10">
+          <div
+            className="h-full rounded-full bg-gold-400 transition-[width] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+            style={{ width: `${error ? 100 : Math.max(8, progress)}%` }}
+          />
+        </div>
+        {error && onRetry ? (
+          <Button type="button" onClick={onRetry}>
+            إعادة المحاولة
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardLayout({
   children,
 }: {
@@ -33,12 +77,12 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const boot = useAppHydrationBoot();
 
   const cached = readCachedSession();
   const [authSession, setAuthSession] = useState<AuthSession | null>(
     () => cached,
   );
-  // Never default to admin — use cached role only
   const [userRole, setUserRole] = useState<UserRole | undefined>(
     () => cached?.role,
   );
@@ -53,27 +97,29 @@ export default function DashboardLayout({
       return 0;
     }
   });
-  // Always start unmounted on both server and first client render so the
-  // initial HTML matches (avoids hydration mismatch from the client-only
-  // `cached` localStorage session). `mounted` is flipped to true only inside
-  // the boot effect below, after hydration has completed.
-  const [mounted, setMounted] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
+  const [bootReady, setBootReady] = useState(false);
+  const [bootError, setBootError] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
 
-  useRealtimeSync(authSession, mounted && sessionChecked);
-  useBrowserNotifications(mounted);
+  const appReady = bootReady && !bootError;
+  useRealtimeSync(authSession, appReady && sessionChecked);
+  useBrowserNotifications(appReady);
 
   useEffect(() => {
     let active = true;
 
-    const boot = async () => {
+    const bootApp = async () => {
+      setBootReady(false);
+      setBootError(false);
+      setAppHydrationBootStep("session");
+      setAppHydrationStatus("syncing");
+
       const local = getAuthSession();
       if (local) {
         setAuthSession(local);
         setUserRole(local.role);
         setUserName(local.name);
-        setMounted(true);
-        setAppHydrationStatus("syncing");
       }
 
       const session = await getVerifiedSupabaseSession();
@@ -83,7 +129,7 @@ export default function DashboardLayout({
         clearAuthSession();
         setAppHydrationStatus("idle");
         setSessionChecked(true);
-        setMounted(false);
+        setBootReady(false);
         router.replace("/login");
         return;
       }
@@ -91,28 +137,35 @@ export default function DashboardLayout({
       setUserRole(session.role);
       setUserName(session.name);
       setAuthSession(session);
-      getAuthSession();
-      setMounted(true);
-      setAppHydrationStatus("syncing");
 
-      try {
-        await hydrateStoreFromSupabase(session);
-        if (!active) return;
-        refreshSystemReminders();
-        const state = getState();
-        setNotificationCount(
-          state.notifications.filter((n) => !n.readAt).length,
-        );
-        setAppHydrationStatus("ready");
-      } catch {
-        if (!active) return;
+      const ok = await hydrateStoreFromSupabase(session, {
+        onProgress: (step) => {
+          if (active) setAppHydrationBootStep(step);
+        },
+      });
+
+      if (!active) return;
+
+      if (!ok) {
+        setBootError(true);
         setAppHydrationStatus("error");
-      } finally {
-        if (active) setSessionChecked(true);
+        setSessionChecked(true);
+        return;
       }
+
+      setAppHydrationBootStep("reminders");
+      refreshSystemReminders();
+      const state = getState();
+      setNotificationCount(
+        state.notifications.filter((n) => !n.readAt).length,
+      );
+      setAppHydrationBootStep("done");
+      setAppHydrationStatus("ready");
+      setBootReady(true);
+      setSessionChecked(true);
     };
 
-    void boot();
+    void bootApp();
     const unsubscribe = subscribe(() => {
       const state = getState();
       setNotificationCount(
@@ -123,34 +176,36 @@ export default function DashboardLayout({
       active = false;
       unsubscribe();
     };
-  }, [router]);
+  }, [router, retryToken]);
 
   const isPos = pathname === "/pos";
   const isFullscreen = isPos;
   const hasRouteAccess = canAccessPath(pathname, userRole);
 
   useEffect(() => {
-    if (mounted && sessionChecked && userRole && !hasRouteAccess) {
+    if (appReady && sessionChecked && userRole && !hasRouteAccess) {
       router.replace(getDefaultPathForRole(userRole));
     }
-  }, [hasRouteAccess, mounted, router, sessionChecked, userRole]);
+  }, [appReady, hasRouteAccess, router, sessionChecked, userRole]);
 
-  if (!mounted) {
+  if (bootError) {
     return (
-      <div className="flex h-svh items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="size-8 animate-pulse rounded-md bg-cacao-800/20" />
-          <p className="text-xs text-muted-foreground">جاري فتح المنظومة…</p>
-        </div>
-      </div>
+      <BootScreen
+        label={boot.label}
+        progress={boot.progress}
+        error
+        onRetry={() => setRetryToken((value) => value + 1)}
+      />
     );
+  }
+
+  if (!appReady) {
+    return <BootScreen label={boot.label} progress={boot.progress} />;
   }
 
   if (sessionChecked && userRole && !hasRouteAccess) {
     return (
-      <div className="flex h-svh items-center justify-center bg-background">
-        <div className="size-8 animate-pulse rounded-md bg-cacao-800/20" />
-      </div>
+      <BootScreen label="التحقق من الصلاحيات…" progress={95} />
     );
   }
 

@@ -660,8 +660,8 @@ export function PosSaleContextDialog({
             </>
           ) : (
             <div className="rounded-lg bg-muted/40 p-4 text-sm text-muted-foreground">
-              بيع مباشر من المخزون، يُستكمل فور تحصيل المبلغ وتُحدّث الوردية
-              والمخزون تلقائياً.
+              بيع مباشر من نقطة البيع، يُستكمل فور تحصيل المبلغ وتُحدّث
+              الوردية تلقائياً.
             </div>
           )}
 

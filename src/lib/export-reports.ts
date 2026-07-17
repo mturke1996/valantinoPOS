@@ -46,20 +46,6 @@ export function exportReport(
         ]),
     ];
     sheetName = "المبيعات";
-  } else if (reportId === "inventory") {
-    rows = [
-      ["المنتج", "SKU", "المخزون", "الحد الأدنى", "تتبع"],
-      ...state.products
-        .filter((p) => !p.deletedAt && p.isActive)
-        .map((p) => [
-          p.nameAr,
-          p.sku,
-          String(p.stockQuantity),
-          String(p.minStock),
-          p.trackStock === false ? "لا" : "نعم",
-        ]),
-    ];
-    sheetName = "المخزون";
   } else if (reportId === "customers") {
     rows = [
       ["الاسم", "الهاتف", "النقاط", "الإنفاق", "عدد الطلبات"],
@@ -74,27 +60,24 @@ export function exportReport(
         ]),
     ];
     sheetName = "العملاء";
-  } else if (reportId === "expenses") {
-    rows = [
-      ["الفئة", "الوصف", "المبلغ", "التاريخ"],
-      ...state.expenses.map((e) => [
-        e.category,
-        e.description,
-        String(e.amount),
-        e.date,
-      ]),
-    ];
-    sheetName = "المصروفات";
   } else {
     const revenue = state.orders
       .filter((o) => !o.deletedAt)
       .reduce((sum, o) => sum + o.total, 0);
-    const expenses = state.expenses.reduce((sum, e) => sum + e.amount, 0);
+    const costs = state.orders
+      .filter((o) => !o.deletedAt)
+      .reduce((sum, o) => {
+        const orderCost = o.items.reduce((itemSum, item) => {
+          const product = state.products.find((p) => p.id === item.productId);
+          return itemSum + (product?.costPrice ?? 0) * item.quantity;
+        }, 0);
+        return sum + orderCost;
+      }, 0);
     rows = [
       ["البند", "القيمة"],
       ["إجمالي المبيعات", String(revenue)],
-      ["إجمالي المصروفات", String(expenses)],
-      ["صافي الربح", String(revenue - expenses)],
+      ["تكلفة البضاعة", String(costs)],
+      ["صافي الربح", String(revenue - costs)],
     ];
     sheetName = "الأرباح";
   }

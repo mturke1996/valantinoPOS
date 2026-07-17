@@ -7,8 +7,6 @@ import { PosKeyBadge } from "@/components/pos/pos-key-badge";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { ProductImage } from "@/components/shared/product-image";
 import { Badge } from "@/components/ui/badge";
-import { formatNumber } from "@/lib/utils";
-import { canSellProduct, isStockTracked } from "@/lib/product-stock";
 import { cn } from "@/lib/utils";
 import type { Product } from "@/types";
 
@@ -23,11 +21,8 @@ export const PosProductTile = memo(function PosProductTile({
   onClick,
   shortcutNumber,
 }: PosProductTileProps) {
-  const tracked = isStockTracked(product);
   const isWeight = product.unitType === "gram" || product.unitType === "kilo";
-  const lowStock = tracked && product.stockQuantity <= product.minStock;
-  const outOfStock = tracked && product.stockQuantity <= 0;
-  const sellable = canSellProduct(product);
+  const sellable = product.isActive && !product.deletedAt;
 
   return (
     <button
@@ -59,15 +54,6 @@ export const PosProductTile = memo(function PosProductTile({
           ) : (
             <span />
           )}
-          {outOfStock ? (
-            <Badge variant="destructive" className="text-[10px]">
-              نفد
-            </Badge>
-          ) : lowStock ? (
-            <Badge className="border-caramel-500/40 bg-caramel-500/90 text-[10px] text-white">
-              منخفض
-            </Badge>
-          ) : null}
         </div>
         {shortcutNumber ? (
           <PosKeyBadge
@@ -92,16 +78,6 @@ export const PosProductTile = memo(function PosProductTile({
           amount={product.retailPrice}
           className="text-sm font-semibold"
         />
-        <Badge
-          variant="outline"
-          className={cn(
-            "font-mono text-[10px] tabular-nums",
-            !tracked && "border-pistachio-400/40 text-pistachio-600",
-            lowStock && "border-caramel-500/40 text-caramel-500",
-          )}
-        >
-          {tracked ? formatNumber(product.stockQuantity) : "∞"}
-        </Badge>
       </div>
     </button>
   );

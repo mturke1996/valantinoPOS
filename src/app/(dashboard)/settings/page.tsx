@@ -4,8 +4,10 @@ import { useCallback, useState } from "react";
 import { ReceiptText, Save, Settings, ShoppingBag, Truck } from "lucide-react";
 import { toast } from "sonner";
 
+import { TelegramSettingsCard } from "@/components/settings/telegram-settings-card";
 import { ImageUploadField } from "@/components/shared/image-upload-field";
 import { PageHeader } from "@/components/shared/page-header";
+import { LIBYA_LOCALE } from "@/lib/constants/locale";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -338,10 +340,22 @@ export default function SettingsPage() {
                 onChange={(e) => update({ branchPhone: e.target.value })}
                 dir="ltr"
                 className="text-start"
+                placeholder={LIBYA_LOCALE.defaultBranchPhone}
               />
+              <p className="text-xs text-muted-foreground">
+                الرقم الافتراضي للمتجر: {LIBYA_LOCALE.defaultBranchPhoneLocal} (
+                {LIBYA_LOCALE.defaultBranchPhone})
+              </p>
             </div>
           </CardContent>
         </Card>
+
+        <TelegramSettingsCard
+          enabled={settings.telegramNotificationsEnabled}
+          onEnabledChange={(checked) =>
+            update({ telegramNotificationsEnabled: checked })
+          }
+        />
 
         <Card className="border-cacao-800/8 shadow-none">
           <CardHeader>

@@ -35,6 +35,25 @@ import { cacheProducts } from "@/lib/offline/db";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import type { Customer, LoyaltyTier, Settings } from "@/types";
 
+export type HydrateProgressStep =
+  | "session"
+  | "settings"
+  | "catalog"
+  | "commerce"
+  | "ops"
+  | "staff"
+  | "reminders"
+  | "done";
+
+function assertNoError(
+  label: string,
+  error: { message?: string } | null | undefined,
+): void {
+  if (error) {
+    throw new Error(`${label}: ${error.message ?? "فشل التحميل"}`);
+  }
+}
+
 function mapUserRoleToRoleKey(role: UserRole) {
   return role === "admin" ? "manager" : role;
 }
@@ -197,6 +216,10 @@ function parseSettingsRows(
       typeof app?.autoWhatsAppOnSale === "boolean"
         ? app.autoWhatsAppOnSale
         : current.autoWhatsAppOnSale,
+    telegramNotificationsEnabled:
+      typeof app?.telegramNotificationsEnabled === "boolean"
+        ? app.telegramNotificationsEnabled
+        : current.telegramNotificationsEnabled,
     taxNumber:
       app?.taxNumber === null || typeof app?.taxNumber === "string"
         ? (app.taxNumber as string | null)
@@ -241,6 +264,7 @@ export async function hydrateStoreFromSupabase(
   options?: {
     protectedIds?: Set<string>;
     domains?: HydrateDomain[];
+    onProgress?: (step: HydrateProgressStep) => void;
   },
 ): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
@@ -251,13 +275,16 @@ export async function hydrateStoreFromSupabase(
     options?.protectedIds ?? (await getProtectedEntityIds());
   const domains = new Set(options?.domains?.length ? options.domains : ALL_DOMAINS);
   const full = domains.size === ALL_DOMAINS.length;
+  const onProgress = options?.onProgress;
 
   try {
-    const { data: branch } = await supabase
+    onProgress?.("settings");
+    const { data: branch, error: branchError } = await supabase
       .from("branches")
       .select("id, name, address, phone")
       .eq("id", session.branchId)
       .maybeSingle();
+    assertNoError("branches", branchError);
 
     if (full) {
       alignStoreWithSession({
@@ -273,23 +300,27 @@ export async function hydrateStoreFromSupabase(
     const snapshot: Parameters<typeof mergeCloudSnapshot>[0] = {};
 
     if (domains.has("catalog") || domains.has("commerce")) {
+      if (domains.has("catalog")) onProgress?.("catalog");
       const [categoriesRes, productsRes, batchesRes, tiersRes] =
         await Promise.all([
           domains.has("catalog")
             ? supabase.from("categories").select("*").eq("branch_id", branchId)
-            : Promise.resolve({ data: null }),
+            : Promise.resolve({ data: null, error: null }),
           domains.has("catalog")
             ? supabase.from("products").select("*").eq("branch_id", branchId)
-            : Promise.resolve({ data: null }),
+            : Promise.resolve({ data: null, error: null }),
           domains.has("catalog")
             ? supabase.from("batches").select("*").eq("branch_id", branchId)
-            : Promise.resolve({ data: null }),
+            : Promise.resolve({ data: null, error: null }),
           domains.has("catalog") || domains.has("commerce")
             ? supabase.from("loyalty_tiers").select("*").eq("branch_id", branchId)
-            : Promise.resolve({ data: null }),
+            : Promise.resolve({ data: null, error: null }),
         ]);
 
       if (domains.has("catalog")) {
+        assertNoError("categories", categoriesRes.error);
+        assertNoError("products", productsRes.error);
+        assertNoError("batches", batchesRes.error);
         snapshot.categories = (categoriesRes.data ?? []).map((row) =>
           mapCategoryRow(row as Record<string, unknown>),
         );
@@ -307,6 +338,7 @@ export async function hydrateStoreFromSupabase(
       if (loyaltyTiers.length > 0) snapshot.loyaltyTiers = loyaltyTiers;
 
       if (domains.has("commerce")) {
+        onProgress?.("commerce");
         const [
           customersRes,
           openOrdersRes,
@@ -460,6 +492,7 @@ export async function hydrateStoreFromSupabase(
     }
 
     if (domains.has("ops")) {
+      onProgress?.("ops");
       const [
         shiftsRes,
         movementsRes,
@@ -505,6 +538,9 @@ export async function hydrateStoreFromSupabase(
           .limit(AUDIT_LIMIT),
       ]);
 
+      assertNoError("shifts", shiftsRes.error);
+      assertNoError("suppliers", suppliersRes.error);
+
       snapshot.shifts = (shiftsRes.data ?? []).map((row) =>
         mapShiftRow(row as Record<string, unknown>),
       );
@@ -543,25 +579,33 @@ export async function hydrateStoreFromSupabase(
     }
 
     if (domains.has("staff")) {
+      onProgress?.("staff");
       const profilesRes = await supabase
         .from("user_profiles")
         .select("*")
         .eq("branch_id", branchId);
+      assertNoError("user_profiles", profilesRes.error);
       snapshot.users = (profilesRes.data ?? []).map((row) =>
         mapUserProfileRow(row as Record<string, unknown>),
       );
     }
 
     if (domains.has("settings")) {
+      onProgress?.("settings");
       const settingsRes = await supabase
         .from("settings")
         .select("key, value")
         .eq("branch_id", branchId);
-      snapshot.settings = parseSettingsRows(
+      assertNoError("settings", settingsRes.error);
+      const parsed = parseSettingsRows(
         (settingsRes.data ?? []) as Array<{ key: string; value: unknown }>,
         branchId,
         branch?.name,
       );
+      if (branch?.phone && (!parsed.branchPhone || parsed.branchPhone === "+218")) {
+        parsed.branchPhone = String(branch.phone);
+      }
+      snapshot.settings = parsed;
     }
 
     mergeCloudSnapshot(snapshot, protectedIds);
@@ -569,8 +613,10 @@ export async function hydrateStoreFromSupabase(
     if (snapshot.products) {
       await cacheProducts(snapshot.products);
     }
+    onProgress?.("done");
     return true;
-  } catch {
+  } catch (error) {
+    console.error("[hydrate]", error);
     return false;
   }
 }

@@ -13,7 +13,7 @@ import {
 } from "date-fns";
 import { arSA } from "date-fns/locale";
 import type { AppState, DashboardStats, Order, OrderStatus } from "@/types";
-import { getExpiringBatches, getTotalStock } from "@/lib/services/inventory.service";
+import { countEventsWithinHours } from "@/lib/reminders/event-reminders";
 import { parseISO } from "date-fns";
 
 const ALL_STATUSES: OrderStatus[] = [
@@ -113,13 +113,7 @@ export function getDashboardStats(state: AppState): DashboardStats {
     )
     .reduce((sum, o) => sum + orderCost(o, state), 0);
 
-  const monthExpenses = state.expenses
-    .filter((e) =>
-      isWithinInterval(parseISO(e.date), { start: monthStart, end: monthEnd }),
-    )
-    .reduce((sum, e) => sum + e.amount, 0);
-
-  const netProfit = monthRevenue - monthCosts - monthExpenses;
+  const netProfit = monthRevenue - monthCosts;
 
   const newOrders = activeOrders.filter((o) =>
     isWithinInterval(parseISO(o.createdAt), { start: todayStart, end: todayEnd }),
@@ -141,14 +135,6 @@ export function getDashboardStats(state: AppState): DashboardStats {
     },
     {} as Record<OrderStatus, number>,
   );
-
-  const lowStockProducts = state.products.filter((p) => {
-    if (!p.isActive || p.deletedAt) return false;
-    const stock = getTotalStock(state.batches, p.id);
-    return stock <= p.minStock;
-  }).length;
-
-  const expiringBatches = getExpiringBatches(state.batches, 14).length;
 
   const productSales = new Map<
     string,
@@ -185,12 +171,6 @@ export function getDashboardStats(state: AppState): DashboardStats {
 
   const urgentAlerts: string[] = [];
 
-  if (lowStockProducts > 0) {
-    urgentAlerts.push(`${lowStockProducts} منتج بمخزون منخفض`);
-  }
-  if (expiringBatches > 0) {
-    urgentAlerts.push(`${expiringBatches} دفعة قريبة من انتهاء الصلاحية`);
-  }
   const overdueOrders = activeOrders.filter((o) => {
     if (!o.deliveryDate || o.status === "completed" || o.status === "cancelled")
       return false;
@@ -198,6 +178,15 @@ export function getDashboardStats(state: AppState): DashboardStats {
   }).length;
   if (overdueOrders > 0) {
     urgentAlerts.push(`${overdueOrders} طلب متأخر عن موعد التسليم`);
+  }
+
+  const eventsIn24h = countEventsWithinHours(state, 24);
+  if (eventsIn24h > 0) {
+    urgentAlerts.push(`${eventsIn24h} مناسبة خلال 24 ساعة`);
+  }
+  const eventsIn48h = countEventsWithinHours(state, 48);
+  if (eventsIn48h > eventsIn24h) {
+    urgentAlerts.push(`${eventsIn48h - eventsIn24h} مناسبة خلال 48 ساعة`);
   }
 
   return {
@@ -210,8 +199,8 @@ export function getDashboardStats(state: AppState): DashboardStats {
     newOrders,
     newCustomers,
     ordersByStatus,
-    lowStockProducts,
-    expiringBatches,
+    lowStockProducts: 0,
+    expiringBatches: 0,
     topProducts,
     recentOrders,
     urgentAlerts,

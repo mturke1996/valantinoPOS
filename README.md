@@ -21,6 +21,15 @@ pnpm dev
 | `pnpm lint` | ESLint |
 | `pnpm test` | Vitest — اختبارات الوحدة |
 | `pnpm check` | فحص شامل (typecheck + lint + test + build) |
+| `pnpm desktop:win` | بناء تطبيق ويندوز عبر [Pake](https://github.com/tw93/Pake) |
+
+## تطبيق سطح المكتب (Pake)
+
+المنظومة تُغلَّف كتطبيق سطح مكتب خفيف يفتح `https://valantino-pos.vercel.app`.
+
+- الإعداد: [`desktop/pake.json`](desktop/pake.json)
+- الدليل: [`desktop/README.md`](desktop/README.md)
+- البناء بدون تثبيت Rust: GitHub → **Actions** → **Build Desktop App (Pake)** → تحميل ملف `.msi`
 
 ## الوحدات (19)
 
@@ -93,7 +102,7 @@ git push -u origin main
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | نعم | المفتاح العام |
 | `SUPABASE_SERVICE_ROLE_KEY` | نعم | لإنشاء الموظفين (Server only) |
 | `IMGBB_API_KEY` | نعم | لرفع صور المنتجات |
-| `NEXT_PUBLIC_APP_URL` | نعم | رابط Vercel بعد النشر، مثل `https://valantino-pos.vercel.app` |
+| `NEXT_PUBLIC_APP_URL` | نعم | `https://valantino-pos.vercel.app` |
 
 5. اضغط **Deploy**
 
@@ -101,8 +110,8 @@ git push -u origin main
 
 في Supabase → **Authentication → URL Configuration**:
 
-- **Site URL:** رابط Vercel
-- **Redirect URLs:** أضف `https://your-app.vercel.app/**`
+- **Site URL:** `https://valantino-pos.vercel.app`
+- **Redirect URLs:** أضف `https://valantino-pos.vercel.app/**`
 
 ### 4) PWA
 

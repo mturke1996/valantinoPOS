@@ -10,32 +10,33 @@ import {
   ensureInvoiceForOrder,
   getState,
   processPayment,
-  receiveInventoryBatch,
   recordShiftHandover,
   setState,
   updateSettings,
 } from "@/lib/data/store";
-import { getAvailableStock } from "@/lib/services/inventory.service";
 import { roundMoney } from "@/lib/utils";
+
+function activeProduct() {
+  const product = getState().products.find((item) => item.isActive);
+  expect(product).toBeDefined();
+  return product!;
+}
 
 describe("POS payment integrity", () => {
   beforeEach(() => {
     setState(createSeedState());
   });
 
-  it("completes a paid POS order and deducts inventory", () => {
+  it("completes a paid POS order without inventory tracking", () => {
     const initial = getState();
-    const product = initial.products.find(
-      (item) => item.isActive && item.stockQuantity >= 1,
-    );
+    const product = activeProduct();
     const openShift = initial.shifts.find((shift) => shift.status === "open");
-    expect(product).toBeDefined();
     expect(openShift).toBeDefined();
 
     const order = createOrder({
       branchId: initial.settings.branchId,
       type: "pos",
-      items: [{ productId: product!.id, quantity: 1 }],
+      items: [{ productId: product.id, quantity: 1 }],
       shiftId: openShift!.id,
       createdBy: initial.users[0]?.id,
     });
@@ -51,13 +52,9 @@ describe("POS payment integrity", () => {
 
     const final = getState();
     const completedOrder = final.orders.find((item) => item.id === order.id);
-    const updatedProduct = final.products.find(
-      (item) => item.id === product!.id,
-    );
 
     expect(completedOrder?.status).toBe("completed");
     expect(completedOrder?.paymentStatus).toBe("paid");
-    expect(updatedProduct?.stockQuantity).toBe(product!.stockQuantity - 1);
     expect(
       final.invoices.some((invoice) => invoice.orderId === order.id),
     ).toBe(true);
@@ -68,15 +65,12 @@ describe("POS payment integrity", () => {
 
   it("rejects overpayment before mutating the order", () => {
     const state = getState();
-    const product = state.products.find(
-      (item) => item.isActive && item.stockQuantity >= 1,
-    );
-    expect(product).toBeDefined();
+    const product = activeProduct();
 
     const order = createOrder({
       branchId: state.settings.branchId,
       type: "event",
-      items: [{ productId: product!.id, quantity: 1 }],
+      items: [{ productId: product.id, quantity: 1 }],
     });
 
     expect(() =>
@@ -95,15 +89,12 @@ describe("POS payment integrity", () => {
 
   it("rejects an invalid mixed-payment split", () => {
     const state = getState();
-    const product = state.products.find(
-      (item) => item.isActive && item.stockQuantity >= 1,
-    );
-    expect(product).toBeDefined();
+    const product = activeProduct();
 
     const order = createOrder({
       branchId: state.settings.branchId,
       type: "event",
-      items: [{ productId: product!.id, quantity: 1 }],
+      items: [{ productId: product.id, quantity: 1 }],
     });
 
     expect(() =>
@@ -119,15 +110,12 @@ describe("POS payment integrity", () => {
 
   it("prices delivery and keeps one invoice when paid later", () => {
     const state = getState();
-    const product = state.products.find(
-      (item) => item.isActive && item.stockQuantity >= 1,
-    );
-    expect(product).toBeDefined();
+    const product = activeProduct();
 
     const order = createOrder({
       branchId: state.settings.branchId,
       type: "delivery",
-      items: [{ productId: product!.id, quantity: 1 }],
+      items: [{ productId: product.id, quantity: 1 }],
       deliveryDate: "2026-07-20",
       deliveryTime: "12:00",
       deliveryAddress: "طرابلس المركز",
@@ -153,26 +141,25 @@ describe("POS payment integrity", () => {
 
   it("blocks walk-in orders when shift sales are disabled", () => {
     const state = getState();
-    const product = state.products.find((item) => item.isActive);
-    expect(product).toBeDefined();
+    const product = activeProduct();
     updateSettings({ walkInSalesEnabled: false });
 
     expect(() =>
       createOrder({
         branchId: state.settings.branchId,
         type: "pos",
-        items: [{ productId: product!.id, quantity: 1 }],
+        items: [{ productId: product.id, quantity: 1 }],
       }),
     ).toThrow("البيع الفوري متوقف");
   });
 });
 
-describe("catalog and reserved inventory integrity", () => {
+describe("catalog integrity", () => {
   beforeEach(() => {
     setState(createSeedState());
   });
 
-  it("creates a normalized product with an auditable opening batch", () => {
+  it("creates a normalized product without stock tracking", () => {
     const initial = getState();
     const category = initial.categories[0]!;
     const product = createProduct({
@@ -195,33 +182,11 @@ describe("catalog and reserved inventory integrity", () => {
       trackStock: true,
     });
 
-    receiveInventoryBatch({
-      branchId: initial.settings.branchId,
-      productId: product.id,
-      batchNumber: " lot-open-1 ",
-      quantity: 12,
-      expiryDate: new Date(Date.now() + 86_400_000 * 30)
-        .toISOString()
-        .slice(0, 10),
-      costPerUnit: 10,
-    });
-
-    const final = getState();
-    const saved = final.products.find((item) => item.id === product.id);
-    const batch = final.batches.find((item) => item.productId === product.id);
-
+    const saved = getState().products.find((item) => item.id === product.id);
     expect(saved?.sku).toBe("VAL-NEW-001");
     expect(saved?.nameAr).toBe("شوكولاتة اختبار");
-    expect(saved?.stockQuantity).toBe(12);
-    expect(batch?.batchNumber).toBe("LOT-OPEN-1");
-    expect(
-      final.inventoryMovements.some(
-        (movement) =>
-          movement.productId === product.id &&
-          movement.type === "add" &&
-          movement.quantity === 12,
-      ),
-    ).toBe(true);
+    expect(saved?.trackStock).toBe(false);
+    expect(saved?.stockQuantity).toBe(0);
   });
 
   it("rejects duplicate SKU values within the branch", () => {
@@ -251,23 +216,14 @@ describe("catalog and reserved inventory integrity", () => {
     ).toThrow("SKU");
   });
 
-  it("prevents walk-in sales from consuming stock reserved for delivery", () => {
+  it("allows selling the same product across concurrent orders", () => {
     const state = getState();
-    const product = state.products.find(
-      (item) =>
-        item.isActive &&
-        getAvailableStock(state.batches, state.orders, item.id) >= 2,
-    )!;
-    const available = getAvailableStock(
-      state.batches,
-      state.orders,
-      product.id,
-    );
+    const product = activeProduct();
 
     createOrder({
       branchId: state.settings.branchId,
       type: "delivery",
-      items: [{ productId: product.id, quantity: available }],
+      items: [{ productId: product.id, quantity: 100 }],
       deliveryDate: new Date(Date.now() + 86_400_000)
         .toISOString()
         .slice(0, 10),
@@ -279,7 +235,7 @@ describe("catalog and reserved inventory integrity", () => {
         type: "pos",
         items: [{ productId: product.id, quantity: 1 }],
       }),
-    ).toThrow("بعد حجوزات الطلبات");
+    ).not.toThrow();
   });
 });
 
@@ -290,9 +246,7 @@ describe("shift cash integrity", () => {
 
   it("keeps expected cash after handover when closing", () => {
     const initial = getState();
-    const product = initial.products.find(
-      (item) => item.isActive && item.stockQuantity >= 1,
-    )!;
+    const product = activeProduct();
     const openShift = initial.shifts.find((shift) => shift.status === "open")!;
     const baseline = openShift.expectedCash;
 
@@ -354,9 +308,7 @@ describe("shift cash integrity", () => {
 
   it("subtracts cash refunds from expected cash on close", () => {
     const initial = getState();
-    const product = initial.products.find(
-      (item) => item.isActive && item.stockQuantity >= 1,
-    )!;
+    const product = activeProduct();
     const openShift = initial.shifts.find((shift) => shift.status === "open")!;
 
     const order = createOrder({
@@ -407,9 +359,7 @@ describe("order cancellation", () => {
 
   it("soft-cancels an order without deleting it and records history", () => {
     const initial = getState();
-    const product = initial.products.find(
-      (item) => item.isActive && item.stockQuantity >= 1,
-    )!;
+    const product = activeProduct();
     const actor = initial.users[0]?.id ?? null;
 
     const order = createOrder({
@@ -449,9 +399,7 @@ describe("order cancellation", () => {
 
   it("throws when cancelling an already-completed order", () => {
     const initial = getState();
-    const product = initial.products.find(
-      (item) => item.isActive && item.stockQuantity >= 1,
-    )!;
+    const product = activeProduct();
     const openShift = initial.shifts.find((shift) => shift.status === "open")!;
 
     const order = createOrder({

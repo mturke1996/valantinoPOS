@@ -16,7 +16,13 @@ import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useRealtimeStatus } from "@/hooks/use-realtime-status";
 import { cn } from "@/lib/utils";
 
-export function OfflineIndicator({ className }: { className?: string }) {
+export function OfflineIndicator({
+  className,
+  compact = false,
+}: {
+  className?: string;
+  compact?: boolean;
+}) {
   const online = useOnlineStatus();
   const realtime = useRealtimeStatus();
   const hydration = useAppHydrationStatus();
@@ -77,7 +83,8 @@ export function OfflineIndicator({ className }: { className?: string }) {
             : "وضع عدم الاتصال"
       }
       className={cn(
-        "flex min-h-8 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+        // Mobile: icon-only chip; sm+: pill with label
+        "flex size-9 shrink-0 items-center justify-center rounded-md font-medium sm:h-8 sm:w-auto sm:gap-1.5 sm:rounded-full sm:px-2.5 sm:py-1 sm:text-xs",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default",
         failed > 0
           ? "bg-destructive/10 text-destructive"
@@ -85,7 +92,7 @@ export function OfflineIndicator({ className }: { className?: string }) {
             ? "bg-pistachio-400/15 text-pistachio-400"
             : online
               ? "bg-gold-400/15 text-gold-500"
-            : "bg-caramel-500/15 text-caramel-500",
+              : "bg-caramel-500/15 text-caramel-500",
         className,
       )}
     >
@@ -95,18 +102,18 @@ export function OfflineIndicator({ className }: { className?: string }) {
             className={cn("size-3.5", busy && "animate-spin")}
             aria-hidden
           />
-          <span>تعذرت المزامنة ({failed})</span>
+          <span className="hidden sm:inline">تعذرت المزامنة ({failed})</span>
         </>
       ) : online ? (
         initialSync ? (
           <>
             <CloudUpload className="size-3.5 animate-pulse" aria-hidden />
-            <span>تحديث البيانات</span>
+            <span className="hidden sm:inline">تحديث البيانات</span>
           </>
         ) : realtime === "connected" && pending === 0 ? (
           <>
             <Radio className="size-3.5" aria-hidden />
-            <span>مزامنة فورية</span>
+            <span className="hidden sm:inline">مزامنة فورية</span>
           </>
         ) : (
           <>
@@ -114,7 +121,7 @@ export function OfflineIndicator({ className }: { className?: string }) {
               className={cn("size-3.5", busy && "animate-pulse")}
               aria-hidden
             />
-            <span>
+            <span className="hidden sm:inline">
               {busy
                 ? "جاري المزامنة"
                 : realtime === "degraded"
@@ -127,7 +134,7 @@ export function OfflineIndicator({ className }: { className?: string }) {
       ) : (
         <>
           <CloudOff className="size-3.5" aria-hidden />
-          <span>وضع عدم الاتصال</span>
+          <span className="hidden sm:inline">وضع عدم الاتصال</span>
         </>
       )}
     </button>

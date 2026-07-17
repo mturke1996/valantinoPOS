@@ -4,12 +4,10 @@ import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   CalendarClock,
-  Gift,
   MapPin,
   PartyPopper,
   Pencil,
   Plus,
-  Sparkles,
   Truck,
   Users,
 } from "lucide-react";
@@ -18,8 +16,6 @@ import { ar } from "date-fns/locale";
 
 import { EventCreateDialog } from "@/components/events/event-create-dialog";
 import { EventEditDialog } from "@/components/events/event-edit-dialog";
-import { GiftBoxBuilder } from "@/components/events/gift-box-builder";
-import { SeasonalPackageDialog } from "@/components/events/seasonal-package-dialog";
 import { WhatsAppOrderShareButton } from "@/components/orders/whatsapp-order-share-button";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -64,8 +60,6 @@ export default function EventsPage() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
-  const [giftBoxOpen, setGiftBoxOpen] = useState(false);
-  const [packagesOpen, setPackagesOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<EventRow | null>(null);
   const [filter, setFilter] = useState<EventFilter>("all");
   const [search, setSearch] = useState("");
@@ -208,22 +202,6 @@ export default function EventsPage() {
         actions={
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             <Button
-              variant="outline"
-              className="min-h-11 flex-1 sm:flex-none"
-              onClick={() => setPackagesOpen(true)}
-            >
-              <Sparkles className="size-4" />
-              باقات رمضان/العيد
-            </Button>
-            <Button
-              variant="outline"
-              className="min-h-11 flex-1 sm:flex-none"
-              onClick={() => setGiftBoxOpen(true)}
-            >
-              <Gift className="size-4" />
-              علبة هدية
-            </Button>
-            <Button
               className="min-h-11 flex-1 sm:flex-none"
               onClick={() => setCreateOpen(true)}
             >
@@ -249,17 +227,6 @@ export default function EventsPage() {
         customerName={editTarget?.customerName}
         onSaved={loadEvents}
       />
-      <GiftBoxBuilder
-        open={giftBoxOpen}
-        onOpenChange={setGiftBoxOpen}
-        onSaved={loadEvents}
-      />
-      <SeasonalPackageDialog
-        open={packagesOpen}
-        onOpenChange={setPackagesOpen}
-        onCreated={loadEvents}
-      />
-
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <Input
           value={search}
