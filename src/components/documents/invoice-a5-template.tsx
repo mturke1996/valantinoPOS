@@ -96,7 +96,7 @@ export const InvoiceA5Template = forwardRef<
       <div className={compact ? "space-y-3.5 px-5 py-4" : "space-y-5 px-8 py-6"}>
         <DocTitleBand
           titleEn="INVOICE"
-          titleAr="فاتورة ضريبية"
+          titleAr="فاتورة"
           compact={compact}
           meta={
             <>
@@ -126,27 +126,31 @@ export const InvoiceA5Template = forwardRef<
               }
             />
             <MetaRow label="العملة" value={settings.currencySymbol} />
-            <MetaRow label="نوع الطلب" value={typeLabel} />
+            <MetaRow
+              label="النوع"
+              value={typeLabel}
+              compact
+            />
           </div>
           <div
-            className={`min-w-0 flex-1 rounded-sm ${compact ? "px-3 py-2" : "px-4 py-3"}`}
+            className={`min-w-0 flex-1 rounded-sm ${compact ? "px-2.5 py-1.5" : "px-3 py-2"}`}
             style={{
               borderInlineStart: `3px solid ${DOC_INK.gold}`,
               background: DOC_INK.paleGold,
             }}
           >
             <p
-              className="text-[10px] font-extrabold tracking-wide"
+              className="text-[9px] font-extrabold tracking-wide"
               style={{ color: DOC_INK.goldDeep }}
             >
               إلى السيد / السادة
             </p>
-            <p className={`mt-1.5 font-extrabold ${compact ? "text-[13px]" : "text-[15px]"}`}>
+            <p className={`mt-1 font-extrabold ${compact ? "text-[12px]" : "text-[13px]"}`}>
               {customerName}
             </p>
             {customerPhone ? (
               <p
-                className="num-ltr mt-1 tabular-nums text-[12px]"
+                className={`num-ltr mt-0.5 tabular-nums ${compact ? "text-[9px]" : "text-[10px]"}`}
                 style={{ color: DOC_INK.muted }}
               >
                 {customerPhone}
@@ -237,10 +241,12 @@ export const InvoiceA5Template = forwardRef<
                 value={`− ${formatDocMoney(order.discountAmount, settings.currencySymbol)}`}
               />
             ) : null}
-            <TotalRow
-              label={`الضريبة (${settings.taxRate}%)`}
-              value={formatDocMoney(order.taxAmount, settings.currencySymbol)}
-            />
+            {settings.taxRate > 0 || order.taxAmount > 0 ? (
+              <TotalRow
+                label={`الضريبة (${settings.taxRate}%)`}
+                value={formatDocMoney(order.taxAmount, settings.currencySymbol)}
+              />
+            ) : null}
             {order.deliveryFee > 0 || order.type === "delivery" ? (
               <TotalRow
                 label="التوصيل"
@@ -369,13 +375,17 @@ function MetaRow({
   label,
   value,
   valueColor,
+  compact = false,
 }: {
   label: string;
   value: string;
   valueColor?: string;
+  compact?: boolean;
 }) {
   return (
-    <div className="flex justify-between gap-2 text-[12px]">
+    <div
+      className={`flex justify-between gap-2 ${compact ? "text-[9px]" : "text-[11px]"}`}
+    >
       <span style={{ color: DOC_INK.faint }}>{label}</span>
       <span
         className="font-bold tabular-nums"

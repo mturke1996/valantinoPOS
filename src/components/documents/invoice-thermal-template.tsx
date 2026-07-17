@@ -44,7 +44,7 @@ export const InvoiceThermalTemplate = forwardRef<
     payment,
     qrPayload,
     event = null,
-    title = "فاتورة ضريبية مبسطة",
+    title = "فاتورة",
   },
   ref,
 ) {
@@ -65,12 +65,24 @@ export const InvoiceThermalTemplate = forwardRef<
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={logoUrl} alt={settings.branchName} className="logo" />
-      <div className="center bold" style={{ fontSize: "1.15em", marginBottom: 2 }}>
+      <div className="center bold" style={{ fontSize: "1.15em", marginBottom: 1 }}>
         {settings.branchName}
       </div>
-      <div className="center muted" style={{ marginBottom: 4, fontSize: "0.9em" }}>
-        {settings.branchPhone}
-      </div>
+      {settings.branchPhone ? (
+        <div className="center muted" style={{ fontSize: "0.75em", lineHeight: 1.2 }}>
+          {settings.branchPhone}
+        </div>
+      ) : null}
+      {settings.branchAddress ? (
+        <div
+          className="center muted"
+          style={{ marginBottom: 4, fontSize: "0.7em", lineHeight: 1.2 }}
+        >
+          {settings.branchAddress}
+        </div>
+      ) : (
+        <div style={{ marginBottom: 4 }} />
+      )}
       <div className="center">
         <span className="chip">{title}</span>
       </div>
@@ -85,9 +97,9 @@ export const InvoiceThermalTemplate = forwardRef<
           <span className="tabular">{order.orderNumber}</span>
         </div>
       ) : null}
-      <div className="row">
+      <div className="row" style={{ fontSize: "0.85em" }}>
         <span>النوع</span>
-        <span className="bold">{orderTypeLabel(order, event)}</span>
+        <span>{orderTypeLabel(order, event)}</span>
       </div>
       <div className="row">
         <span>التاريخ</span>
@@ -114,53 +126,13 @@ export const InvoiceThermalTemplate = forwardRef<
         </>
       ) : null}
 
-      {hasDelivery ? (
+      {hasDelivery && (order.deliveryZone || order.deliveryAddress) ? (
         <>
           <div className="line" />
-          <div className="center bold" style={{ marginBottom: 3 }}>
-            تفاصيل التوصيل
-          </div>
-          {order.deliveryRecipientName ? (
-            <div className="row">
-              <span>المستلم</span>
-              <span>{order.deliveryRecipientName}</span>
-            </div>
-          ) : null}
-          {order.deliveryPhone ? (
-            <div className="row">
-              <span>الهاتف</span>
-              <span className="num-ltr tabular">{order.deliveryPhone}</span>
-            </div>
-          ) : null}
-          {order.deliveryZone ? (
-            <div className="row">
-              <span>المنطقة</span>
-              <span>{order.deliveryZone}</span>
-            </div>
-          ) : null}
-          {order.deliveryAddress ? (
-            <div style={{ marginBottom: 3 }}>
-              <div className="muted" style={{ fontSize: "0.85em" }}>
-                مكان التوصيل
-              </div>
-              <div className="bold">{order.deliveryAddress}</div>
-            </div>
-          ) : null}
-          {order.deliveryInstructions ? (
-            <div style={{ marginBottom: 3 }}>
-              <div className="muted" style={{ fontSize: "0.85em" }}>
-                تعليمات
-              </div>
-              <div>{order.deliveryInstructions}</div>
-            </div>
-          ) : null}
-          <div className="row bold">
-            <span>سعر التوصيل</span>
-            <span className="money-ar">
-              {order.deliveryFee > 0
-                ? formatDocMoney(order.deliveryFee, settings.currencySymbol)
-                : "مجاني"}
-            </span>
+          <div className="muted" style={{ fontSize: "0.75em", lineHeight: 1.25 }}>
+            {[order.deliveryZone, order.deliveryAddress]
+              .filter(Boolean)
+              .join(" · ")}
           </div>
         </>
       ) : null}

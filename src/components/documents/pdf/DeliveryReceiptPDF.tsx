@@ -84,7 +84,7 @@ export function DeliveryReceiptPDF({
             </View>
             <View style={s.kvItem}>
               <Text style={s.kvLabel}>{ar("الهاتف")}</Text>
-              <PdfLtrText size={10} bold style={s.kvValue}>
+              <PdfLtrText size={7.5} bold style={s.kvValue}>
                 {phone}
               </PdfLtrText>
             </View>

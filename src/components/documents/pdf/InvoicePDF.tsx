@@ -19,7 +19,6 @@ import {
 import {
   INK,
   PDF_PAGINATION,
-  PdfContinuationBanner,
   PdfDocFooter,
   PdfDocHeader,
   PdfLtrText,
@@ -89,11 +88,11 @@ export function InvoicePDF({
   const typeLabel = orderTypeLabel(order, event);
   const currency = settings.currencySymbol;
   const hasSchedule = Boolean(order.deliveryDate);
-  const hasDelivery =
-    Boolean(order.deliveryAddress) ||
-    Boolean(order.deliveryZone) ||
-    order.deliveryFee > 0 ||
-    order.type === "delivery";
+  const showDeliveryInTotals =
+    order.deliveryFee > 0 || order.type === "delivery";
+  const addressHint = [order.deliveryZone, order.deliveryAddress]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <Document
@@ -125,8 +124,8 @@ export function InvoicePDF({
             flexDirection: "row-reverse",
             justifyContent: "space-between",
             alignItems: "flex-end",
-            marginBottom: compact ? 10 : 14,
-            paddingBottom: 8,
+            marginBottom: compact ? 5 : 6,
+            paddingBottom: 4,
             borderBottomWidth: 1,
             borderBottomColor: INK.goldLine,
           }}
@@ -135,32 +134,32 @@ export function InvoicePDF({
           <View style={{ alignItems: "flex-end" }}>
             <Text
               style={{
-                fontSize: compact ? 8 : 9,
+                fontSize: 7,
                 fontWeight: 700,
                 color: INK.goldDeep,
                 fontFamily: s.page.fontFamily,
-                letterSpacing: 1,
+                letterSpacing: 0.8,
               }}
             >
               INVOICE
             </Text>
             <Text
               style={{
-                fontSize: compact ? 14 : 16,
+                fontSize: compact ? 11 : 12,
                 fontWeight: 700,
                 color: INK.text,
                 fontFamily: s.page.fontFamily,
-                marginTop: 2,
+                marginTop: 1,
               }}
             >
-              {ar("فاتورة ضريبية")}
+              {ar("فاتورة")}
             </Text>
           </View>
           <View style={{ alignItems: "flex-start" }}>
-            <Text style={[s.tdBold, { fontSize: compact ? 8 : 9 }]}>
+            <Text style={[s.tdBold, { fontSize: 7.5 }]}>
               {ar("طلب")} {ltr(order.orderNumber)}
             </Text>
-            <Text style={[s.td, { color: INK.muted, marginTop: 2 }]}>
+            <Text style={[s.td, { color: INK.muted, marginTop: 1, fontSize: 6.5 }]}>
               {arDateTime(invoice.createdAt)}
             </Text>
           </View>
@@ -174,21 +173,17 @@ export function InvoicePDF({
             </View>
             <View style={s.dateRow}>
               <Text style={s.dateLabel}>{ar("الطلب")}</Text>
-              <PdfLtrText
-                size={8.5}
-                bold
-                style={s.dateVal}
-              >
+              <PdfLtrText size={7} bold style={s.dateVal}>
                 {order.orderNumber}
               </PdfLtrText>
             </View>
             <View style={s.dateRow}>
               <Text style={s.dateLabel}>{ar("النوع")}</Text>
-              <Text style={s.dateVal}>{ar(typeLabel)}</Text>
+              <Text style={[s.dateVal, { fontSize: 6.5 }]}>{ar(typeLabel)}</Text>
             </View>
             <View style={s.dateRow}>
               <Text style={s.dateLabel}>{ar("الحالة")}</Text>
-              <Text style={[s.dateVal, { color: statusColor }]}>
+              <Text style={[s.dateVal, { color: statusColor, fontSize: 6.5 }]}>
                 {ar(paymentMeta.short)}
               </Text>
             </View>
@@ -197,7 +192,7 @@ export function InvoicePDF({
             <Text style={s.clientLbl}>{ar("إلى السيد / السادة")}</Text>
             <Text style={s.clientName}>{ar(customerName)}</Text>
             {customerPhone ? (
-              <PdfLtrText size={8.5} color={INK.muted} style={s.clientSub}>
+              <PdfLtrText size={6.5} color={INK.muted} style={s.clientSub}>
                 {customerPhone}
               </PdfLtrText>
             ) : null}
@@ -209,7 +204,7 @@ export function InvoicePDF({
             <View style={s.scheduleHead}>
               <Text
                 style={{
-                  fontSize: 8,
+                  fontSize: 6.5,
                   fontWeight: 700,
                   color: INK.goldDeep,
                   fontFamily: s.page.fontFamily,
@@ -219,8 +214,8 @@ export function InvoicePDF({
               </Text>
               <Text
                 style={{
-                  fontSize: 8,
-                  fontWeight: 700,
+                  fontSize: 6,
+                  fontWeight: 600,
                   color: INK.goldDeep,
                   fontFamily: s.page.fontFamily,
                 }}
@@ -230,99 +225,54 @@ export function InvoicePDF({
             </View>
             <View style={s.scheduleBody}>
               <View style={{ alignItems: "flex-end", flex: 1 }}>
-                <Text style={s.clientName}>
+                <Text
+                  style={{
+                    fontSize: compact ? 8 : 8.5,
+                    fontWeight: 700,
+                    color: INK.text,
+                    fontFamily: s.page.fontFamily,
+                    textAlign: "right",
+                  }}
+                >
                   {ar(arDateLong(order.deliveryDate!))}
+                  {order.deliveryTime
+                    ? ` · ${ltr(order.deliveryTime)}`
+                    : ""}
                 </Text>
-                {event?.guestCount ? (
-                  <Text style={s.clientSub}>
-                    {arMixed(`${event.guestCount} ضيف/قطعة`)}
+                {addressHint ? (
+                  <Text
+                    style={{
+                      fontSize: 6,
+                      color: INK.muted,
+                      fontFamily: s.page.fontFamily,
+                      marginTop: 1,
+                      textAlign: "right",
+                    }}
+                  >
+                    {ar(addressHint)}
                   </Text>
                 ) : null}
               </View>
-              <View
-                style={{
-                  borderWidth: 1.5,
-                  borderColor: INK.gold,
-                  borderRadius: 2,
-                  paddingHorizontal: 10,
-                  paddingVertical: 6,
-                  alignItems: "center",
-                  minWidth: 64,
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 7.5,
-                    fontWeight: 700,
-                    color: INK.goldDeep,
-                    fontFamily: s.page.fontFamily,
-                  }}
-                >
-                  {ar("الساعة")}
-                </Text>
-                <Text style={[s.clientName, { marginTop: 2 }]}>
-                  {ltr(order.deliveryTime || "—")}
-                </Text>
-              </View>
             </View>
           </View>
+        ) : addressHint ? (
+          <Text
+            style={{
+              fontSize: 6,
+              color: INK.muted,
+              fontFamily: s.page.fontFamily,
+              textAlign: "right",
+              marginBottom: 4,
+            }}
+          >
+            {ar(addressHint)}
+          </Text>
         ) : null}
 
-        {hasDelivery ? (
-          <View style={s.kvCard} wrap={false}>
-            <Text style={s.sectionTitle}>{ar("تفاصيل التوصيل")}</Text>
-            <View style={s.kvGrid}>
-              {order.deliveryRecipientName ? (
-                <View style={s.kvItem}>
-                  <Text style={s.kvLabel}>{ar("المستلم")}</Text>
-                  <Text style={s.kvValue}>
-                    {ar(order.deliveryRecipientName)}
-                  </Text>
-                </View>
-              ) : null}
-              {order.deliveryPhone ? (
-                <View style={s.kvItem}>
-                  <Text style={s.kvLabel}>{ar("الهاتف")}</Text>
-                  <PdfLtrText size={10} bold style={s.kvValue}>
-                    {order.deliveryPhone}
-                  </PdfLtrText>
-                </View>
-              ) : null}
-              {order.deliveryZone ? (
-                <View style={s.kvItem}>
-                  <Text style={s.kvLabel}>{ar("المنطقة")}</Text>
-                  <Text style={s.kvValue}>{ar(order.deliveryZone)}</Text>
-                </View>
-              ) : null}
-              <View style={s.kvItem}>
-                <Text style={s.kvLabel}>{ar("سعر التوصيل")}</Text>
-                {order.deliveryFee > 0 ? (
-                  <PdfMoneyText
-                    amount={order.deliveryFee}
-                    currency={currency}
-                  />
-                ) : (
-                  <Text style={s.kvValue}>{ar("مجاني")}</Text>
-                )}
-              </View>
-              {order.deliveryAddress ? (
-                <View style={[s.kvItem, { width: "100%" }]}>
-                  <Text style={s.kvLabel}>{ar("مكان التوصيل")}</Text>
-                  <Text style={s.kvValue}>{ar(order.deliveryAddress)}</Text>
-                </View>
-              ) : null}
-            </View>
-          </View>
-        ) : null}
-
-        <PdfContinuationBanner
-          compact={compact}
-          label="— تابع أصناف الفاتورة —"
-        />
         <PdfTable
           columns={INVOICE_COLUMNS}
           currency={currency}
-          compact={compact}
+          compact
           repeatHeader
           emptyMessage="لا توجد أصناف في هذه الفاتورة"
           rows={order.items.map((item) => ({
@@ -349,13 +299,15 @@ export function InvoicePDF({
               <Text style={s.totalLbl}>{ar("الخصم")}</Text>
             </View>
           ) : null}
-          <View style={s.totalLine}>
-            <PdfMoneyText amount={order.taxAmount} currency={currency} />
-            <Text style={s.totalLbl}>
-              {arMixed(`الضريبة (${settings.taxRate}%)`)}
-            </Text>
-          </View>
-          {order.deliveryFee > 0 || order.type === "delivery" ? (
+          {settings.taxRate > 0 || order.taxAmount > 0 ? (
+            <View style={s.totalLine}>
+              <PdfMoneyText amount={order.taxAmount} currency={currency} />
+              <Text style={s.totalLbl}>
+                {arMixed(`الضريبة (${settings.taxRate}%)`)}
+              </Text>
+            </View>
+          ) : null}
+          {showDeliveryInTotals ? (
             <View style={s.totalLine}>
               {order.deliveryFee > 0 ? (
                 <PdfMoneyText
@@ -397,23 +349,29 @@ export function InvoicePDF({
         </View>
 
         {payments.length > 0 ? (
-          <View style={{ marginTop: 12 }} wrap={false}>
-            <Text style={s.sectionTitle}>{ar("عمليات الدفع")}</Text>
+          <View style={{ marginTop: 6 }} wrap={false}>
+            <Text style={[s.sectionTitle, { marginTop: 4, marginBottom: 3, fontSize: 8 }]}>
+              {ar("عمليات الدفع")}
+            </Text>
             {payments.map((payment) => (
               <View
                 key={payment.id}
                 style={{
                   flexDirection: "row-reverse",
                   justifyContent: "space-between",
-                  marginBottom: 3,
+                  marginBottom: 1,
                 }}
               >
-                <Text style={[s.td, { color: INK.muted }]}>
+                <Text style={[s.td, { color: INK.muted, fontSize: 6.5 }]}>
                   {ar(PAYMENT_LABELS[payment.method] ?? payment.method)}
                   {" · "}
                   {arDateTime(payment.createdAt)}
                 </Text>
-                <PdfMoneyText amount={payment.amount} currency={currency} />
+                <PdfMoneyText
+                  amount={payment.amount}
+                  currency={currency}
+                  style={{ fontSize: 7.5 }}
+                />
               </View>
             ))}
           </View>
@@ -428,7 +386,7 @@ export function InvoicePDF({
         {qrUri ? (
           <View
             style={{
-              marginTop: 14,
+              marginTop: 6,
               alignItems: "flex-start",
               alignSelf: "flex-start",
             }}
@@ -438,11 +396,11 @@ export function InvoicePDF({
             <Image
               src={qrUri}
               style={{
-                width: compact ? 64 : 80,
-                height: compact ? 64 : 80,
-                borderWidth: 1,
+                width: 48,
+                height: 48,
+                borderWidth: 0.5,
                 borderColor: INK.goldLine,
-                padding: 4,
+                padding: 2,
               }}
             />
           </View>

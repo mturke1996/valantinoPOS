@@ -25,12 +25,12 @@ export const PDF_PAGINATION = {
 export type PdfPaperSize = "A4" | "A5";
 
 export function makePdfStyles(compact = false) {
-  const padX = compact ? 28 : 36;
-  const padTop = compact ? 22 : 28;
+  const padX = compact ? 22 : 28;
+  const padTop = compact ? 16 : 20;
   return StyleSheet.create({
     page: {
       fontFamily: PDF_FONT_FAMILY,
-      fontSize: compact ? 8.5 : 9.5,
+      fontSize: compact ? 8 : 8.5,
       color: INK.text,
       backgroundColor: INK.white,
       paddingTop: padTop,
@@ -42,46 +42,54 @@ export function makePdfStyles(compact = false) {
       top: 0,
       left: 0,
       right: 0,
-      height: 3,
+      height: 2.5,
       backgroundColor: INK.gold,
     },
     headerRow: {
       flexDirection: "row-reverse",
       justifyContent: "space-between",
       alignItems: "flex-start",
-      marginBottom: compact ? 10 : 14,
-      paddingBottom: compact ? 8 : 10,
+      marginBottom: compact ? 6 : 8,
+      paddingBottom: compact ? 5 : 6,
       borderBottomWidth: 1,
       borderBottomColor: INK.border,
     },
     brandCol: {
       flexDirection: "row-reverse",
       alignItems: "center",
-      gap: 10,
+      gap: 8,
       flex: 1,
     },
     logo: {
-      width: compact ? 52 : 64,
-      height: compact ? 40 : 48,
+      width: compact ? 44 : 52,
+      height: compact ? 34 : 40,
       objectFit: "contain",
     },
     brandText: {
       alignItems: "flex-end",
       borderRightWidth: 1,
       borderRightColor: INK.goldLine,
-      paddingRight: 10,
-      maxWidth: compact ? 160 : 220,
+      paddingRight: 8,
+      maxWidth: compact ? 150 : 200,
     },
     branchName: {
-      fontSize: compact ? 11 : 13,
+      fontSize: compact ? 10 : 11.5,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.text,
       textAlign: "right",
-      marginBottom: 2,
+      marginBottom: 1,
+    },
+    branchContact: {
+      fontSize: 6,
+      fontFamily: PDF_FONT_FAMILY,
+      color: INK.muted,
+      textAlign: "right",
+      marginBottom: 1,
+      lineHeight: 1.3,
     },
     titleAr: {
-      fontSize: compact ? 9 : 10,
+      fontSize: compact ? 8 : 9,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.goldDeep,
@@ -96,33 +104,33 @@ export function makePdfStyles(compact = false) {
       borderWidth: 1,
       borderColor: INK.goldLine,
       borderRadius: 2,
-      paddingHorizontal: 8,
-      paddingVertical: 3,
-      marginBottom: 6,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      marginBottom: 4,
     },
     badgeText: {
-      fontSize: 8,
+      fontSize: 7,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.goldDeep,
       letterSpacing: 1,
     },
     refLine: {
-      fontSize: compact ? 10 : 12,
+      fontSize: compact ? 9 : 10.5,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.text,
-      marginBottom: 3,
+      marginBottom: 2,
     },
     contactLine: {
-      fontSize: 7.5,
+      fontSize: 6.5,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.muted,
       textAlign: "left",
     },
     statusPill: {
-      marginTop: 4,
-      fontSize: 8,
+      marginTop: 2,
+      fontSize: 7,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
     },
@@ -141,23 +149,23 @@ export function makePdfStyles(compact = false) {
     infoRow: {
       flexDirection: "row-reverse",
       justifyContent: "space-between",
-      marginBottom: compact ? 10 : 14,
-      gap: 10,
+      marginBottom: compact ? 6 : 8,
+      gap: 8,
     },
-    datesCol: { width: "38%" },
+    datesCol: { width: "36%" },
     dateRow: {
       flexDirection: "row-reverse",
       justifyContent: "space-between",
-      marginBottom: 5,
+      marginBottom: 2,
     },
     dateLabel: {
-      fontSize: 8,
+      fontSize: 6.5,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.faint,
       textAlign: "right",
     },
     dateVal: {
-      fontSize: 8.5,
+      fontSize: 7,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.text,
@@ -165,49 +173,49 @@ export function makePdfStyles(compact = false) {
     },
     clientBox: {
       flex: 1,
-      paddingVertical: 6,
-      paddingHorizontal: 10,
-      borderRightWidth: 3,
+      paddingVertical: 4,
+      paddingHorizontal: 7,
+      borderRightWidth: 2,
       borderRightColor: INK.gold,
       backgroundColor: INK.paleGold,
       alignItems: "flex-end",
     },
     clientLbl: {
-      fontSize: 7.5,
+      fontSize: 6.5,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.goldDeep,
-      marginBottom: 3,
+      marginBottom: 1,
       textAlign: "right",
     },
     clientName: {
-      fontSize: compact ? 11 : 13,
+      fontSize: compact ? 9.5 : 11,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.text,
       textAlign: "right",
-      marginBottom: 2,
+      marginBottom: 1,
     },
     clientSub: {
-      fontSize: 8.5,
+      fontSize: 6.5,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.muted,
       textAlign: "right",
-      marginTop: 2,
+      marginTop: 1,
     },
     scheduleBox: {
       borderWidth: 1,
       borderColor: INK.goldLine,
       backgroundColor: INK.paleGold,
       borderRadius: 2,
-      marginBottom: 10,
+      marginBottom: compact ? 4 : 5,
       overflow: "hidden",
     },
     scheduleHead: {
       flexDirection: "row-reverse",
       justifyContent: "space-between",
-      paddingHorizontal: 10,
-      paddingVertical: 5,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
       borderBottomWidth: 1,
       borderBottomColor: INK.goldLine,
       backgroundColor: "rgba(204,168,80,0.12)",
@@ -216,8 +224,8 @@ export function makePdfStyles(compact = false) {
       flexDirection: "row-reverse",
       justifyContent: "space-between",
       alignItems: "center",
-      paddingHorizontal: 10,
-      paddingVertical: compact ? 8 : 10,
+      paddingHorizontal: 6,
+      paddingVertical: compact ? 3 : 4,
     },
     tableHead: {
       flexDirection: "row-reverse",
@@ -338,33 +346,46 @@ export function makePdfStyles(compact = false) {
       borderColor: INK.border,
       backgroundColor: INK.zebra,
       borderRadius: 2,
-      padding: 10,
-      marginBottom: 10,
+      paddingHorizontal: compact ? 6 : 8,
+      paddingVertical: compact ? 4 : 5,
+      marginBottom: compact ? 6 : 8,
     },
     kvGrid: {
       flexDirection: "row-reverse",
       flexWrap: "wrap",
-      gap: 8,
+      columnGap: compact ? 6 : 8,
+      rowGap: 2,
     },
     kvItem: {
-      width: "47%",
+      width: "31%",
       alignItems: "flex-end",
-      marginBottom: 4,
+      marginBottom: 1,
     },
     kvLabel: {
+      fontSize: 6.5,
+      fontWeight: 700,
+      fontFamily: PDF_FONT_FAMILY,
+      color: INK.goldDeep,
+      textAlign: "right",
+      marginBottom: 1,
+    },
+    kvValue: {
+      fontSize: compact ? 7.5 : 8,
+      fontWeight: 600,
+      fontFamily: PDF_FONT_FAMILY,
+      color: INK.text,
+      textAlign: "right",
+    },
+    kvSectionTitle: {
       fontSize: 7.5,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.goldDeep,
       textAlign: "right",
-      marginBottom: 2,
-    },
-    kvValue: {
-      fontSize: 10,
-      fontWeight: 700,
-      fontFamily: PDF_FONT_FAMILY,
-      color: INK.text,
-      textAlign: "right",
+      marginBottom: 3,
+      paddingBottom: 2,
+      borderBottomWidth: 1,
+      borderBottomColor: INK.border,
     },
     footer: {
       position: "absolute",
@@ -581,9 +602,8 @@ export function PdfDocHeader({
   statusColor?: string;
   logoUri?: string | null;
 }) {
-  const contact = [settings.branchAddress, settings.branchPhone]
-    .filter(Boolean)
-    .join(" · ");
+  const phone = settings.branchPhone?.trim() || "";
+  const address = settings.branchAddress?.trim() || "";
 
   return (
     <View wrap={false}>
@@ -596,6 +616,12 @@ export function PdfDocHeader({
           ) : null}
           <View style={s.brandText}>
             <Text style={s.branchName}>{arMixed(settings.branchName)}</Text>
+            {phone ? (
+              <Text style={s.branchContact}>{ltr(phone)}</Text>
+            ) : null}
+            {address ? (
+              <Text style={s.branchContact}>{arMixed(address)}</Text>
+            ) : null}
             <Text style={s.titleAr}>{ar(titleAr)}</Text>
           </View>
         </View>
@@ -604,9 +630,6 @@ export function PdfDocHeader({
             <Text style={s.badgeText}>{ltr(titleEn)}</Text>
           </View>
           <Text style={s.refLine}>{ltr(refLine)}</Text>
-          {contact ? (
-            <Text style={s.contactLine}>{arMixed(contact)}</Text>
-          ) : null}
           {statusLabel ? (
             <Text style={[s.statusPill, { color: statusColor ?? INK.muted }]}>
               {ar(statusLabel)}

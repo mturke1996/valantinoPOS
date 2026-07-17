@@ -34,9 +34,9 @@ export function DocBrandHeader({
   compact = false,
 }: DocBrandHeaderProps) {
   const logoUrl = resolveDocLogoUrl(settings);
-  const line =
-    contactLine ??
-    [settings.branchAddress, settings.branchPhone].filter(Boolean).join(" · ");
+  const phone = contactLine ? null : settings.branchPhone?.trim() || null;
+  const address = contactLine ? null : settings.branchAddress?.trim() || null;
+  const customContact = contactLine?.trim() || null;
 
   return (
     <header
@@ -79,6 +79,31 @@ export function DocBrandHeader({
             >
               {settings.branchName}
             </p>
+            {phone ? (
+              <p
+                className={`num-ltr mt-0.5 truncate tabular-nums ${compact ? "text-[8px]" : "text-[9px]"}`}
+                dir="ltr"
+                style={{ color: DOC_INK.muted }}
+              >
+                {phone}
+              </p>
+            ) : null}
+            {address ? (
+              <p
+                className={`mt-0.5 leading-snug ${compact ? "text-[8px]" : "text-[9px]"}`}
+                style={{ color: DOC_INK.muted }}
+              >
+                {address}
+              </p>
+            ) : null}
+            {customContact ? (
+              <p
+                className={`mt-0.5 ${compact ? "text-[8px]" : "text-[9px]"}`}
+                style={{ color: DOC_INK.muted }}
+              >
+                {customContact}
+              </p>
+            ) : null}
             <p
               className="mt-1 text-[11px] font-semibold tracking-wide"
               style={{ color: DOC_INK.goldDeep }}
@@ -116,15 +141,6 @@ export function DocBrandHeader({
           ) : null}
         </div>
       </div>
-
-      {line ? (
-        <p
-          className={`relative border-t font-medium ${compact ? "mt-3 pt-2 text-[10px]" : "mt-4 pt-3 text-[11px]"}`}
-          style={{ borderColor: DOC_INK.border, color: DOC_INK.muted }}
-        >
-          {line}
-        </p>
-      ) : null}
     </header>
   );
 }
