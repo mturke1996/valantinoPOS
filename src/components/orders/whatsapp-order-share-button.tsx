@@ -147,7 +147,17 @@ export function WhatsAppOrderShareButton({
   const handleClick = async () => {
     setWorking(true);
     onBeforeShare?.();
-    const ctx = gatherContext();
+
+    let ctx: ShareContext;
+    try {
+      ctx = gatherContext();
+    } catch (error) {
+      setWorking(false);
+      toast.error(
+        error instanceof Error ? error.message : "تعذرت تجهيز رسالة واتساب",
+      );
+      return;
+    }
 
     // Desktop: open the WhatsApp chat IMMEDIATELY within the click gesture so it
     // never depends on async PDF generation (immune to popup blockers & hangs).

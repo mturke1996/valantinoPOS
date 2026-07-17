@@ -371,7 +371,7 @@ export function makePdfStyles(compact = false) {
     },
     kvValue: {
       fontSize: compact ? 7.5 : 8,
-      fontWeight: 600,
+      fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.text,
       textAlign: "right",

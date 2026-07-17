@@ -13,10 +13,8 @@ import {
   type DocPaperSize,
 } from "@/components/documents/brand";
 import { DocBrandHeader, DocTitleBand } from "@/components/documents/doc-chrome";
-import {
-  DocScheduleBlock,
-  orderTypeLabel,
-} from "@/components/documents/doc-order-meta";
+import { DocScheduleBlock } from "@/components/documents/doc-order-meta";
+import { orderTypeLabel } from "@/components/documents/order-labels";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import type {
   Customer,

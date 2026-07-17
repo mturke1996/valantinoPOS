@@ -40,6 +40,8 @@ import { getState, printInvoice } from "@/lib/data/store";
 import { buildDocumentCodeValue } from "@/lib/services/invoice.service";
 import {
   buildOrderWhatsAppMessage,
+  isMobileUserAgent,
+  openWhatsAppChat,
   resolveOrderWhatsAppPhone,
   shareOrderPdfOnWhatsApp,
 } from "@/lib/whatsapp/order-share";
@@ -122,20 +124,48 @@ export function InvoicePrintDialog({
       customer,
       settings.whatsappCountryCode,
     );
+    const message = buildOrderWhatsAppMessage({
+      order,
+      settings,
+      customer,
+      event,
+      invoice,
+    });
+
+    // Desktop: open chat immediately — PDF must never block WhatsApp.
+    if (!isMobileUserAgent()) {
+      if (phone) {
+        openWhatsAppChat(phone, message);
+      } else {
+        toast.message("لا يوجد رقم واتساب للعميل", {
+          description: "سيتم تنزيل الفاتورة — أرسلها يدوياً",
+        });
+      }
+      try {
+        const { blob } = await getPdf();
+        downloadBlob(blob, fileName);
+        if (phone) {
+          toast.success("تم فتح واتساب وتنزيل PDF — أرفق الملف من التنزيلات");
+        } else {
+          toast.message("تم تنزيل PDF");
+        }
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "تعذر إنشاء ملف PDF",
+        );
+      } finally {
+        setWorking(null);
+      }
+      return;
+    }
+
     const preOpened =
       phone && typeof window !== "undefined"
         ? window.open("about:blank", "_blank")
         : null;
+
     try {
       const { file } = await getPdf();
-      const message = buildOrderWhatsAppMessage({
-        order,
-        settings,
-        customer,
-        event,
-        invoice,
-      });
-
       const result = await shareOrderPdfOnWhatsApp({
         file,
         message,
@@ -157,7 +187,11 @@ export function InvoicePrintDialog({
         });
       }
     } catch (error) {
-      preOpened?.close();
+      if (phone) {
+        openWhatsAppChat(phone, message, preOpened);
+      } else {
+        preOpened?.close();
+      }
       if (error instanceof DOMException && error.name === "AbortError") return;
       toast.error(error instanceof Error ? error.message : "تعذرت المشاركة");
     } finally {

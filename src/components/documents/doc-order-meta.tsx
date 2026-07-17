@@ -2,27 +2,13 @@
 
 import { formatDate } from "@/lib/utils";
 import { DOC_INK } from "@/components/documents/brand";
+import {
+  orderTypeLabel,
+  scheduleTitle,
+} from "@/components/documents/order-labels";
 import type { Event, Order, Settings } from "@/types";
 
-const ORDER_TYPE_LABELS: Record<Order["type"], string> = {
-  pos: "نقطة بيع",
-  delivery: "توصيل",
-  event: "مناسبة",
-  reservation: "حجز",
-  online: "أونلاين",
-};
-
-export function orderTypeLabel(order: Order, event?: Event | null): string {
-  if (event) return "مناسبة";
-  return ORDER_TYPE_LABELS[order.type] ?? order.type;
-}
-
-export function scheduleTitle(order: Order): string {
-  if (order.type === "event") return "موعد المناسبة";
-  if (order.type === "reservation") return "موعد الحجز";
-  if (order.deliveryAddress) return "موعد التوصيل";
-  return "الموعد";
-}
+export { orderTypeLabel, scheduleTitle } from "@/components/documents/order-labels";
 
 interface DocScheduleBlockProps {
   order: Order;

@@ -12,7 +12,7 @@ import {
 import {
   orderTypeLabel,
   scheduleTitle,
-} from "@/components/documents/doc-order-meta";
+} from "@/components/documents/order-labels";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import type {
   Event,

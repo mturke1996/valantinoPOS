@@ -1,9 +1,14 @@
+import React from "react";
 import { Document, Image, Page, Text, View } from "@react-pdf/renderer";
 
 import {
   invoicePaymentStatusMeta,
   PAYMENT_LABELS,
 } from "@/components/documents/brand";
+import {
+  orderTypeLabel,
+  scheduleTitle,
+} from "@/components/documents/order-labels";
 import {
   ar,
   arDate,
@@ -27,10 +32,6 @@ import {
   makePdfStyles,
   type PdfPaperSize,
 } from "@/components/documents/pdf/pdfKit";
-import {
-  orderTypeLabel,
-  scheduleTitle,
-} from "@/components/documents/doc-order-meta";
 import type {
   Customer,
   Event,
@@ -215,7 +216,7 @@ export function InvoicePDF({
               <Text
                 style={{
                   fontSize: 6,
-                  fontWeight: 600,
+                  fontWeight: 700,
                   color: INK.goldDeep,
                   fontFamily: s.page.fontFamily,
                 }}

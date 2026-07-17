@@ -1,7 +1,7 @@
 import {
   orderTypeLabel,
   scheduleTitle,
-} from "@/components/documents/doc-order-meta";
+} from "@/components/documents/order-labels";
 import { formatMoneyLabel } from "@/lib/formatters";
 import { formatDate } from "@/lib/utils";
 import type {
