@@ -37,17 +37,20 @@ export function makePdfStyles() {
       fontSize: 9,
       color: INK.text,
       backgroundColor: INK.white,
-      paddingTop: 28,
+      paddingTop: 20,
       paddingBottom: PDF_PAGINATION.footerReserve,
       paddingHorizontal: padX,
     },
+    /**
+     * In-flow full-bleed accent (not absolute/fixed).
+     * Absolute gold bars were painting over the branch name in the PDF viewer.
+     */
     goldBar: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      height: 3,
+      height: 3.5,
       backgroundColor: INK.gold,
+      marginHorizontal: -padX,
+      marginTop: -20,
+      marginBottom: 16,
     },
     headerRow: {
       flexDirection: "row-reverse",
@@ -623,7 +626,7 @@ export function PdfDocHeader({
 
   return (
     <View wrap={false}>
-      <View style={s.goldBar} fixed />
+      <View style={s.goldBar} />
       <View style={s.headerRow}>
         <View style={s.brandCol}>
           {logoUri ? (
@@ -730,7 +733,7 @@ export function PdfContinuationBanner({ label }: { label: string }) {
       fixed
       style={{
         position: "absolute",
-        top: 22,
+        top: 10,
         left: 36,
         right: 36,
         fontSize: 7.5,
