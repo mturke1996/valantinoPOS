@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   CalendarClock,
+  Gift,
   PackageCheck,
   PartyPopper,
   UserPlus,
@@ -11,6 +12,11 @@ import {
 import { toast } from "sonner";
 
 import { CurrencyDisplay } from "@/components/shared/currency-display";
+import {
+  DELIVERY_NOTE_SUGGESTIONS,
+  NotesComposer,
+  PREP_NOTE_SUGGESTIONS,
+} from "@/components/shared/notes-composer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,7 +37,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
 import { getAuthSession } from "@/lib/auth";
 import {
   createCustomer,
@@ -598,20 +603,16 @@ export function EventCreateDialog({
                     placeholder="المدينة، الحي، الشارع وأقرب علامة"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="event-delivery-instructions">
-                    تعليمات التوصيل
-                  </Label>
-                  <Textarea
-                    id="event-delivery-instructions"
-                    value={deliveryInstructions}
-                    onChange={(event) =>
-                      setDeliveryInstructions(event.target.value)
-                    }
-                    placeholder="اتصل قبل الوصول أو أي تعليمات للسائق"
-                    className="min-h-16"
-                  />
-                </div>
+                <NotesComposer
+                  id="event-delivery-instructions"
+                  label="تعليمات التسليم"
+                  description="تظهر للسائق وعلى الفاتورة المطبوعة."
+                  value={deliveryInstructions}
+                  onChange={setDeliveryInstructions}
+                  placeholder="اتصل قبل الوصول، بوابة المنزل، وقت مناسب…"
+                  suggestions={DELIVERY_NOTE_SUGGESTIONS}
+                  rows={2}
+                />
               </div>
             ) : null}
           </section>
@@ -619,6 +620,10 @@ export function EventCreateDialog({
           <Separator />
 
           <section className="space-y-4">
+            <div className="flex items-center gap-2">
+              <PackageCheck className="size-4 text-gold-400" />
+              <h3 className="text-sm font-semibold">التغليف والملاحظات</h3>
+            </div>
             <div>
               <Label>ألوان التغليف</Label>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -648,26 +653,28 @@ export function EventCreateDialog({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="event-gift-message">بطاقة الإهداء</Label>
-              <Textarea
-                id="event-gift-message"
-                value={giftMessage}
-                onChange={(event) => setGiftMessage(event.target.value)}
-                placeholder="العبارة التي ستُطبع على البطاقة"
-                rows={2}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="event-notes">تعليمات التجهيز</Label>
-              <Textarea
-                id="event-notes"
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                placeholder="تفاصيل التغليف أو الحساسية أو تعليمات خاصة"
-                rows={2}
-              />
-            </div>
+            <NotesComposer
+              id="event-gift-message"
+              label="بطاقة الإهداء"
+              description="العبارة التي ستُطبع على بطاقة الإهداء وتظهر في PDF."
+              icon={Gift}
+              value={giftMessage}
+              onChange={setGiftMessage}
+              placeholder="مبروك لكم… بكل الحب والفرح"
+              suggestions={["مبروك الزواج", "عيد ميلاد سعيد", "بالتوفيق والنجاح"]}
+              maxLength={220}
+              rows={2}
+            />
+            <NotesComposer
+              id="event-notes"
+              label="تعليمات التجهيز"
+              description="تظهر لفريق التجهيز وعلى الفاتورة — حساسية، توزيع، تغليف خاص."
+              value={notes}
+              onChange={setNotes}
+              placeholder="تفاصيل التغليف، الحساسية، أو أي تعليمات خاصة للمطبخ"
+              suggestions={PREP_NOTE_SUGGESTIONS}
+              rows={3}
+            />
           </section>
 
           <Separator />

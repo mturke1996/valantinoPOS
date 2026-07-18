@@ -12,8 +12,10 @@ import {
   invoicePaymentStatusMeta,
 } from "@/components/documents/brand";
 import { DocBrandHeader, DocTitleBand } from "@/components/documents/doc-chrome";
+import { DocumentNotesBlock } from "@/components/documents/document-notes-block";
 import { DocScheduleBlock } from "@/components/documents/doc-order-meta";
 import { orderTypeLabel } from "@/components/documents/order-labels";
+import { collectDocumentNotes } from "@/lib/documents/order-notes";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import type {
   Customer,
@@ -56,6 +58,7 @@ export const InvoiceA4Template = forwardRef<
     customer?.name ?? order.deliveryRecipientName ?? "عميل نقدي";
   const customerPhone = customer?.phone ?? order.deliveryPhone ?? null;
   const typeLabel = orderTypeLabel(order, event);
+  const noteEntries = collectDocumentNotes(order, event);
 
   return (
     <div
@@ -294,22 +297,7 @@ export const InvoiceA4Template = forwardRef<
           </div>
         ) : null}
 
-        {order.notes ? (
-          <div
-            className="rounded-sm px-4 py-3.5 text-[12px]"
-            style={{
-              background: DOC_INK.paleGold,
-              borderInlineStart: `3px solid ${DOC_INK.gold}`,
-            }}
-          >
-            <p className="font-extrabold" style={{ color: DOC_INK.text }}>
-              ملاحظات
-            </p>
-            <p className="mt-1.5" style={{ color: DOC_INK.muted }}>
-              {order.notes}
-            </p>
-          </div>
-        ) : null}
+        <DocumentNotesBlock entries={noteEntries} />
 
         <footer
           className="flex items-end justify-between gap-6 border-t pt-6"

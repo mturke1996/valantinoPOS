@@ -15,6 +15,12 @@ import {
 
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { DeliveryZoneSelect } from "@/components/shared/delivery-zone-select";
+import {
+  DELIVERY_NOTE_SUGGESTIONS,
+  NotesComposer,
+  POS_NOTE_SUGGESTIONS,
+  PREP_NOTE_SUGGESTIONS,
+} from "@/components/shared/notes-composer";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -529,22 +535,19 @@ export function PosSaleContextDialog({
                         />
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="pos-delivery-instructions">
-                        تعليمات السائق والتسليم
-                      </Label>
-                      <Textarea
-                        id="pos-delivery-instructions"
-                        value={draft.deliveryInstructions}
-                        onChange={(event) =>
-                          updateDraft({
-                            deliveryInstructions: event.target.value,
-                          })
-                        }
-                        placeholder="اتصل قبل الوصول، بوابة المنزل، وقت مناسب..."
-                        className="min-h-16"
-                      />
-                    </div>
+                    <NotesComposer
+                      id="pos-delivery-instructions"
+                      label="تعليمات السائق والتسليم"
+                      description="تظهر على الفاتورة وإيصال التوصيل."
+                      value={draft.deliveryInstructions}
+                      onChange={(value) =>
+                        updateDraft({ deliveryInstructions: value })
+                      }
+                      placeholder="اتصل قبل الوصول، بوابة المنزل، وقت مناسب…"
+                      suggestions={DELIVERY_NOTE_SUGGESTIONS}
+                      rows={2}
+                      className="border-pistachio-400/25 bg-white/60"
+                    />
                     {settings.freeDeliveryThreshold !== null ? (
                       <p className="text-xs text-muted-foreground">
                         يصبح التوصيل مجانياً تلقائياً عند وصول الطلب إلى{" "}
@@ -648,21 +651,42 @@ export function PosSaleContextDialog({
                 ) : null}
               </section>
 
-              <div className="space-y-2">
-                <Label htmlFor="pos-order-notes">ملاحظات التنفيذ</Label>
-                <Textarea
-                  id="pos-order-notes"
-                  value={draft.notes}
-                  onChange={(event) => updateDraft({ notes: event.target.value })}
-                  placeholder="تعليمات التغليف، اسم المستلم أو أي تفاصيل مهمة"
-                />
-              </div>
+              <NotesComposer
+                id="pos-order-notes"
+                label={
+                  draft.mode === "event"
+                    ? "تعليمات التجهيز"
+                    : "ملاحظات التنفيذ"
+                }
+                description="تُحفظ مع الطلب وتظهر في PDF والطباعة."
+                value={draft.notes}
+                onChange={(value) => updateDraft({ notes: value })}
+                placeholder="تعليمات التغليف، حساسية، اسم المستلم، أو أي تفاصيل مهمة"
+                suggestions={
+                  draft.mode === "event"
+                    ? PREP_NOTE_SUGGESTIONS
+                    : POS_NOTE_SUGGESTIONS
+                }
+                rows={3}
+              />
             </>
           ) : (
-            <div className="rounded-lg bg-muted/40 p-4 text-sm text-muted-foreground">
-              بيع مباشر من نقطة البيع، يُستكمل فور تحصيل المبلغ وتُحدّث
-              الوردية تلقائياً.
-            </div>
+            <>
+              <div className="rounded-lg bg-muted/40 p-4 text-sm text-muted-foreground">
+                بيع مباشر من نقطة البيع، يُستكمل فور تحصيل المبلغ وتُحدّث
+                الوردية تلقائياً.
+              </div>
+              <NotesComposer
+                id="pos-walkin-notes"
+                label="ملاحظات البيع"
+                description="اختياري — يظهر على الفاتورة والإيصال."
+                value={draft.notes}
+                onChange={(value) => updateDraft({ notes: value })}
+                placeholder="تغليف هدية، بدون مكسرات، طلب خاص…"
+                suggestions={POS_NOTE_SUGGESTIONS}
+                rows={2}
+              />
+            </>
           )}
 
           <div className="flex items-center justify-between rounded-lg border border-cacao-800/10 p-4">

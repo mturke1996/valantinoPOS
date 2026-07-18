@@ -7,6 +7,11 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  DELIVERY_NOTE_SUGGESTIONS,
+  NotesComposer,
+  PREP_NOTE_SUGGESTIONS,
+} from "@/components/shared/notes-composer";
+import {
   Dialog,
   DialogBody,
   DialogContent,
@@ -24,7 +29,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
 import { updateEventBooking } from "@/lib/data/store";
 import { cn } from "@/lib/utils";
 import type { Event, EventType, Order } from "@/types";
@@ -281,19 +285,14 @@ export function EventEditDialog({
                     onChange={(e) => setDeliveryAddress(e.target.value)}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-delivery-instructions">
-                    تعليمات التسليم
-                  </Label>
-                  <Textarea
-                    id="edit-delivery-instructions"
-                    value={deliveryInstructions}
-                    onChange={(e) =>
-                      setDeliveryInstructions(e.target.value)
-                    }
-                    className="min-h-16"
-                  />
-                </div>
+                <NotesComposer
+                  id="edit-delivery-instructions"
+                  label="تعليمات التسليم"
+                  value={deliveryInstructions}
+                  onChange={setDeliveryInstructions}
+                  suggestions={DELIVERY_NOTE_SUGGESTIONS}
+                  rows={2}
+                />
               </div>
             ) : (
               <Badge variant="outline">استلام من المتجر</Badge>
@@ -335,24 +334,22 @@ export function EventEditDialog({
                 })}
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-gift">بطاقة الإهداء</Label>
-              <Textarea
-                id="edit-gift"
-                value={giftMessage}
-                onChange={(e) => setGiftMessage(e.target.value)}
-                rows={2}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-notes">تعليمات التجهيز</Label>
-              <Textarea
-                id="edit-notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={2}
-              />
-            </div>
+            <NotesComposer
+              id="edit-gift"
+              label="بطاقة الإهداء"
+              value={giftMessage}
+              onChange={setGiftMessage}
+              maxLength={220}
+              rows={2}
+            />
+            <NotesComposer
+              id="edit-notes"
+              label="تعليمات التجهيز"
+              value={notes}
+              onChange={setNotes}
+              suggestions={PREP_NOTE_SUGGESTIONS}
+              rows={2}
+            />
           </section>
         </DialogBody>
 

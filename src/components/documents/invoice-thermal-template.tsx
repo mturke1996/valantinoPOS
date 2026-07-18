@@ -13,6 +13,8 @@ import {
   orderTypeLabel,
   scheduleTitle,
 } from "@/components/documents/order-labels";
+import { DocumentNotesBlock } from "@/components/documents/document-notes-block";
+import { collectDocumentNotes } from "@/lib/documents/order-notes";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import type {
   Event,
@@ -56,6 +58,7 @@ export const InvoiceThermalTemplate = forwardRef<
     Boolean(order.deliveryZone) ||
     order.deliveryFee > 0 ||
     order.type === "delivery";
+  const noteEntries = collectDocumentNotes(order, event);
 
   return (
     <div
@@ -213,6 +216,12 @@ export const InvoiceThermalTemplate = forwardRef<
             {PAYMENT_LABELS[payment.method as PaymentMethod] ?? payment.method}
           </span>
         </div>
+      ) : null}
+      {noteEntries.length > 0 ? (
+        <>
+          <div className="line" />
+          <DocumentNotesBlock entries={noteEntries} compact />
+        </>
       ) : null}
       <div className="line" />
       {qrPayload ? <QRCodeSVG value={qrPayload} size={88} level="M" /> : null}

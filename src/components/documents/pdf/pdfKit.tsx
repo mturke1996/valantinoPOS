@@ -359,6 +359,55 @@ export function makePdfStyles() {
       textAlign: "right",
       lineHeight: 1.55,
     },
+    notesSection: {
+      marginTop: 14,
+      borderWidth: 1,
+      borderColor: INK.goldLine,
+      borderRadius: 2,
+      overflow: "hidden",
+      backgroundColor: INK.paleGold,
+    },
+    notesSectionHead: {
+      paddingVertical: 7,
+      paddingHorizontal: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: INK.goldLine,
+      backgroundColor: "rgba(204,168,80,0.14)",
+      alignItems: "flex-end",
+    },
+    notesSectionTitle: {
+      fontSize: 9.5,
+      fontWeight: 700,
+      fontFamily: PDF_FONT_FAMILY,
+      color: INK.goldDeep,
+      textAlign: "right",
+      letterSpacing: 0.3,
+    },
+    notesEntry: {
+      paddingVertical: 7,
+      paddingHorizontal: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: INK.border,
+      alignItems: "flex-end",
+    },
+    notesEntryLast: {
+      borderBottomWidth: 0,
+    },
+    notesEntryLabel: {
+      fontSize: 8,
+      fontWeight: 700,
+      fontFamily: PDF_FONT_FAMILY,
+      color: INK.goldDeep,
+      textAlign: "right",
+      marginBottom: 3,
+    },
+    notesEntryText: {
+      fontSize: 9,
+      fontFamily: PDF_FONT_FAMILY,
+      color: INK.text,
+      textAlign: "right",
+      lineHeight: 1.55,
+    },
     kvCard: {
       borderWidth: 1,
       borderColor: INK.border,
@@ -695,6 +744,38 @@ export function PdfNotesBox({
     <View style={s.notesBox}>
       <Text style={s.notesLbl}>{ar(label)}</Text>
       {children}
+    </View>
+  );
+}
+
+export function PdfNotesSection({
+  s,
+  entries,
+  title = "ملاحظات وتعليمات",
+}: {
+  s: ReturnType<typeof makePdfStyles>;
+  entries: Array<{ key: string; label: string; text: string }>;
+  title?: string;
+}) {
+  if (entries.length === 0) return null;
+
+  return (
+    <View style={s.notesSection} wrap={false}>
+      <View style={s.notesSectionHead}>
+        <Text style={s.notesSectionTitle}>{ar(title)}</Text>
+      </View>
+      {entries.map((entry, index) => (
+        <View
+          key={entry.key}
+          style={[
+            s.notesEntry,
+            index === entries.length - 1 ? s.notesEntryLast : {},
+          ]}
+        >
+          <Text style={s.notesEntryLabel}>{ar(entry.label)}</Text>
+          <Text style={s.notesEntryText}>{arMixed(entry.text)}</Text>
+        </View>
+      ))}
     </View>
   );
 }

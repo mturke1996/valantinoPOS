@@ -29,11 +29,12 @@ import {
   PdfDocHeader,
   PdfLtrText,
   PdfMoneyText,
-  PdfNotesBox,
+  PdfNotesSection,
   PdfSignatureRow,
   makePdfStyles,
   type PdfPaperSize,
 } from "@/components/documents/pdf/pdfKit";
+import { collectDocumentNotes } from "@/lib/documents/order-notes";
 import type {
   Customer,
   Event,
@@ -95,6 +96,7 @@ export function InvoicePDF({
   const addressHint = [order.deliveryZone, order.deliveryAddress]
     .filter(Boolean)
     .join(" · ");
+  const noteEntries = collectDocumentNotes(order, event);
 
   return (
     <Document
@@ -374,11 +376,7 @@ export function InvoicePDF({
           </View>
         ) : null}
 
-        {order.notes ? (
-          <PdfNotesBox s={s}>
-            <Text style={s.notesTxt}>{arMixed(order.notes)}</Text>
-          </PdfNotesBox>
-        ) : null}
+        <PdfNotesSection s={s} entries={noteEntries} />
 
         <View
           style={{
