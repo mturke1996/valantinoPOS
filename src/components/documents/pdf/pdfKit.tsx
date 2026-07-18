@@ -9,31 +9,35 @@ import type { Settings } from "@/types";
 export const INK = DOC_INK;
 
 /**
- * Pagination reserves — aligned with rkeaz-group so flowing content never
- * collides with the fixed footer and table heads/total bars stay atomic.
+ * Pagination reserves — keep flowing content clear of the fixed footer
+ * and keep table heads / total bars atomic across page breaks.
  */
 export const PDF_PAGINATION = {
-  tableHead: 32,
-  totalBar: 36,
-  minRowHeight: 28,
-  section: 36,
-  footerBottom: 14,
-  footerHeight: 56,
-  footerReserve: 70,
+  tableHead: 36,
+  totalBar: 40,
+  minRowHeight: 30,
+  section: 40,
+  footerBottom: 16,
+  footerHeight: 58,
+  footerReserve: 74,
 } as const;
 
-export type PdfPaperSize = "A4" | "A5";
+/** Formal documents — true ISO A4 only */
+export type PdfPaperSize = "A4";
 
-export function makePdfStyles(compact = false) {
-  const padX = compact ? 22 : 28;
-  const padTop = compact ? 16 : 20;
+/**
+ * Premium A4 print styles (Etlala / debtflow-pro geometry + Valentino gold).
+ * ~12.7mm side margins, 9pt body, reserved footer zone.
+ */
+export function makePdfStyles() {
+  const padX = 36;
   return StyleSheet.create({
     page: {
       fontFamily: PDF_FONT_FAMILY,
-      fontSize: compact ? 8 : 8.5,
+      fontSize: 9,
       color: INK.text,
       backgroundColor: INK.white,
-      paddingTop: padTop,
+      paddingTop: 28,
       paddingBottom: PDF_PAGINATION.footerReserve,
       paddingHorizontal: padX,
     },
@@ -42,58 +46,60 @@ export function makePdfStyles(compact = false) {
       top: 0,
       left: 0,
       right: 0,
-      height: 2.5,
+      height: 3,
       backgroundColor: INK.gold,
     },
     headerRow: {
       flexDirection: "row-reverse",
       justifyContent: "space-between",
       alignItems: "flex-start",
-      marginBottom: compact ? 6 : 8,
-      paddingBottom: compact ? 5 : 6,
-      borderBottomWidth: 1,
-      borderBottomColor: INK.border,
+      marginBottom: 12,
+      paddingBottom: 10,
+      borderBottomWidth: 2,
+      borderBottomColor: INK.gold,
     },
     brandCol: {
       flexDirection: "row-reverse",
       alignItems: "center",
-      gap: 8,
+      gap: 12,
       flex: 1,
     },
     logo: {
-      width: compact ? 44 : 52,
-      height: compact ? 34 : 40,
+      width: 68,
+      height: 52,
       objectFit: "contain",
     },
     brandText: {
       alignItems: "flex-end",
-      borderRightWidth: 1,
+      borderRightWidth: 1.5,
       borderRightColor: INK.goldLine,
-      paddingRight: 8,
-      maxWidth: compact ? 150 : 200,
+      paddingRight: 10,
+      maxWidth: 260,
     },
     branchName: {
-      fontSize: compact ? 10 : 11.5,
+      fontSize: 14,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.text,
       textAlign: "right",
-      marginBottom: 1,
+      marginBottom: 2,
+      lineHeight: 1.3,
     },
     branchContact: {
-      fontSize: 6,
+      fontSize: 8,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.muted,
       textAlign: "right",
       marginBottom: 1,
-      lineHeight: 1.3,
+      lineHeight: 1.35,
     },
     titleAr: {
-      fontSize: compact ? 8 : 9,
+      fontSize: 10,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.goldDeep,
       textAlign: "right",
+      marginTop: 3,
     },
     metaCol: {
       alignItems: "flex-start",
@@ -104,68 +110,76 @@ export function makePdfStyles(compact = false) {
       borderWidth: 1,
       borderColor: INK.goldLine,
       borderRadius: 2,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      marginBottom: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      marginBottom: 5,
     },
     badgeText: {
-      fontSize: 7,
+      fontSize: 8,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.goldDeep,
-      letterSpacing: 1,
+      letterSpacing: 1.2,
+    },
+    titleEnWatermark: {
+      fontSize: 22,
+      fontWeight: 700,
+      fontFamily: PDF_FONT_FAMILY,
+      color: "#D6C9A8",
+      letterSpacing: 1.4,
+      marginBottom: 2,
     },
     refLine: {
-      fontSize: compact ? 9 : 10.5,
+      fontSize: 12,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.text,
-      marginBottom: 2,
+      marginBottom: 3,
     },
     contactLine: {
-      fontSize: 6.5,
+      fontSize: 8,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.muted,
       textAlign: "left",
     },
     statusPill: {
-      marginTop: 2,
-      fontSize: 7,
+      marginTop: 3,
+      fontSize: 8.5,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
     },
     sectionTitle: {
-      fontSize: compact ? 9 : 10,
+      fontSize: 11,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.goldDeep,
       textAlign: "right",
-      marginBottom: 6,
-      marginTop: 8,
-      paddingBottom: 3,
+      marginBottom: 8,
+      marginTop: 12,
+      paddingBottom: 4,
       borderBottomWidth: 1.5,
       borderBottomColor: INK.goldLine,
     },
     infoRow: {
       flexDirection: "row-reverse",
       justifyContent: "space-between",
-      marginBottom: compact ? 6 : 8,
-      gap: 8,
+      marginBottom: 14,
+      gap: 12,
     },
     datesCol: { width: "36%" },
     dateRow: {
       flexDirection: "row-reverse",
       justifyContent: "space-between",
-      marginBottom: 2,
+      marginBottom: 5,
     },
     dateLabel: {
-      fontSize: 6.5,
+      fontSize: 8,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.faint,
       textAlign: "right",
     },
     dateVal: {
-      fontSize: 7,
+      fontSize: 9,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.text,
@@ -173,102 +187,103 @@ export function makePdfStyles(compact = false) {
     },
     clientBox: {
       flex: 1,
-      paddingVertical: 4,
-      paddingHorizontal: 7,
-      borderRightWidth: 2,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRightWidth: 3,
       borderRightColor: INK.gold,
       backgroundColor: INK.paleGold,
       alignItems: "flex-end",
     },
     clientLbl: {
-      fontSize: 6.5,
+      fontSize: 8,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.goldDeep,
-      marginBottom: 1,
+      marginBottom: 3,
       textAlign: "right",
+      letterSpacing: 0.4,
     },
     clientName: {
-      fontSize: compact ? 9.5 : 11,
+      fontSize: 13,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.text,
       textAlign: "right",
-      marginBottom: 1,
+      marginBottom: 2,
     },
     clientSub: {
-      fontSize: 6.5,
+      fontSize: 8.5,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.muted,
       textAlign: "right",
-      marginTop: 1,
+      marginTop: 2,
     },
     scheduleBox: {
       borderWidth: 1,
       borderColor: INK.goldLine,
       backgroundColor: INK.paleGold,
       borderRadius: 2,
-      marginBottom: compact ? 4 : 5,
+      marginBottom: 10,
       overflow: "hidden",
     },
     scheduleHead: {
       flexDirection: "row-reverse",
       justifyContent: "space-between",
-      paddingHorizontal: 6,
-      paddingVertical: 2,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
       borderBottomWidth: 1,
       borderBottomColor: INK.goldLine,
-      backgroundColor: "rgba(204,168,80,0.12)",
+      backgroundColor: "rgba(204,168,80,0.14)",
     },
     scheduleBody: {
       flexDirection: "row-reverse",
       justifyContent: "space-between",
       alignItems: "center",
-      paddingHorizontal: 6,
-      paddingVertical: compact ? 3 : 4,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
     },
     tableHead: {
       flexDirection: "row-reverse",
       backgroundColor: INK.paleGold,
-      paddingVertical: compact ? 6 : 8,
-      paddingHorizontal: 8,
+      paddingVertical: 9,
+      paddingHorizontal: 10,
       borderBottomWidth: 2,
       borderBottomColor: INK.gold,
       marginBottom: 1,
     },
     th: {
       color: INK.goldDeep,
-      fontSize: compact ? 8 : 9,
+      fontSize: 9,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       textAlign: "right",
     },
     tableRow: {
       flexDirection: "row-reverse",
-      paddingVertical: compact ? 6 : 7,
-      paddingHorizontal: 8,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
       borderBottomWidth: 1,
       borderBottomColor: INK.border,
       alignItems: "center",
     },
     rowEven: { backgroundColor: INK.zebra },
     td: {
-      fontSize: compact ? 8 : 9,
+      fontSize: 9,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.text,
       textAlign: "right",
     },
     tdBold: {
-      fontSize: compact ? 8 : 9,
+      fontSize: 9,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.text,
       textAlign: "right",
     },
     totalsBox: {
-      width: compact ? 200 : 230,
+      width: 248,
       alignSelf: "flex-start",
-      marginTop: 10,
+      marginTop: 14,
       borderWidth: 1,
       borderColor: INK.border,
       borderRadius: 2,
@@ -277,17 +292,17 @@ export function makePdfStyles(compact = false) {
     totalLine: {
       flexDirection: "row-reverse",
       justifyContent: "space-between",
-      paddingVertical: 4,
-      paddingHorizontal: 10,
+      paddingVertical: 5,
+      paddingHorizontal: 12,
     },
     totalLbl: {
-      fontSize: 9,
+      fontSize: 9.5,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.muted,
       textAlign: "right",
     },
     totalVal: {
-      fontSize: 9,
+      fontSize: 9.5,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.text,
@@ -297,41 +312,41 @@ export function makePdfStyles(compact = false) {
       flexDirection: "row-reverse",
       justifyContent: "space-between",
       alignItems: "center",
-      paddingVertical: 8,
-      paddingHorizontal: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
       backgroundColor: INK.paleGold,
       borderTopWidth: 2,
       borderTopColor: INK.gold,
     },
     grandLbl: {
-      fontSize: compact ? 10 : 11,
+      fontSize: 12,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.goldDeep,
       textAlign: "right",
     },
     grandAmt: {
-      fontSize: compact ? 11 : 12,
+      fontSize: 13,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.text,
       textAlign: "left",
     },
     notesBox: {
-      padding: 10,
+      padding: 12,
       backgroundColor: INK.paleGold,
       borderRightWidth: 3,
       borderRightColor: INK.gold,
       borderRadius: 2,
-      marginTop: 12,
+      marginTop: 14,
       alignItems: "flex-end",
     },
     notesLbl: {
-      fontSize: 9,
+      fontSize: 9.5,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.text,
-      marginBottom: 3,
+      marginBottom: 4,
       textAlign: "right",
     },
     notesTxt: {
@@ -339,51 +354,51 @@ export function makePdfStyles(compact = false) {
       fontFamily: PDF_FONT_FAMILY,
       color: INK.muted,
       textAlign: "right",
-      lineHeight: 1.5,
+      lineHeight: 1.55,
     },
     kvCard: {
       borderWidth: 1,
       borderColor: INK.border,
       backgroundColor: INK.zebra,
       borderRadius: 2,
-      paddingHorizontal: compact ? 6 : 8,
-      paddingVertical: compact ? 4 : 5,
-      marginBottom: compact ? 6 : 8,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      marginBottom: 10,
     },
     kvGrid: {
       flexDirection: "row-reverse",
       flexWrap: "wrap",
-      columnGap: compact ? 6 : 8,
-      rowGap: 2,
+      columnGap: 10,
+      rowGap: 4,
     },
     kvItem: {
       width: "31%",
       alignItems: "flex-end",
-      marginBottom: 1,
+      marginBottom: 2,
     },
     kvLabel: {
-      fontSize: 6.5,
+      fontSize: 7.5,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.goldDeep,
       textAlign: "right",
-      marginBottom: 1,
+      marginBottom: 2,
     },
     kvValue: {
-      fontSize: compact ? 7.5 : 8,
+      fontSize: 9,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.text,
       textAlign: "right",
     },
     kvSectionTitle: {
-      fontSize: 7.5,
+      fontSize: 9,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.goldDeep,
       textAlign: "right",
-      marginBottom: 3,
-      paddingBottom: 2,
+      marginBottom: 4,
+      paddingBottom: 3,
       borderBottomWidth: 1,
       borderBottomColor: INK.border,
     },
@@ -392,41 +407,42 @@ export function makePdfStyles(compact = false) {
       bottom: PDF_PAGINATION.footerBottom,
       left: padX,
       right: padX,
-      borderTopWidth: 1,
-      borderTopColor: INK.border,
-      paddingTop: 6,
+      borderTopWidth: 1.5,
+      borderTopColor: INK.goldLine,
+      paddingTop: 8,
       alignItems: "center",
     },
     footerText: {
-      fontSize: 7.5,
+      fontSize: 8,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.faint,
       textAlign: "center",
       marginBottom: 2,
     },
     footerBrand: {
-      fontSize: 8,
+      fontSize: 9,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.goldDeep,
       textAlign: "center",
+      marginBottom: 2,
     },
     sigRow: {
       flexDirection: "row-reverse",
       justifyContent: "space-between",
-      marginTop: 28,
-      gap: 24,
+      marginTop: 32,
+      gap: 28,
     },
     sigBox: {
       flex: 1,
       alignItems: "flex-end",
     },
     sigLabel: {
-      fontSize: 9,
+      fontSize: 9.5,
       fontWeight: 700,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.muted,
-      marginBottom: 28,
+      marginBottom: 32,
       textAlign: "right",
     },
     sigLine: {
@@ -436,7 +452,7 @@ export function makePdfStyles(compact = false) {
       paddingTop: 4,
     },
     sigHint: {
-      fontSize: 7.5,
+      fontSize: 8,
       fontFamily: PDF_FONT_FAMILY,
       color: INK.faint,
       textAlign: "right",
@@ -557,7 +573,7 @@ export function PdfMoneyText({
         style={
           [
             {
-              fontSize: 9,
+              fontSize: 9.5,
               fontWeight: 700,
               color: INK.text,
               fontFamily: PDF_FONT_FAMILY,
@@ -570,7 +586,7 @@ export function PdfMoneyText({
       </Text>
       <Text
         style={{
-          fontSize: 8,
+          fontSize: 8.5,
           color: INK.muted,
           fontWeight: 700,
           marginRight: 3,
@@ -626,8 +642,9 @@ export function PdfDocHeader({
           </View>
         </View>
         <View style={s.metaCol}>
+          <Text style={s.titleEnWatermark}>{ltr(titleEn)}</Text>
           <View style={s.badge}>
-            <Text style={s.badgeText}>{ltr(titleEn)}</Text>
+            <Text style={s.badgeText}>{ltr("OFFICIAL")}</Text>
           </View>
           <Text style={s.refLine}>{ltr(refLine)}</Text>
           {statusLabel ? (
@@ -707,23 +724,16 @@ export function PdfSignatureRow({
 }
 
 /** Subtle banner on page 2+ so long tables stay readable after wrap. */
-export function PdfContinuationBanner({
-  label,
-  compact = false,
-}: {
-  label: string;
-  compact?: boolean;
-}) {
-  const inset = compact ? 28 : 36;
+export function PdfContinuationBanner({ label }: { label: string }) {
   return (
     <Text
       fixed
       style={{
         position: "absolute",
-        top: compact ? 18 : 22,
-        left: inset,
-        right: inset,
-        fontSize: 7,
+        top: 22,
+        left: 36,
+        right: 36,
+        fontSize: 7.5,
         color: INK.faint,
         fontFamily: PDF_FONT_FAMILY,
         textAlign: "center",

@@ -17,13 +17,12 @@ export {
 } from "./pdf";
 export {
   a4PrintStyles,
-  a5PrintStyles,
   openPrintWindow,
   paperPrintStyles,
   thermalPrintStyles,
 } from "./print-window";
 export { DocBrandHeader, DocTitleBand } from "./doc-chrome";
-export { InvoiceA5Template } from "./invoice-a5-template";
+export { InvoiceA4Template } from "./invoice-a4-template";
 export { InvoiceThermalTemplate } from "./invoice-thermal-template";
 export { DeliveryReceiptTemplate } from "./delivery-receipt-template";
 export { DeliveryReceiptDialog } from "./delivery-receipt-dialog";

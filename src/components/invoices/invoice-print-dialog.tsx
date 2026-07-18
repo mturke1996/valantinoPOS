@@ -10,20 +10,18 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import type { DocPaperSize } from "@/components/documents/brand";
 import { invoicePaymentStatusMeta } from "@/components/documents/brand";
-import { InvoiceA5Template } from "@/components/documents/invoice-a5-template";
+import { InvoiceA4Template } from "@/components/documents/invoice-a4-template";
 import { InvoiceThermalTemplate } from "@/components/documents/invoice-thermal-template";
 import {
   buildQrDataUri,
   createInvoicePdf,
   downloadBlob,
   fetchLogoDataUri,
-  toPdfPaperSize,
 } from "@/components/documents/pdf";
 import {
+  a4PrintStyles,
   openPrintWindow,
-  paperPrintStyles,
   thermalPrintStyles,
 } from "@/components/documents/print-window";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +43,6 @@ import {
   resolveOrderWhatsAppPhone,
   shareOrderPdfOnWhatsApp,
 } from "@/lib/whatsapp/order-share";
-import { cn } from "@/lib/utils";
 import type { Invoice, Order } from "@/types";
 
 interface InvoicePrintDialogProps {
@@ -63,7 +60,6 @@ export function InvoicePrintDialog({
 }: InvoicePrintDialogProps) {
   const pageRef = useRef<HTMLDivElement>(null);
   const thermalRef = useRef<HTMLDivElement>(null);
-  const [paperSize, setPaperSize] = useState<DocPaperSize>("a5");
   const [working, setWorking] = useState<"pdf" | "share" | null>(null);
   const state = getState();
   const settings = state.settings;
@@ -76,9 +72,7 @@ export function InvoicePrintDialog({
     (payment) => payment.orderId === order.id,
   );
   const paymentMeta = invoicePaymentStatusMeta(order.paymentStatus);
-  const sizeLabel = paperSize.toUpperCase();
-  const fileName = `${invoice.invoiceNumber}-${sizeLabel}.pdf`;
-  // Always rebuild from current settings so QR customization applies immediately
+  const fileName = `${invoice.invoiceNumber}-A4.pdf`;
   const qrPayload = buildDocumentCodeValue({ invoice, order, settings });
 
   const getPdf = async () => {
@@ -94,7 +88,7 @@ export function InvoicePrintDialog({
         customer,
         payments,
         event,
-        paperSize: toPdfPaperSize(paperSize),
+        paperSize: "A4",
         logoUri,
         qrUri,
       },
@@ -107,7 +101,7 @@ export function InvoicePrintDialog({
     try {
       const { blob } = await getPdf();
       downloadBlob(blob, fileName);
-      toast.success(`تم إنشاء PDF بحجم ${sizeLabel}`);
+      toast.success("تم إنشاء PDF بحجم A4");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "تعذر إنشاء ملف PDF",
@@ -132,7 +126,6 @@ export function InvoicePrintDialog({
       invoice,
     });
 
-    // Desktop: open chat immediately — PDF must never block WhatsApp.
     if (!isMobileUserAgent()) {
       if (phone) {
         openWhatsAppChat(phone, message);
@@ -218,15 +211,15 @@ export function InvoicePrintDialog({
     const content = pageRef.current;
     if (!content) return;
     const ok = openPrintWindow({
-      title: `${sizeLabel} · ${invoice.invoiceNumber}`,
+      title: `A4 · ${invoice.invoiceNumber}`,
       bodyHtml: content.outerHTML,
-      styles: paperPrintStyles(paperSize),
+      styles: a4PrintStyles(),
       includeAppStyles: true,
-      width: paperSize === "a5" ? 620 : 820,
-      height: paperSize === "a5" ? 880 : 1100,
+      width: 860,
+      height: 1140,
       onAfterOpen: () => printInvoice(invoice.id),
     });
-    if (ok) toast.success(`طباعة فاتورة ${sizeLabel}`);
+    if (ok) toast.success("طباعة فاتورة A4");
   };
 
   return (
@@ -243,34 +236,15 @@ export function InvoicePrintDialog({
             >
               {paymentMeta.label}
             </Badge>
+            <Badge variant="outline" className="font-semibold">
+              A4
+            </Badge>
           </DialogTitle>
         </DialogHeader>
 
         <DialogBody className="bg-muted/25 py-4">
-          <div className="mb-3 flex items-center justify-center gap-1">
-            {(["a5", "a4"] as const).map((size) => (
-              <button
-                key={size}
-                type="button"
-                onClick={() => setPaperSize(size)}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
-                  paperSize === size
-                    ? "bg-cacao-800 text-white"
-                    : "bg-white text-muted-foreground hover:bg-muted",
-                )}
-              >
-                {size.toUpperCase()}
-              </button>
-            ))}
-          </div>
-          <div
-            className={cn(
-              "mx-auto overflow-auto rounded-lg border border-black/5 bg-white shadow-sm",
-              paperSize === "a5" ? "max-w-[148mm]" : "max-w-[210mm]",
-            )}
-          >
-            <InvoiceA5Template
+          <div className="mx-auto max-w-[210mm] overflow-auto rounded-lg border border-black/5 bg-white shadow-sm">
+            <InvoiceA4Template
               ref={pageRef}
               invoice={invoice}
               order={order}
@@ -279,7 +253,6 @@ export function InvoicePrintDialog({
               payments={payments}
               qrPayload={qrPayload}
               event={event}
-              paperSize={paperSize}
             />
           </div>
           <div className="hidden">
@@ -305,7 +278,7 @@ export function InvoicePrintDialog({
           </Button>
           <Button variant="outline" onClick={handlePaperPrint} className="gap-2">
             <Printer className="size-4" />
-            طباعة {sizeLabel}
+            طباعة A4
           </Button>
           <Button
             variant="outline"
@@ -314,7 +287,7 @@ export function InvoicePrintDialog({
             className="gap-2"
           >
             <Download className="size-4" />
-            {working === "pdf" ? "جاري الإنشاء..." : `PDF ${sizeLabel}`}
+            {working === "pdf" ? "جاري الإنشاء..." : "PDF A4"}
           </Button>
           <Button
             onClick={handleShare}

@@ -15,7 +15,7 @@ import {
 } from "@/components/documents/pdf";
 import {
   openPrintWindow,
-  a5PrintStyles,
+  a4PrintStyles,
 } from "@/components/documents/print-window";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { Button } from "@/components/ui/button";
@@ -82,9 +82,9 @@ export function ZReportDialog({
     openPrintWindow({
       title: `Z-Report ${shift.id}`,
       bodyHtml: node.innerHTML,
-      styles: a5PrintStyles(),
-      width: 520,
-      height: 800,
+      styles: a4PrintStyles(),
+      width: 860,
+      height: 1140,
       includeAppStyles: true,
     });
   };

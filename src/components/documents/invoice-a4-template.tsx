@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { forwardRef } from "react";
 import { QRCodeSVG } from "qrcode.react";
@@ -6,11 +6,10 @@ import { QRCodeSVG } from "qrcode.react";
 import {
   DOC_FONT_STACK,
   DOC_INK,
+  DOC_PAGE_A4,
   PAYMENT_LABELS,
   formatDocMoney,
-  getDocPage,
   invoicePaymentStatusMeta,
-  type DocPaperSize,
 } from "@/components/documents/brand";
 import { DocBrandHeader, DocTitleBand } from "@/components/documents/doc-chrome";
 import { DocScheduleBlock } from "@/components/documents/doc-order-meta";
@@ -25,7 +24,7 @@ import type {
   Settings,
 } from "@/types";
 
-interface InvoiceA5TemplateProps {
+interface InvoiceA4TemplateProps {
   invoice: Invoice;
   order: Order;
   settings: Settings;
@@ -33,15 +32,13 @@ interface InvoiceA5TemplateProps {
   payments: Payment[];
   qrPayload: string | null;
   event?: Event | null;
-  /** Formal paper size — A5 compact or A4 full */
-  paperSize?: DocPaperSize;
 }
 
-/** Formal invoice — white paper + gold accents (A4 or A5) */
-export const InvoiceA5Template = forwardRef<
+/** Formal A4 invoice — true 210×297mm, gold accents, print-ready */
+export const InvoiceA4Template = forwardRef<
   HTMLDivElement,
-  InvoiceA5TemplateProps
->(function InvoiceA5Template(
+  InvoiceA4TemplateProps
+>(function InvoiceA4Template(
   {
     invoice,
     order,
@@ -50,12 +47,9 @@ export const InvoiceA5Template = forwardRef<
     payments,
     qrPayload,
     event = null,
-    paperSize = "a5",
   },
   ref,
 ) {
-  const page = getDocPage(paperSize);
-  const compact = paperSize === "a5";
   const balance = Math.max(0, order.total - order.paidAmount);
   const paymentMeta = invoicePaymentStatusMeta(order.paymentStatus);
   const customerName =
@@ -66,10 +60,10 @@ export const InvoiceA5Template = forwardRef<
   return (
     <div
       ref={ref}
-      className={`doc-shell overflow-hidden bg-white leading-relaxed ${compact ? "text-[11px]" : "text-[12px]"}`}
+      className="doc-shell overflow-hidden bg-white text-[12.5px] leading-relaxed"
       style={{
-        width: page.width,
-        minHeight: page.minHeight,
+        width: DOC_PAGE_A4.width,
+        minHeight: DOC_PAGE_A4.minHeight,
         color: DOC_INK.text,
         fontFamily: DOC_FONT_STACK,
       }}
@@ -88,14 +82,12 @@ export const InvoiceA5Template = forwardRef<
               ? "neutral"
               : "warning"
         }
-        compact={compact}
       />
 
-      <div className={compact ? "space-y-3.5 px-5 py-4" : "space-y-5 px-8 py-6"}>
+      <div className="space-y-6 px-9 py-7">
         <DocTitleBand
           titleEn="INVOICE"
           titleAr="فاتورة"
-          compact={compact}
           meta={
             <>
               <p className="font-semibold">طلب {order.orderNumber}</p>
@@ -106,8 +98,8 @@ export const InvoiceA5Template = forwardRef<
           }
         />
 
-        <div className={compact ? "flex gap-4" : "flex gap-6"}>
-          <div className={`space-y-2 ${compact ? "w-[38%]" : "w-[36%]"}`}>
+        <div className="flex gap-7">
+          <div className="w-[36%] space-y-2.5">
             <MetaRow
               label="الإصدار"
               value={formatDate(invoice.createdAt, "dd/MM/yyyy")}
@@ -124,31 +116,25 @@ export const InvoiceA5Template = forwardRef<
               }
             />
             <MetaRow label="العملة" value={settings.currencySymbol} />
-            <MetaRow
-              label="النوع"
-              value={typeLabel}
-              compact
-            />
+            <MetaRow label="النوع" value={typeLabel} />
           </div>
           <div
-            className={`min-w-0 flex-1 rounded-sm ${compact ? "px-2.5 py-1.5" : "px-3 py-2"}`}
+            className="min-w-0 flex-1 rounded-sm px-4 py-3"
             style={{
               borderInlineStart: `3px solid ${DOC_INK.gold}`,
               background: DOC_INK.paleGold,
             }}
           >
             <p
-              className="text-[9px] font-extrabold tracking-wide"
+              className="text-[10px] font-extrabold tracking-wide"
               style={{ color: DOC_INK.goldDeep }}
             >
               إلى السيد / السادة
             </p>
-            <p className={`mt-1 font-extrabold ${compact ? "text-[12px]" : "text-[13px]"}`}>
-              {customerName}
-            </p>
+            <p className="mt-1.5 text-[15px] font-extrabold">{customerName}</p>
             {customerPhone ? (
               <p
-                className={`num-ltr mt-0.5 tabular-nums ${compact ? "text-[9px]" : "text-[10px]"}`}
+                className="num-ltr mt-1 text-[11px] tabular-nums"
                 style={{ color: DOC_INK.muted }}
               >
                 {customerPhone}
@@ -157,14 +143,9 @@ export const InvoiceA5Template = forwardRef<
           </div>
         </div>
 
-        <DocScheduleBlock
-          order={order}
-          event={event}
-          settings={settings}
-          compact={compact}
-        />
+        <DocScheduleBlock order={order} event={event} settings={settings} />
 
-        <table className={`w-full border-collapse ${compact ? "text-[10px]" : "text-[11px]"}`}>
+        <table className="w-full border-collapse text-[11.5px]">
           <thead>
             <tr
               style={{
@@ -173,16 +154,14 @@ export const InvoiceA5Template = forwardRef<
                 borderBottom: `2px solid ${DOC_INK.gold}`,
               }}
             >
-              <th className={`text-start font-extrabold ${compact ? "px-2 py-2" : "px-3 py-3"}`}>
-                الصنف
-              </th>
-              <th className={`text-center font-extrabold ${compact ? "w-12 px-1 py-2" : "w-16 px-2 py-3"}`}>
+              <th className="px-3 py-3 text-start font-extrabold">الصنف</th>
+              <th className="w-16 px-2 py-3 text-center font-extrabold">
                 الكمية
               </th>
-              <th className={`text-center font-extrabold ${compact ? "w-16 px-1 py-2" : "w-20 px-2 py-3"}`}>
+              <th className="w-24 px-2 py-3 text-center font-extrabold">
                 السعر
               </th>
-              <th className={`text-end font-extrabold ${compact ? "w-[72px] px-2 py-2" : "w-28 px-3 py-3"}`}>
+              <th className="w-28 px-3 py-3 text-end font-extrabold">
                 الإجمالي
               </th>
             </tr>
@@ -196,25 +175,23 @@ export const InvoiceA5Template = forwardRef<
                   borderBottom: `1px solid ${DOC_INK.border}`,
                 }}
               >
-                <td className={compact ? "px-2 py-2" : "px-3 py-3"}>
+                <td className="px-3 py-3">
                   <p className="font-bold">{item.productNameAr}</p>
                   {item.notes ? (
-                    <p className="text-[10px]" style={{ color: DOC_INK.faint }}>
+                    <p className="mt-0.5 text-[10px]" style={{ color: DOC_INK.faint }}>
                       {item.notes}
                     </p>
                   ) : null}
                 </td>
-                <td className={`text-center tabular-nums font-semibold ${compact ? "px-1 py-2" : "px-2 py-3"}`}>
+                <td className="px-2 py-3 text-center font-semibold tabular-nums">
                   {item.quantity}
                 </td>
-                <td className={`text-center tabular-nums ${compact ? "px-1 py-2" : "px-2 py-3"}`}>
+                <td className="px-2 py-3 text-center tabular-nums">
                   <span className="money-ar">
                     {formatDocMoney(item.unitPrice, settings.currencySymbol)}
                   </span>
                 </td>
-                <td
-                  className={`text-end tabular-nums font-extrabold ${compact ? "px-2 py-2" : "px-3 py-3"}`}
-                >
+                <td className="px-3 py-3 text-end font-extrabold tabular-nums">
                   <span className="money-ar">
                     {formatDocMoney(item.total, settings.currencySymbol)}
                   </span>
@@ -225,10 +202,10 @@ export const InvoiceA5Template = forwardRef<
         </table>
 
         <div
-          className={`ms-auto overflow-hidden rounded-sm ${compact ? "w-[60%] text-[10px]" : "w-[48%] text-[12px]"}`}
+          className="ms-auto w-[46%] overflow-hidden rounded-sm text-[12px]"
           style={{ border: `1px solid ${DOC_INK.border}` }}
         >
-          <div className={`space-y-1 ${compact ? "px-3 py-2" : "px-4 py-3"}`}>
+          <div className="space-y-1.5 px-4 py-3.5">
             <TotalRow
               label="المجموع الفرعي"
               value={formatDocMoney(order.subtotal, settings.currencySymbol)}
@@ -257,7 +234,7 @@ export const InvoiceA5Template = forwardRef<
             ) : null}
           </div>
           <div
-            className={`flex justify-between font-extrabold ${compact ? "px-3 py-2 text-[12px]" : "px-4 py-3 text-[14px]"}`}
+            className="flex justify-between px-4 py-3.5 text-[15px] font-extrabold"
             style={{
               background: DOC_INK.paleGold,
               borderTop: `2px solid ${DOC_INK.gold}`,
@@ -269,7 +246,7 @@ export const InvoiceA5Template = forwardRef<
               {formatDocMoney(order.total, settings.currencySymbol)}
             </span>
           </div>
-          <div className={`space-y-1 ${compact ? "px-3 py-2" : "px-4 py-3"}`}>
+          <div className="space-y-1.5 px-4 py-3.5">
             <TotalRow
               label="المدفوع"
               value={formatDocMoney(order.paidAmount, settings.currencySymbol)}
@@ -290,11 +267,11 @@ export const InvoiceA5Template = forwardRef<
 
         {payments.length > 0 ? (
           <div
-            className={`rounded-sm border ${compact ? "px-3 py-2 text-[9px]" : "px-4 py-3 text-[11px]"}`}
+            className="rounded-sm border px-4 py-3.5 text-[11px]"
             style={{ borderColor: DOC_INK.border, background: DOC_INK.zebra }}
           >
             <p
-              className="mb-2 font-extrabold"
+              className="mb-2.5 font-extrabold"
               style={{ color: DOC_INK.goldDeep }}
             >
               عمليات الدفع
@@ -302,14 +279,14 @@ export const InvoiceA5Template = forwardRef<
             {payments.map((payment) => (
               <div
                 key={payment.id}
-                className="flex justify-between gap-2 py-0.5"
+                className="flex justify-between gap-2 py-1"
                 style={{ color: DOC_INK.muted }}
               >
                 <span>
                   {PAYMENT_LABELS[payment.method]} ·{" "}
                   {formatDateTime(payment.createdAt)}
                 </span>
-                <span className="money-ar tabular-nums font-semibold">
+                <span className="money-ar font-semibold tabular-nums">
                   {formatDocMoney(payment.amount, settings.currencySymbol)}
                 </span>
               </div>
@@ -319,7 +296,7 @@ export const InvoiceA5Template = forwardRef<
 
         {order.notes ? (
           <div
-            className={`rounded-sm ${compact ? "px-3 py-2 text-[10px]" : "px-4 py-3 text-[12px]"}`}
+            className="rounded-sm px-4 py-3.5 text-[12px]"
             style={{
               background: DOC_INK.paleGold,
               borderInlineStart: `3px solid ${DOC_INK.gold}`,
@@ -328,39 +305,64 @@ export const InvoiceA5Template = forwardRef<
             <p className="font-extrabold" style={{ color: DOC_INK.text }}>
               ملاحظات
             </p>
-            <p className="mt-1" style={{ color: DOC_INK.muted }}>
+            <p className="mt-1.5" style={{ color: DOC_INK.muted }}>
               {order.notes}
             </p>
           </div>
         ) : null}
 
         <footer
-          className={`flex items-end justify-between gap-4 border-t ${compact ? "pt-3" : "pt-5"}`}
+          className="flex items-end justify-between gap-6 border-t pt-6"
           style={{ borderColor: DOC_INK.border }}
         >
           <div className="min-w-0 flex-1">
             <div
-              className="mb-2 h-[2px] w-20"
+              className="mb-2.5 h-[2.5px] w-24"
               style={{ background: DOC_INK.gold }}
             />
-            <p className={`font-bold ${compact ? "text-[10px]" : "text-[12px]"}`} style={{ color: DOC_INK.text }}>
+            <p className="text-[12px] font-bold" style={{ color: DOC_INK.text }}>
               {settings.invoiceFooter}
             </p>
-            <p className="mt-1.5 text-[10px]" style={{ color: DOC_INK.faint }}>
-              وثيقة رسمية — يُعتد بالنسخ المطبوعة الموثّقة فقط · Valentino
+            <p className="mt-2 text-[10px]" style={{ color: DOC_INK.faint }}>
+              وثيقة رسمية A4 — يُعتد بالنسخ المطبوعة الموثّقة فقط · Valentino
             </p>
+            <div className="mt-8 grid grid-cols-2 gap-10">
+              <div>
+                <p className="mb-8 text-[11px] font-bold" style={{ color: DOC_INK.muted }}>
+                  البائع
+                </p>
+                <div
+                  className="border-t pt-1.5 text-[10px]"
+                  style={{ borderColor: DOC_INK.goldLine, color: DOC_INK.faint }}
+                >
+                  الاسم والتوقيع
+                </div>
+              </div>
+              <div>
+                <p className="mb-8 text-[11px] font-bold" style={{ color: DOC_INK.muted }}>
+                  المستلم
+                </p>
+                <div
+                  className="border-t pt-1.5 text-[10px]"
+                  style={{ borderColor: DOC_INK.goldLine, color: DOC_INK.faint }}
+                >
+                  الاسم والتوقيع
+                </div>
+              </div>
+            </div>
           </div>
           {qrPayload ? (
             <div
-              className="rounded-sm p-1.5"
+              className="rounded-sm p-2"
               style={{ border: `1px solid ${DOC_INK.goldLine}` }}
             >
-              <QRCodeSVG
-                value={qrPayload}
-                size={compact ? 68 : 88}
-                level="M"
-                includeMargin
-              />
+              <QRCodeSVG value={qrPayload} size={96} level="M" includeMargin />
+              <p
+                className="mt-1.5 text-center text-[9px] font-semibold"
+                style={{ color: DOC_INK.faint }}
+              >
+                رمز التحقق
+              </p>
             </div>
           ) : null}
         </footer>
@@ -373,17 +375,13 @@ function MetaRow({
   label,
   value,
   valueColor,
-  compact = false,
 }: {
   label: string;
   value: string;
   valueColor?: string;
-  compact?: boolean;
 }) {
   return (
-    <div
-      className={`flex justify-between gap-2 ${compact ? "text-[9px]" : "text-[11px]"}`}
-    >
+    <div className="flex justify-between gap-2 text-[11px]">
       <span style={{ color: DOC_INK.faint }}>{label}</span>
       <span
         className="font-bold tabular-nums"
@@ -402,9 +400,7 @@ function TotalRow({ label, value }: { label: string; value: string }) {
       style={{ color: DOC_INK.muted }}
     >
       <span>{label}</span>
-      <span className="money-ar tabular-nums font-semibold">
-        {value}
-      </span>
+      <span className="money-ar font-semibold tabular-nums">{value}</span>
     </div>
   );
 }

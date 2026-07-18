@@ -2,7 +2,7 @@ import { toast } from "sonner";
 
 import { DOC_FONT_STACK } from "@/components/documents/brand";
 
-export type PaperFormat = "thermal" | "a5" | "a4";
+export type PaperFormat = "thermal" | "a4";
 
 function docFontFaceCss(origin = ""): string {
   const base = origin.replace(/\/$/, "");
@@ -50,7 +50,7 @@ export function openPrintWindow(options: {
   styles: string;
   width?: number;
   height?: number;
-  /** Pull live Tailwind / app CSS into the print window (needed for A5 templates). */
+  /** Pull live Tailwind / app CSS into the print window (needed for HTML invoice preview). */
   includeAppStyles?: boolean;
   onAfterOpen?: () => void;
 }): boolean {
@@ -111,7 +111,6 @@ export function thermalPrintStyles(paperWidth: 58 | 80): string {
     .line { border-top: 1px dashed #444; margin: 5px 0; }
     .row { display: flex; justify-content: space-between; gap: 6px; margin: 2px 0; direction: rtl; }
     .total { font-size: 1.25em; font-weight: 800; }
-    /* مثل rkeaz: لا نفرض LTR على الصف — يكسر العربية */
     .tabular { font-variant-numeric: tabular-nums; }
     .money-ar { font-variant-numeric: tabular-nums; white-space: nowrap; }
     .num-ltr { direction: ltr; unicode-bidi: isolate; display: inline-block; }
@@ -130,6 +129,7 @@ export function thermalPrintStyles(paperWidth: 58 | 80): string {
   `;
 }
 
+/** True ISO A4 portrait — vector-sharp colors for print */
 export function a4PrintStyles(): string {
   return `
     @page { size: A4 portrait; margin: 0; }
@@ -142,6 +142,7 @@ export function a4PrintStyles(): string {
       font-family: ${DOC_FONT_STACK};
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+      color-adjust: exact;
     }
     .doc-shell {
       width: 210mm;
@@ -150,38 +151,21 @@ export function a4PrintStyles(): string {
       background: #fff;
       font-family: ${DOC_FONT_STACK};
     }
+    .money-ar { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .num-ltr { direction: ltr; unicode-bidi: isolate; display: inline-block; }
     @media print {
-      .doc-shell { width: 210mm; min-height: 297mm; box-shadow: none !important; border: 0 !important; }
+      html, body { width: 210mm; height: 297mm; }
+      .doc-shell {
+        width: 210mm;
+        min-height: 297mm;
+        box-shadow: none !important;
+        border: 0 !important;
+      }
     }
   `;
 }
 
-export function a5PrintStyles(): string {
-  return `
-    @page { size: A5 portrait; margin: 0; }
-    * { box-sizing: border-box; }
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: #fff;
-      color: #1F1F1F;
-      font-family: ${DOC_FONT_STACK};
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    .doc-shell {
-      width: 148mm;
-      min-height: 210mm;
-      margin: 0 auto;
-      background: #fff;
-      font-family: ${DOC_FONT_STACK};
-    }
-    @media print {
-      .doc-shell { width: 148mm; min-height: 210mm; box-shadow: none !important; border: 0 !important; }
-    }
-  `;
-}
-
-export function paperPrintStyles(size: "a4" | "a5"): string {
-  return size === "a5" ? a5PrintStyles() : a4PrintStyles();
+/** @deprecated use a4PrintStyles — formal paper is A4 only */
+export function paperPrintStyles(_size: "a4" = "a4"): string {
+  return a4PrintStyles();
 }

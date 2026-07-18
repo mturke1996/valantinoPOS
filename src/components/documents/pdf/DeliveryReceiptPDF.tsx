@@ -49,7 +49,7 @@ export function DeliveryReceiptPDF({
   hidePrices = false,
   logoUri,
 }: DeliveryReceiptPdfProps) {
-  const s = makePdfStyles(false);
+  const s = makePdfStyles();
   const currency = settings.currencySymbol;
   const recipient =
     order.deliveryRecipientName ?? customer?.name ?? "مستلم";

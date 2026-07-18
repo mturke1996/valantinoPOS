@@ -30,7 +30,7 @@ export function ZReportPDF({
   cashierName,
   logoUri,
 }: ZReportPdfProps) {
-  const s = makePdfStyles(true);
+  const s = makePdfStyles();
   const currency = settings.currencySymbol;
   const closed = shift.status === "closed";
 
@@ -76,7 +76,7 @@ export function ZReportPDF({
       author={settings.branchName}
       language="ar"
     >
-      <Page size="A5" style={s.page}>
+      <Page size="A4" style={s.page}>
         <PdfDocFooter s={s} note="تقرير إغلاق وردية — للاستخدام الداخلي" />
         <PdfDocHeader
           s={s}

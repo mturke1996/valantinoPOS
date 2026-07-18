@@ -54,9 +54,9 @@ description: Build and improve Arabic RTL PDFs for Valentino POS with @react-pdf
 
 ## Layout
 
-- Page chrome: `PdfDocHeader` / `PdfDocFooter` / `makePdfStyles(compact)`
-- Pagination reserves: `PDF_PAGINATION` (aligned with rkeaz-group)
-- A5 vs A4: `paperSize` + `makePdfStyles(paperSize === "A5")`
+- Page chrome: `PdfDocHeader` / `PdfDocFooter` / `makePdfStyles()` (premium A4)
+- Pagination reserves: `PDF_PAGINATION` (aligned with Etlala / rkeaz-group)
+- Formal paper is **A4 only** (`Page size="A4"`); thermal remains separate
 
 ## Do / Don't
 

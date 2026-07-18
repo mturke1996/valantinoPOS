@@ -73,9 +73,9 @@ export async function createReactPdf(
   };
 }
 
-/** Map UI paper size to react-pdf page size */
-export function toPdfPaperSize(size: "a4" | "a5"): PdfPaperSize {
-  return size === "a5" ? "A5" : "A4";
+/** Map UI paper size to react-pdf page size — formal docs are A4 only */
+export function toPdfPaperSize(_size: "a4" = "a4"): PdfPaperSize {
+  return "A4";
 }
 
 /** Dynamic PDF component factories — keep @react-pdf out of dialog initial chunks. */

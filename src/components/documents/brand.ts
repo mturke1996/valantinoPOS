@@ -2,7 +2,7 @@ import type { PaymentStatus, Settings } from "@/types";
 
 /**
  * Clean white document system — gold accents matched to logo (#CCA850).
- * No black fills; professional paper look.
+ * Formal documents are true A4 (210×297mm) print-ready.
  */
 export const DOC_INK = {
   text: "#1F1F1F",
@@ -24,24 +24,19 @@ export const DOC_INK = {
   mist: "#FCFCFD",
 } as const;
 
-/** Paper sizes for formal documents */
+/** True ISO A4 — printable formal documents */
 export const DOC_PAGE_A4 = {
   width: "210mm",
   minHeight: "297mm",
 } as const;
 
-export const DOC_PAGE_A5 = {
-  width: "148mm",
-  minHeight: "210mm",
-} as const;
-
-/** @deprecated prefer DOC_PAGE_A4 / DOC_PAGE_A5 */
+/** @deprecated use DOC_PAGE_A4 */
 export const DOC_PAGE = DOC_PAGE_A4;
 
-export type DocPaperSize = "a4" | "a5";
+export type DocPaperSize = "a4";
 
-export function getDocPage(size: DocPaperSize = "a4") {
-  return size === "a5" ? DOC_PAGE_A5 : DOC_PAGE_A4;
+export function getDocPage(_size: DocPaperSize = "a4") {
+  return DOC_PAGE_A4;
 }
 
 /** Transparent / gold logo for white paper */
@@ -51,7 +46,6 @@ function isUsableLogoUrl(url: string | null | undefined): url is string {
   if (!url || !url.trim()) return false;
   const trimmed = url.trim();
   if (trimmed.includes("valentino-logo")) return true;
-  // Remote / data URIs are OK (PDF allowlist still applies at fetch time).
   if (
     trimmed.startsWith("data:") ||
     trimmed.startsWith("http://") ||
@@ -59,7 +53,6 @@ function isUsableLogoUrl(url: string | null | undefined): url is string {
   ) {
     return true;
   }
-  // Local assets must live under /images/ — blocks stale paths like /TajMall-Icon.jpg
   if (trimmed.startsWith("/images/")) return true;
   return false;
 }

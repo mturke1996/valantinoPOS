@@ -45,7 +45,7 @@ export function PurchaseOrderPDF({
   settings,
   logoUri,
 }: PurchaseOrderPdfProps) {
-  const s = makePdfStyles(false);
+  const s = makePdfStyles();
   const currency = settings.currencySymbol;
   const statusLabel =
     PO_STATUS_LABELS[purchaseOrder.status] ?? purchaseOrder.status;

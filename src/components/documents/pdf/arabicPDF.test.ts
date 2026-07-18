@@ -73,9 +73,9 @@ describe("arabicPDF", () => {
 });
 
 describe("toPdfPaperSize", () => {
-  it("maps ui sizes to react-pdf sizes", () => {
-    expect(toPdfPaperSize("a5")).toBe("A5");
+  it("maps formal paper to A4 only", () => {
     expect(toPdfPaperSize("a4")).toBe("A4");
+    expect(toPdfPaperSize()).toBe("A4");
   });
 });
 

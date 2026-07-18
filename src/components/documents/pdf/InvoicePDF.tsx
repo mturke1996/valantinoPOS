@@ -24,11 +24,13 @@ import {
 import {
   INK,
   PDF_PAGINATION,
+  PdfContinuationBanner,
   PdfDocFooter,
   PdfDocHeader,
   PdfLtrText,
   PdfMoneyText,
   PdfNotesBox,
+  PdfSignatureRow,
   makePdfStyles,
   type PdfPaperSize,
 } from "@/components/documents/pdf/pdfKit";
@@ -42,10 +44,10 @@ import type {
 } from "@/types";
 
 const INVOICE_COLUMNS: PdfColumn[] = [
-  { key: "desc", label: "الصنف", flex: 3.2, kind: "multiline", bold: true },
+  { key: "desc", label: "الصنف", flex: 3.4, kind: "multiline", bold: true },
   { key: "qty", label: "الكمية", flex: 0.9, kind: "num" },
-  { key: "price", label: "السعر", flex: 1.3, kind: "money" },
-  { key: "total", label: "الإجمالي", flex: 1.4, kind: "money" },
+  { key: "price", label: "السعر", flex: 1.25, kind: "money" },
+  { key: "total", label: "الإجمالي", flex: 1.35, kind: "money" },
 ];
 
 const STATUS_INK = {
@@ -62,6 +64,7 @@ export interface InvoicePdfProps {
   customer: Customer | null;
   payments: Payment[];
   event?: Event | null;
+  /** Always A4 — kept for API compatibility */
   paperSize?: PdfPaperSize;
   logoUri?: string | null;
   qrUri?: string | null;
@@ -74,12 +77,10 @@ export function InvoicePDF({
   customer,
   payments,
   event = null,
-  paperSize = "A4",
   logoUri,
   qrUri,
 }: InvoicePdfProps) {
-  const compact = paperSize === "A5";
-  const s = makePdfStyles(compact);
+  const s = makePdfStyles();
   const balance = Math.max(0, order.total - order.paidAmount);
   const paymentMeta = invoicePaymentStatusMeta(order.paymentStatus);
   const statusColor = STATUS_INK[paymentMeta.tone];
@@ -101,7 +102,8 @@ export function InvoicePDF({
       author={settings.branchName}
       language="ar"
     >
-      <Page size={paperSize} style={s.page}>
+      <Page size="A4" style={s.page}>
+        <PdfContinuationBanner label="تتمة الفاتورة · Valentino" />
         <PdfDocFooter
           s={s}
           note={
@@ -125,8 +127,8 @@ export function InvoicePDF({
             flexDirection: "row-reverse",
             justifyContent: "space-between",
             alignItems: "flex-end",
-            marginBottom: compact ? 5 : 6,
-            paddingBottom: 4,
+            marginBottom: 12,
+            paddingBottom: 8,
             borderBottomWidth: 1,
             borderBottomColor: INK.goldLine,
           }}
@@ -135,32 +137,32 @@ export function InvoicePDF({
           <View style={{ alignItems: "flex-end" }}>
             <Text
               style={{
-                fontSize: 7,
+                fontSize: 8,
                 fontWeight: 700,
                 color: INK.goldDeep,
                 fontFamily: s.page.fontFamily,
-                letterSpacing: 0.8,
+                letterSpacing: 1,
               }}
             >
               INVOICE
             </Text>
             <Text
               style={{
-                fontSize: compact ? 11 : 12,
+                fontSize: 16,
                 fontWeight: 700,
                 color: INK.text,
                 fontFamily: s.page.fontFamily,
-                marginTop: 1,
+                marginTop: 2,
               }}
             >
               {ar("فاتورة")}
             </Text>
           </View>
           <View style={{ alignItems: "flex-start" }}>
-            <Text style={[s.tdBold, { fontSize: 7.5 }]}>
+            <Text style={[s.tdBold, { fontSize: 10 }]}>
               {ar("طلب")} {ltr(order.orderNumber)}
             </Text>
-            <Text style={[s.td, { color: INK.muted, marginTop: 1, fontSize: 6.5 }]}>
+            <Text style={[s.td, { color: INK.muted, marginTop: 2, fontSize: 8 }]}>
               {arDateTime(invoice.createdAt)}
             </Text>
           </View>
@@ -174,17 +176,17 @@ export function InvoicePDF({
             </View>
             <View style={s.dateRow}>
               <Text style={s.dateLabel}>{ar("الطلب")}</Text>
-              <PdfLtrText size={7} bold style={s.dateVal}>
+              <PdfLtrText size={9} bold style={s.dateVal}>
                 {order.orderNumber}
               </PdfLtrText>
             </View>
             <View style={s.dateRow}>
               <Text style={s.dateLabel}>{ar("النوع")}</Text>
-              <Text style={[s.dateVal, { fontSize: 6.5 }]}>{ar(typeLabel)}</Text>
+              <Text style={s.dateVal}>{ar(typeLabel)}</Text>
             </View>
             <View style={s.dateRow}>
               <Text style={s.dateLabel}>{ar("الحالة")}</Text>
-              <Text style={[s.dateVal, { color: statusColor, fontSize: 6.5 }]}>
+              <Text style={[s.dateVal, { color: statusColor }]}>
                 {ar(paymentMeta.short)}
               </Text>
             </View>
@@ -193,7 +195,7 @@ export function InvoicePDF({
             <Text style={s.clientLbl}>{ar("إلى السيد / السادة")}</Text>
             <Text style={s.clientName}>{ar(customerName)}</Text>
             {customerPhone ? (
-              <PdfLtrText size={6.5} color={INK.muted} style={s.clientSub}>
+              <PdfLtrText size={8.5} color={INK.muted} style={s.clientSub}>
                 {customerPhone}
               </PdfLtrText>
             ) : null}
@@ -205,7 +207,7 @@ export function InvoicePDF({
             <View style={s.scheduleHead}>
               <Text
                 style={{
-                  fontSize: 6.5,
+                  fontSize: 8.5,
                   fontWeight: 700,
                   color: INK.goldDeep,
                   fontFamily: s.page.fontFamily,
@@ -215,7 +217,7 @@ export function InvoicePDF({
               </Text>
               <Text
                 style={{
-                  fontSize: 6,
+                  fontSize: 8,
                   fontWeight: 700,
                   color: INK.goldDeep,
                   fontFamily: s.page.fontFamily,
@@ -228,7 +230,7 @@ export function InvoicePDF({
               <View style={{ alignItems: "flex-end", flex: 1 }}>
                 <Text
                   style={{
-                    fontSize: compact ? 8 : 8.5,
+                    fontSize: 11,
                     fontWeight: 700,
                     color: INK.text,
                     fontFamily: s.page.fontFamily,
@@ -243,10 +245,10 @@ export function InvoicePDF({
                 {addressHint ? (
                   <Text
                     style={{
-                      fontSize: 6,
+                      fontSize: 8,
                       color: INK.muted,
                       fontFamily: s.page.fontFamily,
-                      marginTop: 1,
+                      marginTop: 3,
                       textAlign: "right",
                     }}
                   >
@@ -259,11 +261,11 @@ export function InvoicePDF({
         ) : addressHint ? (
           <Text
             style={{
-              fontSize: 6,
+              fontSize: 8.5,
               color: INK.muted,
               fontFamily: s.page.fontFamily,
               textAlign: "right",
-              marginBottom: 4,
+              marginBottom: 8,
             }}
           >
             {ar(addressHint)}
@@ -273,7 +275,6 @@ export function InvoicePDF({
         <PdfTable
           columns={INVOICE_COLUMNS}
           currency={currency}
-          compact
           repeatHeader
           emptyMessage="لا توجد أصناف في هذه الفاتورة"
           rows={order.items.map((item) => ({
@@ -350,29 +351,24 @@ export function InvoicePDF({
         </View>
 
         {payments.length > 0 ? (
-          <View style={{ marginTop: 6 }} wrap={false}>
-            <Text style={[s.sectionTitle, { marginTop: 4, marginBottom: 3, fontSize: 8 }]}>
-              {ar("عمليات الدفع")}
-            </Text>
+          <View style={{ marginTop: 12 }} wrap={false}>
+            <Text style={s.sectionTitle}>{ar("عمليات الدفع")}</Text>
             {payments.map((payment) => (
               <View
                 key={payment.id}
                 style={{
                   flexDirection: "row-reverse",
                   justifyContent: "space-between",
-                  marginBottom: 1,
+                  marginBottom: 4,
+                  paddingVertical: 2,
                 }}
               >
-                <Text style={[s.td, { color: INK.muted, fontSize: 6.5 }]}>
+                <Text style={[s.td, { color: INK.muted, fontSize: 8.5 }]}>
                   {ar(PAYMENT_LABELS[payment.method] ?? payment.method)}
                   {" · "}
                   {arDateTime(payment.createdAt)}
                 </Text>
-                <PdfMoneyText
-                  amount={payment.amount}
-                  currency={currency}
-                  style={{ fontSize: 7.5 }}
-                />
+                <PdfMoneyText amount={payment.amount} currency={currency} />
               </View>
             ))}
           </View>
@@ -384,28 +380,46 @@ export function InvoicePDF({
           </PdfNotesBox>
         ) : null}
 
-        {qrUri ? (
-          <View
-            style={{
-              marginTop: 6,
-              alignItems: "flex-start",
-              alignSelf: "flex-start",
-            }}
-            wrap={false}
-          >
-            {/* eslint-disable-next-line jsx-a11y/alt-text */}
-            <Image
-              src={qrUri}
-              style={{
-                width: 48,
-                height: 48,
-                borderWidth: 0.5,
-                borderColor: INK.goldLine,
-                padding: 2,
-              }}
-            />
+        <View
+          style={{
+            marginTop: 18,
+            flexDirection: "row-reverse",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
+          }}
+          wrap={false}
+        >
+          {qrUri ? (
+            <View style={{ alignItems: "center" }}>
+              {/* eslint-disable-next-line jsx-a11y/alt-text */}
+              <Image
+                src={qrUri}
+                style={{
+                  width: 72,
+                  height: 72,
+                  borderWidth: 1,
+                  borderColor: INK.goldLine,
+                  padding: 3,
+                }}
+              />
+              <Text
+                style={{
+                  fontSize: 7.5,
+                  color: INK.faint,
+                  marginTop: 4,
+                  fontFamily: s.page.fontFamily,
+                }}
+              >
+                {ar("رمز التحقق")}
+              </Text>
+            </View>
+          ) : (
+            <View />
+          )}
+          <View style={{ width: "55%" }}>
+            <PdfSignatureRow s={s} left="المستلم" right="البائع" />
           </View>
-        ) : null}
+        </View>
       </Page>
     </Document>
   );
