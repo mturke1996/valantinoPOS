@@ -443,6 +443,89 @@ export function makePdfStyles() {
       color: INK.text,
       textAlign: "right",
     },
+    metaStrip: {
+      flexDirection: "row-reverse",
+      flexWrap: "wrap",
+      alignItems: "center",
+      justifyContent: "flex-start",
+      gap: 6,
+      marginBottom: 10,
+      paddingVertical: 7,
+      paddingHorizontal: 10,
+      backgroundColor: INK.paleGold,
+      borderWidth: 1,
+      borderColor: INK.goldLine,
+      borderRadius: 2,
+    },
+    metaChip: {
+      flexDirection: "row-reverse",
+      alignItems: "center",
+      gap: 4,
+      paddingVertical: 3,
+      paddingHorizontal: 7,
+      backgroundColor: INK.white,
+      borderWidth: 1,
+      borderColor: INK.border,
+      borderRadius: 2,
+    },
+    metaChipLabel: {
+      fontSize: 7,
+      fontWeight: 700,
+      fontFamily: PDF_FONT_FAMILY,
+      color: INK.goldDeep,
+      textAlign: "right",
+    },
+    metaChipValue: {
+      fontSize: 8,
+      fontWeight: 700,
+      fontFamily: PDF_FONT_FAMILY,
+      color: INK.text,
+      textAlign: "right",
+    },
+    itemDescWrap: {
+      alignItems: "flex-end",
+      gap: 3,
+    },
+    itemName: {
+      fontSize: 9,
+      fontWeight: 700,
+      fontFamily: PDF_FONT_FAMILY,
+      color: INK.text,
+      textAlign: "right",
+      lineHeight: 1.4,
+    },
+    itemNoteRow: {
+      flexDirection: "row-reverse",
+      alignItems: "flex-start",
+      gap: 5,
+      marginTop: 2,
+      paddingTop: 3,
+      paddingBottom: 1,
+      borderTopWidth: 1,
+      borderTopColor: INK.goldLine,
+      width: "100%",
+    },
+    itemNoteBadge: {
+      backgroundColor: INK.gold,
+      paddingHorizontal: 5,
+      paddingVertical: 2,
+      borderRadius: 2,
+    },
+    itemNoteBadgeText: {
+      fontSize: 6.5,
+      fontWeight: 700,
+      fontFamily: PDF_FONT_FAMILY,
+      color: INK.white,
+      textAlign: "center",
+    },
+    itemNoteText: {
+      flex: 1,
+      fontSize: 7.5,
+      fontFamily: PDF_FONT_FAMILY,
+      color: INK.muted,
+      textAlign: "right",
+      lineHeight: 1.5,
+    },
     kvSectionTitle: {
       fontSize: 9,
       fontWeight: 700,
@@ -651,6 +734,63 @@ export function PdfMoneyText({
   );
 }
 
+export interface PdfMetaChip {
+  key: string;
+  label: string;
+  value: string;
+  color?: string;
+  ltr?: boolean;
+}
+
+export function PdfMetaStrip({
+  s,
+  chips,
+}: {
+  s: ReturnType<typeof makePdfStyles>;
+  chips: PdfMetaChip[];
+}) {
+  if (chips.length === 0) return null;
+
+  return (
+    <View style={s.metaStrip} wrap={false}>
+      {chips.map((chip) => (
+        <View key={chip.key} style={s.metaChip}>
+          <Text style={s.metaChipLabel}>{ar(chip.label)}</Text>
+          <Text style={[s.metaChipValue, chip.color ? { color: chip.color } : {}]}>
+            {chip.ltr ? ltr(chip.value) : arMixed(chip.value)}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+export function PdfItemDescCell({
+  s,
+  name,
+  note,
+}: {
+  s: ReturnType<typeof makePdfStyles>;
+  name: string;
+  note?: string | null;
+}) {
+  const trimmedNote = note?.trim();
+
+  return (
+    <View style={s.itemDescWrap}>
+      <Text style={s.itemName}>{arMixed(name)}</Text>
+      {trimmedNote ? (
+        <View style={s.itemNoteRow}>
+          <View style={s.itemNoteBadge}>
+            <Text style={s.itemNoteBadgeText}>{ar("ملاحظة")}</Text>
+          </View>
+          <Text style={s.itemNoteText}>{arMixed(trimmedNote)}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 export function PdfDocHeader({
   s,
   settings,
@@ -660,6 +800,7 @@ export function PdfDocHeader({
   statusLabel,
   statusColor,
   logoUri,
+  metaChips,
 }: {
   s: ReturnType<typeof makePdfStyles>;
   settings: Settings;
@@ -669,6 +810,7 @@ export function PdfDocHeader({
   statusLabel?: string;
   statusColor?: string;
   logoUri?: string | null;
+  metaChips?: PdfMetaChip[];
 }) {
   const phone = settings.branchPhone?.trim() || "";
   const address = settings.branchAddress?.trim() || "";
@@ -676,6 +818,9 @@ export function PdfDocHeader({
   return (
     <View wrap={false}>
       <View style={s.goldBar} />
+      {metaChips && metaChips.length > 0 ? (
+        <PdfMetaStrip s={s} chips={metaChips} />
+      ) : null}
       <View style={s.headerRow}>
         <View style={s.brandCol}>
           {logoUri ? (

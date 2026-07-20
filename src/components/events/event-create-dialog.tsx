@@ -17,6 +17,7 @@ import {
   NotesComposer,
   PREP_NOTE_SUGGESTIONS,
 } from "@/components/shared/notes-composer";
+import { CartItemNoteField } from "@/components/pos/cart-item-note-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -126,6 +127,7 @@ export function EventCreateDialog({
   const [depositMethod, setDepositMethod] =
     useState<PaymentMethod>("cash");
   const [notes, setNotes] = useState("");
+  const [itemNotes, setItemNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -200,6 +202,7 @@ export function EventCreateDialog({
     setDeposit("");
     setDepositMethod("cash");
     setNotes("");
+    setItemNotes("");
   };
 
   const handleProductChange = (nextProductId: string) => {
@@ -303,6 +306,7 @@ export function EventCreateDialog({
             productId: selectedProduct.id,
             quantity: parsedQuantity,
             unitPrice: parsedUnitPrice,
+            notes: itemNotes.trim() || null,
           },
         ],
         deliveryDate,
@@ -503,6 +507,13 @@ export function EventCreateDialog({
                 />
               </div>
             </div>
+
+            <CartItemNoteField
+              value={itemNotes}
+              onChange={setItemNotes}
+              productName={selectedProduct?.nameAr ?? "المنتج"}
+              pinned
+            />
           </section>
 
           <Separator />

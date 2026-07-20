@@ -41,6 +41,7 @@ import type {
   RoleKey,
   Shift,
   Supplier,
+  UpdateOrderInput,
   Notification,
   UserProfile,
 } from "@/types";
@@ -74,6 +75,7 @@ type StoreSyncAction =
   | "close_shift"
   | "update_batches"
   | "sync_order_items"
+  | "update_order"
   | "update_event_booking"
   | "update_category"
   | "create_return"
@@ -1294,6 +1296,138 @@ export function updateEventBooking(input: {
     event: updatedEvent,
   });
   return { order: updatedOrder, event: updatedEvent };
+}
+
+export function updateOrder(input: UpdateOrderInput): Order | null {
+  const state = getState();
+  const order = state.orders.find(
+    (candidate) => candidate.id === input.orderId && !candidate.deletedAt,
+  );
+  if (!order) return null;
+
+  if (order.status === "cancelled" || order.status === "completed") {
+    throw new Error("لا يمكن تعديل طلب مكتمل أو ملغي");
+  }
+
+  let updatedItems = order.items;
+  if (input.itemNotes?.length) {
+    const patchMap = new Map(
+      input.itemNotes.map((item) => [item.id, item.notes?.trim() || null]),
+    );
+    updatedItems = order.items.map((item) =>
+      patchMap.has(item.id)
+        ? { ...item, notes: patchMap.get(item.id) ?? null }
+        : item,
+    );
+  }
+
+  const nextDeliveryFee =
+    input.deliveryFee !== undefined
+      ? roundMoney(Math.max(0, input.deliveryFee))
+      : order.deliveryFee;
+  const nextTotal = roundMoney(order.total - order.deliveryFee + nextDeliveryFee);
+
+  const updatedOrder: Order = {
+    ...order,
+    items: updatedItems,
+    notes:
+      input.notes !== undefined
+        ? input.notes?.trim() || null
+        : order.notes,
+    deliveryInstructions:
+      input.deliveryInstructions !== undefined
+        ? input.deliveryInstructions?.trim() || null
+        : order.deliveryInstructions,
+    deliveryDate:
+      input.deliveryDate !== undefined
+        ? input.deliveryDate
+        : order.deliveryDate,
+    deliveryTime:
+      input.deliveryTime !== undefined
+        ? input.deliveryTime
+        : order.deliveryTime,
+    deliveryAddress:
+      input.deliveryAddress !== undefined
+        ? input.deliveryAddress?.trim() || null
+        : order.deliveryAddress,
+    deliveryFee: nextDeliveryFee,
+    deliveryZone:
+      input.deliveryZone !== undefined
+        ? input.deliveryZone?.trim() || null
+        : order.deliveryZone,
+    deliveryRecipientName:
+      input.deliveryRecipientName !== undefined
+        ? input.deliveryRecipientName?.trim() || null
+        : order.deliveryRecipientName,
+    deliveryPhone:
+      input.deliveryPhone !== undefined
+        ? input.deliveryPhone?.trim() || null
+        : order.deliveryPhone,
+    total: nextTotal,
+    paymentStatus: resolvePaymentStatus(order.paidAmount, nextTotal),
+    updatedAt: nowISO(),
+  };
+
+  const oldValues: Record<string, unknown> = {};
+  const newValues: Record<string, unknown> = {};
+  if (order.notes !== updatedOrder.notes) {
+    oldValues.notes = order.notes;
+    newValues.notes = updatedOrder.notes;
+  }
+  if (order.deliveryInstructions !== updatedOrder.deliveryInstructions) {
+    oldValues.deliveryInstructions = order.deliveryInstructions;
+    newValues.deliveryInstructions = updatedOrder.deliveryInstructions;
+  }
+  if (order.deliveryDate !== updatedOrder.deliveryDate) {
+    oldValues.deliveryDate = order.deliveryDate;
+    newValues.deliveryDate = updatedOrder.deliveryDate;
+  }
+  if (order.deliveryTime !== updatedOrder.deliveryTime) {
+    oldValues.deliveryTime = order.deliveryTime;
+    newValues.deliveryTime = updatedOrder.deliveryTime;
+  }
+  if (order.deliveryAddress !== updatedOrder.deliveryAddress) {
+    oldValues.deliveryAddress = order.deliveryAddress;
+    newValues.deliveryAddress = updatedOrder.deliveryAddress;
+  }
+  if (order.deliveryFee !== updatedOrder.deliveryFee) {
+    oldValues.deliveryFee = order.deliveryFee;
+    newValues.deliveryFee = updatedOrder.deliveryFee;
+  }
+  if (order.total !== updatedOrder.total) {
+    oldValues.total = order.total;
+    newValues.total = updatedOrder.total;
+  }
+
+  const itemsChanged = updatedItems.some(
+    (item, index) => item.notes !== order.items[index]?.notes,
+  );
+  if (itemsChanged) {
+    newValues.itemNotesUpdated = true;
+  }
+
+  let nextState: AppState = {
+    ...state,
+    orders: state.orders.map((candidate) =>
+      candidate.id === order.id ? updatedOrder : candidate,
+    ),
+  };
+
+  nextState = appendAudit(nextState, {
+    userId: input.changedBy ?? null,
+    action: "order.update",
+    entityType: "order",
+    entityId: order.id,
+    oldValues,
+    newValues,
+  });
+
+  setState(nextState);
+  queueStoreSync("update_order", {
+    order: updatedOrder,
+    items: itemsChanged ? updatedItems : undefined,
+  });
+  return updatedOrder;
 }
 
 export function updateOrderStatus(

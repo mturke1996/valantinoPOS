@@ -18,6 +18,7 @@ export interface SyncQueueItem {
     | "close_shift"
     | "update_batches"
     | "sync_order_items"
+    | "update_order"
     | "update_event_booking"
     | "update_category"
     | "create_return"

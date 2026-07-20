@@ -195,3 +195,47 @@ export function DocGoldRule() {
     />
   );
 }
+
+export interface DocMetaChip {
+  key: string;
+  label: string;
+  value: string;
+  valueColor?: string;
+  ltr?: boolean;
+}
+
+export function DocMetaStrip({ chips }: { chips: DocMetaChip[] }) {
+  if (chips.length === 0) return null;
+
+  return (
+    <div
+      className="flex flex-wrap items-center justify-start gap-2 rounded-sm px-3 py-2.5"
+      style={{
+        background: DOC_INK.paleGold,
+        border: `1px solid ${DOC_INK.goldLine}`,
+      }}
+    >
+      {chips.map((chip) => (
+        <div
+          key={chip.key}
+          className="inline-flex items-center gap-2 rounded-sm bg-white px-2.5 py-1.5"
+          style={{ border: `1px solid ${DOC_INK.border}` }}
+        >
+          <span
+            className="text-[9px] font-extrabold tracking-wide"
+            style={{ color: DOC_INK.goldDeep }}
+          >
+            {chip.label}
+          </span>
+          <span
+            className={`text-[10px] font-bold ${chip.ltr ? "num-ltr tabular-nums" : ""}`}
+            style={{ color: chip.valueColor ?? DOC_INK.text }}
+            dir={chip.ltr ? "ltr" : undefined}
+          >
+            {chip.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}

@@ -13,7 +13,7 @@ function idsFromSyncItem(item: SyncQueueItem): string[] {
     const payload = JSON.parse(item.payload) as Record<string, unknown>;
     const ids: string[] = [];
 
-    if (item.action === "create_order" || item.action === "update_event_booking") {
+    if (item.action === "create_order" || item.action === "update_event_booking" || item.action === "update_order") {
       const order = payload.order as { id?: string } | undefined;
       if (order?.id) ids.push(order.id);
       const event = payload.event as { id?: string } | undefined;

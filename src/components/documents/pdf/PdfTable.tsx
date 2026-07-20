@@ -28,7 +28,7 @@ export type PdfColKind =
   | "multiline"
   | "check";
 
-export type PdfCellValue = string | number;
+export type PdfCellValue = string | number | React.ReactElement;
 
 export type PdfColumn = {
   key: string;
@@ -306,6 +306,16 @@ export function PdfTable({
             {cols.map((c) => {
               const kind = c.kind ?? "text";
               const val = row[c.key] ?? "";
+              if (React.isValidElement(val)) {
+                return (
+                  <View
+                    key={c.key}
+                    style={{ flex: c.flex, paddingHorizontal: CELL_PAD }}
+                  >
+                    {val}
+                  </View>
+                );
+              }
               if (kind === "money") {
                 if (val === "—" || val === "-" || val === "") {
                   return (

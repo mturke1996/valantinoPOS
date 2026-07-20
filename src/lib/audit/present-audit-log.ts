@@ -171,6 +171,8 @@ function buildSummary(
       if (to) return `${entityLabel}: أصبحت إلى ${to}`;
       return `تحديث حالة ${entityLabel}`;
     }
+    case "order.update":
+      return `تم تعديل تفاصيل الطلب ${entityLabel}`;
     case "order.cancel":
       return `تم إلغاء الطلب ${entityLabel}`;
     case "payment.process": {

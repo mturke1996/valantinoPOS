@@ -27,6 +27,7 @@ import {
   PdfContinuationBanner,
   PdfDocFooter,
   PdfDocHeader,
+  PdfItemDescCell,
   PdfLtrText,
   PdfMoneyText,
   PdfNotesSection,
@@ -122,86 +123,47 @@ export function InvoicePDF({
           statusLabel={paymentMeta.label}
           statusColor={statusColor}
           logoUri={logoUri}
+          metaChips={[
+            {
+              key: "issued",
+              label: "الإصدار",
+              value: arDate(invoice.createdAt),
+              ltr: true,
+            },
+            {
+              key: "datetime",
+              label: "التاريخ",
+              value: arDateTime(invoice.createdAt),
+              ltr: true,
+            },
+            {
+              key: "order",
+              label: "الطلب",
+              value: order.orderNumber,
+              ltr: true,
+            },
+            {
+              key: "type",
+              label: "النوع",
+              value: typeLabel,
+            },
+            {
+              key: "status",
+              label: "الحالة",
+              value: paymentMeta.short,
+              color: statusColor,
+            },
+          ]}
         />
 
-        <View
-          style={{
-            flexDirection: "row-reverse",
-            justifyContent: "space-between",
-            alignItems: "flex-end",
-            marginBottom: 12,
-            paddingBottom: 8,
-            borderBottomWidth: 1,
-            borderBottomColor: INK.goldLine,
-          }}
-          wrap={false}
-        >
-          <View style={{ alignItems: "flex-end" }}>
-            <Text
-              style={{
-                fontSize: 8,
-                fontWeight: 700,
-                color: INK.goldDeep,
-                fontFamily: s.page.fontFamily,
-                letterSpacing: 1,
-              }}
-            >
-              INVOICE
-            </Text>
-            <Text
-              style={{
-                fontSize: 16,
-                fontWeight: 700,
-                color: INK.text,
-                fontFamily: s.page.fontFamily,
-                marginTop: 2,
-              }}
-            >
-              {ar("فاتورة")}
-            </Text>
-          </View>
-          <View style={{ alignItems: "flex-start" }}>
-            <Text style={[s.tdBold, { fontSize: 10 }]}>
-              {ar("طلب")} {ltr(order.orderNumber)}
-            </Text>
-            <Text style={[s.td, { color: INK.muted, marginTop: 2, fontSize: 8 }]}>
-              {arDateTime(invoice.createdAt)}
-            </Text>
-          </View>
-        </View>
-
-        <View style={s.infoRow}>
-          <View style={s.datesCol}>
-            <View style={s.dateRow}>
-              <Text style={s.dateLabel}>{ar("الإصدار")}</Text>
-              <Text style={s.dateVal}>{arDate(invoice.createdAt)}</Text>
-            </View>
-            <View style={s.dateRow}>
-              <Text style={s.dateLabel}>{ar("الطلب")}</Text>
-              <PdfLtrText size={9} bold style={s.dateVal}>
-                {order.orderNumber}
-              </PdfLtrText>
-            </View>
-            <View style={s.dateRow}>
-              <Text style={s.dateLabel}>{ar("النوع")}</Text>
-              <Text style={s.dateVal}>{ar(typeLabel)}</Text>
-            </View>
-            <View style={s.dateRow}>
-              <Text style={s.dateLabel}>{ar("الحالة")}</Text>
-              <Text style={[s.dateVal, { color: statusColor }]}>
-                {ar(paymentMeta.short)}
-              </Text>
-            </View>
-          </View>
-          <View style={s.clientBox}>
-            <Text style={s.clientLbl}>{ar("إلى السيد / السادة")}</Text>
-            <Text style={s.clientName}>{ar(customerName)}</Text>
-            {customerPhone ? (
-              <PdfLtrText size={8.5} color={INK.muted} style={s.clientSub}>
-                {customerPhone}
-              </PdfLtrText>
-            ) : null}
-          </View>
+        <View style={[s.clientBox, { marginBottom: 14 }]} wrap={false}>
+          <Text style={s.clientLbl}>{ar("إلى السيد / السادة")}</Text>
+          <Text style={s.clientName}>{ar(customerName)}</Text>
+          {customerPhone ? (
+            <PdfLtrText size={8.5} color={INK.muted} style={s.clientSub}>
+              {customerPhone}
+            </PdfLtrText>
+          ) : null}
         </View>
 
         {hasSchedule ? (
@@ -280,9 +242,13 @@ export function InvoicePDF({
           repeatHeader
           emptyMessage="لا توجد أصناف في هذه الفاتورة"
           rows={order.items.map((item) => ({
-            desc: item.notes
-              ? `${item.productNameAr}\n${item.notes}`
-              : item.productNameAr,
+            desc: (
+              <PdfItemDescCell
+                s={s}
+                name={item.productNameAr}
+                note={item.notes}
+              />
+            ),
             qty: item.quantity,
             price: item.unitPrice,
             total: item.total,

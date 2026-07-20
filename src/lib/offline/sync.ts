@@ -273,6 +273,52 @@ async function runOfflineSyncQueue(): Promise<number> {
       return;
     }
 
+    if (item.action === "update_order") {
+      const order = payload.order as Order;
+      const items = payload.items as OrderItem[] | undefined;
+      const { error: orderError } = await supabase
+        .from("orders")
+        .update({
+          delivery_date: order.deliveryDate,
+          delivery_time: order.deliveryTime,
+          delivery_address: order.deliveryAddress,
+          delivery_fee: order.deliveryFee,
+          delivery_zone: order.deliveryZone,
+          delivery_recipient_name: order.deliveryRecipientName,
+          delivery_phone: order.deliveryPhone,
+          delivery_instructions: order.deliveryInstructions,
+          total: order.total,
+          payment_status: order.paymentStatus,
+          notes: order.notes,
+          updated_at: order.updatedAt,
+        })
+        .eq("id", order.id)
+        .eq("branch_id", syncBranchId);
+      if (orderError) throw orderError;
+
+      if (items?.length) {
+        const { error: itemsError } = await supabase.from("order_items").upsert(
+          items.map((orderItem) => ({
+            id: orderItem.id,
+            branch_id: syncBranchId,
+            order_id: order.id,
+            product_id: orderItem.productId,
+            batch_id: orderItem.batchId,
+            product_name_ar: orderItem.productNameAr,
+            quantity: orderItem.quantity,
+            unit_price: orderItem.unitPrice,
+            discount: orderItem.discount,
+            total: orderItem.total,
+            weight_grams: orderItem.weightGrams,
+            notes: orderItem.notes,
+          })),
+          { onConflict: "id" },
+        );
+        if (itemsError) throw itemsError;
+      }
+      return;
+    }
+
     if (item.action === "process_payment") {
       const payment = payload.payment as Payment;
       const { error } = await supabase.from("payments").upsert(

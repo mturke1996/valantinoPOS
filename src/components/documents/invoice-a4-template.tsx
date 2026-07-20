@@ -11,7 +11,7 @@ import {
   formatDocMoney,
   invoicePaymentStatusMeta,
 } from "@/components/documents/brand";
-import { DocBrandHeader, DocTitleBand } from "@/components/documents/doc-chrome";
+import { DocBrandHeader, DocMetaStrip, DocTitleBand } from "@/components/documents/doc-chrome";
 import { DocumentNotesBlock } from "@/components/documents/document-notes-block";
 import { DocScheduleBlock } from "@/components/documents/doc-order-meta";
 import { orderTypeLabel } from "@/components/documents/order-labels";
@@ -87,63 +87,68 @@ export const InvoiceA4Template = forwardRef<
         }
       />
 
-      <div className="space-y-6 px-9 py-7">
-        <DocTitleBand
-          titleEn="INVOICE"
-          titleAr="فاتورة"
-          meta={
-            <>
-              <p className="font-semibold">طلب {order.orderNumber}</p>
-              <p className="mt-1 tabular-nums">
-                {formatDateTime(invoice.createdAt)}
-              </p>
-            </>
-          }
-        />
-
-        <div className="flex gap-7">
-          <div className="w-[36%] space-y-2.5">
-            <MetaRow
-              label="الإصدار"
-              value={formatDate(invoice.createdAt, "dd/MM/yyyy")}
-            />
-            <MetaRow
-              label="الحالة"
-              value={paymentMeta.short}
-              valueColor={
+      <div className="space-y-5 px-9 py-5">
+        <DocMetaStrip
+          chips={[
+            {
+              key: "issued",
+              label: "الإصدار",
+              value: formatDate(invoice.createdAt, "dd/MM/yyyy"),
+              ltr: true,
+            },
+            {
+              key: "datetime",
+              label: "التاريخ",
+              value: formatDateTime(invoice.createdAt),
+              ltr: true,
+            },
+            {
+              key: "order",
+              label: "الطلب",
+              value: order.orderNumber,
+              ltr: true,
+            },
+            {
+              key: "type",
+              label: "النوع",
+              value: typeLabel,
+            },
+            {
+              key: "status",
+              label: "الحالة",
+              value: paymentMeta.short,
+              valueColor:
                 paymentMeta.tone === "success"
                   ? DOC_INK.success
                   : paymentMeta.tone === "danger"
                     ? DOC_INK.danger
-                    : DOC_INK.goldDeep
-              }
-            />
-            <MetaRow label="العملة" value={settings.currencySymbol} />
-            <MetaRow label="النوع" value={typeLabel} />
-          </div>
-          <div
-            className="min-w-0 flex-1 rounded-sm px-4 py-3"
-            style={{
-              borderInlineStart: `3px solid ${DOC_INK.gold}`,
-              background: DOC_INK.paleGold,
-            }}
+                    : DOC_INK.goldDeep,
+            },
+          ]}
+        />
+
+        <div
+          className="min-w-0 rounded-sm px-4 py-3"
+          style={{
+            borderInlineStart: `3px solid ${DOC_INK.gold}`,
+            background: DOC_INK.paleGold,
+          }}
+        >
+          <p
+            className="text-[10px] font-extrabold tracking-wide"
+            style={{ color: DOC_INK.goldDeep }}
           >
+            إلى السيد / السادة
+          </p>
+          <p className="mt-1.5 text-[15px] font-extrabold">{customerName}</p>
+          {customerPhone ? (
             <p
-              className="text-[10px] font-extrabold tracking-wide"
-              style={{ color: DOC_INK.goldDeep }}
+              className="num-ltr mt-1 text-[11px] tabular-nums"
+              style={{ color: DOC_INK.muted }}
             >
-              إلى السيد / السادة
+              {customerPhone}
             </p>
-            <p className="mt-1.5 text-[15px] font-extrabold">{customerName}</p>
-            {customerPhone ? (
-              <p
-                className="num-ltr mt-1 text-[11px] tabular-nums"
-                style={{ color: DOC_INK.muted }}
-              >
-                {customerPhone}
-              </p>
-            ) : null}
-          </div>
+          ) : null}
         </div>
 
         <DocScheduleBlock order={order} event={event} settings={settings} />
@@ -179,12 +184,28 @@ export const InvoiceA4Template = forwardRef<
                 }}
               >
                 <td className="px-3 py-3">
-                  <p className="font-bold">{item.productNameAr}</p>
-                  {item.notes ? (
-                    <p className="mt-0.5 text-[10px]" style={{ color: DOC_INK.faint }}>
-                      {item.notes}
-                    </p>
-                  ) : null}
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="min-w-0 flex-1 font-bold">{item.productNameAr}</p>
+                    {item.notes ? (
+                      <div
+                        className="shrink-0 max-w-[42%] rounded-sm px-2 py-1.5 text-[9.5px] leading-snug"
+                        style={{
+                          background: DOC_INK.paleGold,
+                          border: `1px solid ${DOC_INK.goldLine}`,
+                        }}
+                      >
+                        <span
+                          className="mb-0.5 inline-block rounded-sm px-1.5 py-0.5 text-[8px] font-extrabold text-white"
+                          style={{ background: DOC_INK.goldDeep }}
+                        >
+                          ملاحظة
+                        </span>
+                        <p className="mt-1" style={{ color: DOC_INK.muted }}>
+                          {item.notes}
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
                 </td>
                 <td className="px-2 py-3 text-center font-semibold tabular-nums">
                   {item.quantity}
@@ -358,28 +379,6 @@ export const InvoiceA4Template = forwardRef<
     </div>
   );
 });
-
-function MetaRow({
-  label,
-  value,
-  valueColor,
-}: {
-  label: string;
-  value: string;
-  valueColor?: string;
-}) {
-  return (
-    <div className="flex justify-between gap-2 text-[11px]">
-      <span style={{ color: DOC_INK.faint }}>{label}</span>
-      <span
-        className="font-bold tabular-nums"
-        style={{ color: valueColor ?? DOC_INK.text }}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
 
 function TotalRow({ label, value }: { label: string; value: string }) {
   return (

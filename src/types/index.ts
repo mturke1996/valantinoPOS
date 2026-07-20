@@ -587,6 +587,21 @@ export interface CreateOrderInput {
   event?: Omit<Event, "id" | "orderId" | "createdAt">;
 }
 
+export interface UpdateOrderInput {
+  orderId: string;
+  notes?: string | null;
+  deliveryInstructions?: string | null;
+  deliveryDate?: string | null;
+  deliveryTime?: string | null;
+  deliveryAddress?: string | null;
+  deliveryFee?: number;
+  deliveryZone?: string | null;
+  deliveryRecipientName?: string | null;
+  deliveryPhone?: string | null;
+  itemNotes?: Array<{ id: string; notes: string | null }>;
+  changedBy?: string | null;
+}
+
 export interface ProcessPaymentInput {
   orderId: string;
   shiftId?: string | null;

@@ -5,6 +5,7 @@ import {
   Package,
   PackageMinus,
   PackagePlus,
+  Pencil,
   RotateCcw,
   ShoppingBag,
   Tags,
@@ -56,6 +57,12 @@ export const AUDIT_ACTION_META: Record<string, AuditActionMeta> = {
     category: "orders",
     tone: "info",
     icon: ArrowLeftRight,
+  },
+  "order.update": {
+    labelAr: "تعديل الطلب",
+    category: "orders",
+    tone: "info",
+    icon: Pencil,
   },
   "order.cancel": {
     labelAr: "إلغاء طلب",

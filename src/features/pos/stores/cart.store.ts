@@ -62,6 +62,7 @@ export interface CartItem {
   unitPrice: number;
   quantity: number;
   discount: number;
+  notes: string;
 }
 
 export interface HeldCart {
@@ -92,6 +93,7 @@ interface CartState {
   addItem: (product: Product, quantity?: number) => void;
   removeItem: (itemId: string) => void;
   updateQuantity: (itemId: string, quantity: number) => void;
+  updateItemNotes: (itemId: string, notes: string) => void;
   clear: () => void;
   applyDiscount: (amount: number) => void;
   applyCoupon: (code: string) => boolean;
@@ -160,6 +162,7 @@ export const useCartStore = create<CartState>()(
             unitPrice,
             quantity,
             discount: 0,
+            notes: "",
           };
           return { items: [...state.items, item] };
         });
@@ -179,6 +182,14 @@ export const useCartStore = create<CartState>()(
         set((state) => ({
           items: state.items.map((i) =>
             i.id === itemId ? { ...i, quantity } : i,
+          ),
+        }));
+      },
+
+      updateItemNotes: (itemId, notes) => {
+        set((state) => ({
+          items: state.items.map((i) =>
+            i.id === itemId ? { ...i, notes } : i,
           ),
         }));
       },
@@ -307,7 +318,7 @@ export const useCartStore = create<CartState>()(
     }),
     {
       name: "valentino-cart",
-      version: 3,
+      version: 4,
       partialize: (state) => ({
         items: state.items,
         discountAmount: state.discountAmount,
@@ -318,9 +329,15 @@ export const useCartStore = create<CartState>()(
       }),
       migrate: (persisted, version) => {
         const state = persisted as Partial<CartState>;
-        if (version < 3) {
+        const withNotes = (items: CartItem[] = []) =>
+          items.map((item) => ({
+            ...item,
+            notes: item.notes ?? "",
+          }));
+
+        if (version < 4) {
           return {
-            items: state.items ?? [],
+            items: withNotes(state.items ?? []),
             discountAmount: state.discountAmount ?? 0,
             couponCode: state.couponCode ?? null,
             customerId: state.customerId ?? null,
@@ -330,6 +347,7 @@ export const useCartStore = create<CartState>()(
             },
             heldCarts: (state.heldCarts ?? []).map((held) => ({
               ...held,
+              items: withNotes(held.items ?? []),
               saleContext: {
                 ...DEFAULT_POS_SALE_CONTEXT,
                 ...(held.saleContext ?? {}),

@@ -8,6 +8,7 @@ import {
   Loader2,
   MapPin,
   MoreHorizontal,
+  Pencil,
   ReceiptText,
   Truck,
   UserRound,
@@ -18,6 +19,7 @@ import { toast } from "sonner";
 
 import { DeliveryReceiptDialog } from "@/components/documents/delivery-receipt-dialog";
 import { InvoicePrintDialog } from "@/components/invoices/invoice-print-dialog";
+import { OrderEditDialog } from "@/components/orders/order-edit-dialog";
 import { WhatsAppOrderShareButton } from "@/components/orders/whatsapp-order-share-button";
 import { ChocolateBarProgress } from "@/components/signature/chocolate-bar-progress";
 import type { OrderPipelineStage } from "@/components/signature/chocolate-bar-progress";
@@ -90,6 +92,34 @@ function toPipelineStage(status: OrderStatus): OrderPipelineStage {
   return status === "cancelled" ? "received" : status;
 }
 
+function OrderItemRow({
+  item,
+}: {
+  item: Order["items"][number];
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{item.productNameAr}</p>
+        <p className="text-xs text-muted-foreground">
+          {formatNumber(item.quantity)} ×{" "}
+          <CurrencyDisplay amount={item.unitPrice} />
+        </p>
+        {item.notes ? (
+          <p className="mt-1.5 rounded-md border border-gold-400/20 bg-gold-400/[0.05] px-2 py-1 text-[11px] leading-snug text-muted-foreground">
+            <span className="font-semibold text-gold-400">ملاحظة: </span>
+            {item.notes}
+          </p>
+        ) : null}
+      </div>
+      <CurrencyDisplay
+        amount={item.total}
+        className="shrink-0 text-sm font-semibold"
+      />
+    </div>
+  );
+}
+
 export function OrderDetailDialog({
   order,
   open,
@@ -99,6 +129,7 @@ export function OrderDetailDialog({
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [invoiceTarget, setInvoiceTarget] = useState<Invoice | null>(null);
   const [deliveryOpen, setDeliveryOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   if (!order) return null;
@@ -364,24 +395,7 @@ export function OrderDetailDialog({
                   ? order.items.slice(0, 6)
                   : order.items
                 ).map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between gap-3 px-4 py-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">
-                        {item.productNameAr}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatNumber(item.quantity)} ×{" "}
-                        <CurrencyDisplay amount={item.unitPrice} />
-                      </p>
-                    </div>
-                    <CurrencyDisplay
-                      amount={item.total}
-                      className="shrink-0 text-sm font-semibold"
-                    />
-                  </div>
+                  <OrderItemRow key={item.id} item={item} />
                 ))}
                 {order.items.length > 8 ? (
                   <details className="group">
@@ -391,24 +405,7 @@ export function OrderDetailDialog({
                     </summary>
                     <div className="divide-y divide-cacao-800/8 border-t border-cacao-800/8">
                       {order.items.slice(6).map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-center justify-between gap-3 px-4 py-3"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">
-                              {item.productNameAr}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatNumber(item.quantity)} ×{" "}
-                              <CurrencyDisplay amount={item.unitPrice} />
-                            </p>
-                          </div>
-                          <CurrencyDisplay
-                            amount={item.total}
-                            className="shrink-0 text-sm font-semibold"
-                          />
-                        </div>
+                        <OrderItemRow key={item.id} item={item} />
                       ))}
                     </div>
                   </details>
@@ -501,6 +498,16 @@ export function OrderDetailDialog({
           ) : null}
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))]">
+            {!isTerminal ? (
+              <Button
+                variant="outline"
+                className="min-h-11 w-full"
+                onClick={() => setEditOpen(true)}
+              >
+                <Pencil className="size-4" />
+                تعديل الطلب
+              </Button>
+            ) : null}
             {balance > 0 && !isTerminal ? (
               <Button
                 variant="outline"
@@ -536,6 +543,12 @@ export function OrderDetailDialog({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-[12rem]">
+                {!isTerminal ? (
+                  <DropdownMenuItem onClick={() => setEditOpen(true)}>
+                    <Pencil className="size-4" />
+                    تعديل الطلب
+                  </DropdownMenuItem>
+                ) : null}
                 {order.deliveryDate ||
                 order.deliveryAddress ||
                 order.type === "delivery" ? (
@@ -579,6 +592,12 @@ export function OrderDetailDialog({
         open={deliveryOpen}
         onOpenChange={setDeliveryOpen}
         order={order}
+      />
+      <OrderEditDialog
+        order={order}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSaved={onUpdated}
       />
       <Dialog open={confirmCancelOpen} onOpenChange={setConfirmCancelOpen}>
         <DialogContent className="sm:max-w-sm">

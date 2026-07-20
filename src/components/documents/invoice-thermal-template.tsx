@@ -5,6 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 
 import {
   DOC_FONT_STACK,
+  DOC_INK,
   PAYMENT_LABELS,
   formatDocMoney,
   resolveDocLogoUrl,
@@ -144,6 +145,14 @@ export const InvoiceThermalTemplate = forwardRef<
       {order.items.map((item) => (
         <div key={item.id} style={{ marginBottom: 4 }}>
           <div className="item-name">{item.productNameAr}</div>
+          {item.notes ? (
+            <div
+              className="text-[9px] leading-snug"
+              style={{ color: DOC_INK.muted, marginTop: 2 }}
+            >
+              ملاحظة: {item.notes}
+            </div>
+          ) : null}
           <div className="row">
             <span className="money-ar">
               {item.quantity} ×{" "}

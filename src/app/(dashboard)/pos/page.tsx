@@ -41,6 +41,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PosChrome } from "@/components/pos/pos-chrome";
+import { CartItemNoteField } from "@/components/pos/cart-item-note-field";
 import { PosCouponDialog } from "@/components/pos/pos-coupon-dialog";
 import { PosCustomerDialog } from "@/components/pos/pos-customer-dialog";
 import { PosDiscountDialog } from "@/components/pos/pos-discount-dialog";
@@ -151,6 +152,7 @@ export default function PosPage() {
   const addItem = useCartStore((s) => s.addItem);
   const removeItem = useCartStore((s) => s.removeItem);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
+  const updateItemNotes = useCartStore((s) => s.updateItemNotes);
   const clear = useCartStore((s) => s.clear);
   const applyDiscount = useCartStore((s) => s.applyDiscount);
   const applyCoupon = useCartStore((s) => s.applyCoupon);
@@ -389,6 +391,7 @@ export default function PosPage() {
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           discount: item.discount,
+          notes: item.notes.trim() || null,
         })),
         discountAmount: totals.discountAmount,
         couponCode: couponCode ?? null,
@@ -906,6 +909,11 @@ export default function PosPage() {
                         className="text-sm font-semibold"
                       />
                     </div>
+                    <CartItemNoteField
+                      value={item.notes}
+                      onChange={(notes) => updateItemNotes(item.id, notes)}
+                      productName={item.nameAr}
+                    />
                   </CardContent>
                 </Card>
               ))}
@@ -1146,6 +1154,12 @@ export default function PosPage() {
                           className="text-sm font-semibold"
                         />
                       </div>
+                      <CartItemNoteField
+                        value={item.notes}
+                        onChange={(notes) => updateItemNotes(item.id, notes)}
+                        productName={item.nameAr}
+                        compact
+                      />
                     </CardContent>
                   </Card>
                 ))}
