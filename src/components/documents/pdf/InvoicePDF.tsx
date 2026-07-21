@@ -11,7 +11,6 @@ import {
 } from "@/components/documents/order-labels";
 import {
   ar,
-  arDate,
   arDateLong,
   arDateTime,
   arMixed,
@@ -27,7 +26,6 @@ import {
   PdfContinuationBanner,
   PdfDocFooter,
   PdfDocHeader,
-  PdfItemDescCell,
   PdfLtrText,
   PdfMoneyText,
   PdfNotesSection,
@@ -46,10 +44,11 @@ import type {
 } from "@/types";
 
 const INVOICE_COLUMNS: PdfColumn[] = [
-  { key: "desc", label: "الصنف", flex: 3.4, kind: "multiline", bold: true },
-  { key: "qty", label: "الكمية", flex: 0.9, kind: "num" },
-  { key: "price", label: "السعر", flex: 1.25, kind: "money" },
-  { key: "total", label: "الإجمالي", flex: 1.35, kind: "money" },
+  { key: "desc", label: "الصنف", flex: 2.15, kind: "multiline", bold: true },
+  { key: "note", label: "ملاحظة", flex: 1.55, kind: "note" },
+  { key: "qty", label: "الكمية", flex: 0.72, kind: "num" },
+  { key: "price", label: "السعر", flex: 1.08, kind: "money" },
+  { key: "total", label: "الإجمالي", flex: 1.18, kind: "money" },
 ];
 
 const STATUS_INK = {
@@ -124,12 +123,6 @@ export function InvoicePDF({
           statusColor={statusColor}
           logoUri={logoUri}
           metaChips={[
-            {
-              key: "issued",
-              label: "الإصدار",
-              value: arDate(invoice.createdAt),
-              ltr: true,
-            },
             {
               key: "datetime",
               label: "التاريخ",
@@ -242,13 +235,8 @@ export function InvoicePDF({
           repeatHeader
           emptyMessage="لا توجد أصناف في هذه الفاتورة"
           rows={order.items.map((item) => ({
-            desc: (
-              <PdfItemDescCell
-                s={s}
-                name={item.productNameAr}
-                note={item.notes}
-              />
-            ),
+            desc: item.productNameAr,
+            note: item.notes?.trim() ?? "",
             qty: item.quantity,
             price: item.unitPrice,
             total: item.total,

@@ -9,6 +9,7 @@ import {
 import {
   PdfTable,
   type PdfColumn,
+  type PdfCellValue,
 } from "@/components/documents/pdf/PdfTable";
 import {
   INK,
@@ -23,15 +24,17 @@ import {
 import type { Customer, Order, Settings } from "@/types";
 
 const PRICE_COLUMNS: PdfColumn[] = [
-  { key: "desc", label: "الصنف", flex: 3.5, kind: "multiline", bold: true },
-  { key: "qty", label: "الكمية", flex: 1, kind: "num" },
-  { key: "total", label: "القيمة", flex: 1.5, kind: "money" },
+  { key: "desc", label: "الصنف", flex: 2.2, kind: "multiline", bold: true },
+  { key: "note", label: "ملاحظة", flex: 1.45, kind: "note" },
+  { key: "qty", label: "الكمية", flex: 0.85, kind: "num" },
+  { key: "total", label: "القيمة", flex: 1.35, kind: "money" },
 ];
 
 const CHECK_COLUMNS: PdfColumn[] = [
-  { key: "desc", label: "الصنف", flex: 3.5, kind: "multiline", bold: true },
-  { key: "qty", label: "الكمية", flex: 1, kind: "num" },
-  { key: "check", label: "✓", flex: 0.7, kind: "check" },
+  { key: "desc", label: "الصنف", flex: 2.2, kind: "multiline", bold: true },
+  { key: "note", label: "ملاحظة", flex: 1.45, kind: "note" },
+  { key: "qty", label: "الكمية", flex: 0.85, kind: "num" },
+  { key: "check", label: "✓", flex: 0.65, kind: "check" },
 ];
 
 export interface DeliveryReceiptPdfProps {
@@ -146,8 +149,9 @@ export function DeliveryReceiptPDF({
           repeatHeader
           emptyMessage="لا توجد أصناف للتسليم"
           rows={order.items.map((item) => {
-            const row: Record<string, string | number> = {
+            const row: Record<string, PdfCellValue> = {
               desc: item.productNameAr,
+              note: item.notes?.trim() ?? "",
               qty: item.quantity,
             };
             if (hidePrices) row.check = "☐";

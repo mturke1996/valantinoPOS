@@ -14,6 +14,7 @@ interface DocBrandHeaderProps {
   statusTone?: "success" | "warning" | "neutral";
   contactLine?: string;
   compact?: boolean;
+  metaChips?: DocMetaChip[];
 }
 
 const STATUS_COLOR = {
@@ -32,6 +33,7 @@ export function DocBrandHeader({
   statusTone = "neutral",
   contactLine,
   compact = false,
+  metaChips,
 }: DocBrandHeaderProps) {
   const logoUrl = resolveDocLogoUrl(settings);
   const phone = contactLine ? null : settings.branchPhone?.trim() || null;
@@ -115,17 +117,23 @@ export function DocBrandHeader({
 
         <div className="shrink-0 text-end">
           <span
-            className="inline-flex rounded-sm px-2.5 py-1 text-[10px] font-extrabold tracking-[0.14em] uppercase"
+            className="inline-flex rounded-sm px-2.5 py-1 text-[9px] font-extrabold tracking-[0.16em] uppercase"
             style={{
               background: DOC_INK.paleGold,
               border: `1px solid ${DOC_INK.goldLine}`,
               color: DOC_INK.goldDeep,
             }}
           >
-            {titleEn}
+            OFFICIAL
           </span>
           <p
-            className={`mt-2 font-extrabold tabular-nums ${compact ? "text-[12px]" : "text-[14px]"}`}
+            className={`mt-2 font-extrabold leading-none tracking-[0.08em] ${compact ? "text-[20px]" : "text-[24px]"}`}
+            style={{ color: "#D6C9A8" }}
+          >
+            {titleEn}
+          </p>
+          <p
+            className={`mt-1.5 font-extrabold tabular-nums ${compact ? "text-[12px]" : "text-[14px]"}`}
             dir="ltr"
             style={{ color: DOC_INK.text }}
           >
@@ -141,6 +149,10 @@ export function DocBrandHeader({
           ) : null}
         </div>
       </div>
+
+      {metaChips && metaChips.length > 0 ? (
+        <DocMetaStrip chips={metaChips} className="mt-4" />
+      ) : null}
     </header>
   );
 }
@@ -204,22 +216,33 @@ export interface DocMetaChip {
   ltr?: boolean;
 }
 
-export function DocMetaStrip({ chips }: { chips: DocMetaChip[] }) {
+export function DocMetaStrip({
+  chips,
+  className = "",
+}: {
+  chips: DocMetaChip[];
+  className?: string;
+}) {
   if (chips.length === 0) return null;
 
   return (
     <div
-      className="flex flex-wrap items-center justify-start gap-2 rounded-sm px-3 py-2.5"
+      className={`flex flex-wrap items-stretch justify-start overflow-hidden rounded-sm ${className}`}
       style={{
-        background: DOC_INK.paleGold,
-        border: `1px solid ${DOC_INK.goldLine}`,
+        background: DOC_INK.mist,
+        borderTop: `2px solid ${DOC_INK.gold}`,
+        borderBottom: `1px solid ${DOC_INK.goldLine}`,
       }}
     >
-      {chips.map((chip) => (
+      {chips.map((chip, index) => (
         <div
           key={chip.key}
-          className="inline-flex items-center gap-2 rounded-sm bg-white px-2.5 py-1.5"
-          style={{ border: `1px solid ${DOC_INK.border}` }}
+          className="inline-flex min-w-[22%] items-center gap-2 px-3 py-2.5"
+          style={
+            index > 0
+              ? { borderInlineStart: `1px solid ${DOC_INK.goldLine}` }
+              : undefined
+          }
         >
           <span
             className="text-[9px] font-extrabold tracking-wide"
@@ -228,7 +251,7 @@ export function DocMetaStrip({ chips }: { chips: DocMetaChip[] }) {
             {chip.label}
           </span>
           <span
-            className={`text-[10px] font-bold ${chip.ltr ? "num-ltr tabular-nums" : ""}`}
+            className={`text-[10.5px] font-bold ${chip.ltr ? "num-ltr tabular-nums" : ""}`}
             style={{ color: chip.valueColor ?? DOC_INK.text }}
             dir={chip.ltr ? "ltr" : undefined}
           >

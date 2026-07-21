@@ -146,11 +146,8 @@ export const InvoiceThermalTemplate = forwardRef<
         <div key={item.id} style={{ marginBottom: 4 }}>
           <div className="item-name">{item.productNameAr}</div>
           {item.notes ? (
-            <div
-              className="text-[9px] leading-snug"
-              style={{ color: DOC_INK.muted, marginTop: 2 }}
-            >
-              ملاحظة: {item.notes}
+            <div className="muted" style={{ fontSize: "0.75em", marginTop: 2 }}>
+              {item.notes}
             </div>
           ) : null}
           <div className="row">

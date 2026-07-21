@@ -11,12 +11,12 @@ import {
   formatDocMoney,
   invoicePaymentStatusMeta,
 } from "@/components/documents/brand";
-import { DocBrandHeader, DocMetaStrip, DocTitleBand } from "@/components/documents/doc-chrome";
+import { DocBrandHeader } from "@/components/documents/doc-chrome";
 import { DocumentNotesBlock } from "@/components/documents/document-notes-block";
 import { DocScheduleBlock } from "@/components/documents/doc-order-meta";
 import { orderTypeLabel } from "@/components/documents/order-labels";
 import { collectDocumentNotes } from "@/lib/documents/order-notes";
-import { formatDate, formatDateTime } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils";
 import type {
   Customer,
   Event,
@@ -85,48 +85,39 @@ export const InvoiceA4Template = forwardRef<
               ? "neutral"
               : "warning"
         }
+        metaChips={[
+          {
+            key: "datetime",
+            label: "التاريخ",
+            value: formatDateTime(invoice.createdAt),
+            ltr: true,
+          },
+          {
+            key: "order",
+            label: "الطلب",
+            value: order.orderNumber,
+            ltr: true,
+          },
+          {
+            key: "type",
+            label: "النوع",
+            value: typeLabel,
+          },
+          {
+            key: "status",
+            label: "الحالة",
+            value: paymentMeta.short,
+            valueColor:
+              paymentMeta.tone === "success"
+                ? DOC_INK.success
+                : paymentMeta.tone === "danger"
+                  ? DOC_INK.danger
+                  : DOC_INK.goldDeep,
+          },
+        ]}
       />
 
       <div className="space-y-5 px-9 py-5">
-        <DocMetaStrip
-          chips={[
-            {
-              key: "issued",
-              label: "الإصدار",
-              value: formatDate(invoice.createdAt, "dd/MM/yyyy"),
-              ltr: true,
-            },
-            {
-              key: "datetime",
-              label: "التاريخ",
-              value: formatDateTime(invoice.createdAt),
-              ltr: true,
-            },
-            {
-              key: "order",
-              label: "الطلب",
-              value: order.orderNumber,
-              ltr: true,
-            },
-            {
-              key: "type",
-              label: "النوع",
-              value: typeLabel,
-            },
-            {
-              key: "status",
-              label: "الحالة",
-              value: paymentMeta.short,
-              valueColor:
-                paymentMeta.tone === "success"
-                  ? DOC_INK.success
-                  : paymentMeta.tone === "danger"
-                    ? DOC_INK.danger
-                    : DOC_INK.goldDeep,
-            },
-          ]}
-        />
-
         <div
           className="min-w-0 rounded-sm px-4 py-3"
           style={{
@@ -163,7 +154,10 @@ export const InvoiceA4Template = forwardRef<
               }}
             >
               <th className="px-3 py-3 text-start font-extrabold">الصنف</th>
-              <th className="w-16 px-2 py-3 text-center font-extrabold">
+              <th className="w-[26%] px-2 py-3 text-start font-extrabold">
+                ملاحظة
+              </th>
+              <th className="w-14 px-2 py-3 text-center font-extrabold">
                 الكمية
               </th>
               <th className="w-24 px-2 py-3 text-center font-extrabold">
@@ -183,31 +177,13 @@ export const InvoiceA4Template = forwardRef<
                   borderBottom: `1px solid ${DOC_INK.border}`,
                 }}
               >
-                <td className="px-3 py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="min-w-0 flex-1 font-bold">{item.productNameAr}</p>
-                    {item.notes ? (
-                      <div
-                        className="shrink-0 max-w-[42%] rounded-sm px-2 py-1.5 text-[9.5px] leading-snug"
-                        style={{
-                          background: DOC_INK.paleGold,
-                          border: `1px solid ${DOC_INK.goldLine}`,
-                        }}
-                      >
-                        <span
-                          className="mb-0.5 inline-block rounded-sm px-1.5 py-0.5 text-[8px] font-extrabold text-white"
-                          style={{ background: DOC_INK.goldDeep }}
-                        >
-                          ملاحظة
-                        </span>
-                        <p className="mt-1" style={{ color: DOC_INK.muted }}>
-                          {item.notes}
-                        </p>
-                      </div>
-                    ) : null}
-                  </div>
+                <td className="px-3 py-3 align-top">
+                  <p className="font-bold leading-snug">{item.productNameAr}</p>
                 </td>
-                <td className="px-2 py-3 text-center font-semibold tabular-nums">
+                <td className="px-2 py-3 align-top text-[11.5px] leading-snug">
+                  {item.notes?.trim() ?? ""}
+                </td>
+                <td className="px-2 py-3 text-center align-top font-semibold tabular-nums">
                   {item.quantity}
                 </td>
                 <td className="px-2 py-3 text-center tabular-nums">

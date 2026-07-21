@@ -26,6 +26,7 @@ export type PdfColKind =
   | "money"
   | "date"
   | "multiline"
+  | "note"
   | "check";
 
 export type PdfCellValue = string | number | React.ReactElement;
@@ -84,6 +85,7 @@ const headPresenceAhead =
 function alignFor(kind: PdfColKind): "left" | "right" | "center" {
   if (kind === "money") return "left";
   if (kind === "num" || kind === "date" || kind === "check") return "center";
+  if (kind === "note") return "right";
   return "right";
 }
 
@@ -133,7 +135,7 @@ function PdfTd({
   compact?: boolean;
 }) {
   const isNumeric = kind === "num" || kind === "date" || kind === "check";
-  const isMultiline = kind === "multiline";
+  const isMultiline = kind === "multiline" || kind === "note";
   const raw = String(children ?? "");
   const text =
     raw === "—" || raw === ""
