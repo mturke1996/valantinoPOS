@@ -8,6 +8,7 @@ import {
   formatCurrencyAmount,
   formatNumberAmount,
   getDefaultFormatSettings,
+  parseLocalizedNumber,
 } from "@/lib/formatters";
 
 export function cn(...inputs: ClassValue[]): string {
@@ -70,4 +71,4 @@ export function roundMoney(amount: number): number {
   return Math.round(amount * 100) / 100;
 }
 
-export { getDefaultFormatSettings };
+export { getDefaultFormatSettings, parseLocalizedNumber };

@@ -40,7 +40,13 @@ import {
 } from "@/lib/data/store";
 import { cacheProducts } from "@/lib/offline/db";
 import type { Category, Product, UnitType } from "@/types";
-import { cn, roundMoney } from "@/lib/utils";
+import { LIBYA_LOCALE } from "@/lib/constants/locale";
+import {
+  cn,
+  formatNumber,
+  parseLocalizedNumber,
+  roundMoney,
+} from "@/lib/utils";
 
 const UNIT_OPTIONS: Array<{ value: UnitType; label: string }> = [
   { value: "piece", label: "حبة" },
@@ -86,6 +92,14 @@ const EMPTY_FORM: ProductFormState = {
   imageUrl: null,
 };
 
+function formatPriceInput(value: number): string {
+  if (!Number.isFinite(value)) return "";
+  return formatNumber(value, LIBYA_LOCALE.locale, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+}
+
 function productToForm(product: Product | null): ProductFormState {
   if (!product) return { ...EMPTY_FORM };
   return {
@@ -95,9 +109,9 @@ function productToForm(product: Product | null): ProductFormState {
     barcode: product.barcode,
     categoryId: product.categoryId,
     description: product.description,
-    costPrice: String(product.costPrice),
-    retailPrice: String(product.retailPrice),
-    wholesalePrice: String(product.wholesalePrice),
+    costPrice: formatPriceInput(product.costPrice),
+    retailPrice: formatPriceInput(product.retailPrice),
+    wholesalePrice: formatPriceInput(product.wholesalePrice),
     unitType: product.unitType,
     weightGrams:
       product.weightGrams === null ? "" : String(product.weightGrams),
@@ -109,8 +123,19 @@ function productToForm(product: Product | null): ProductFormState {
 }
 
 function numberValue(value: string): number {
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) ? parsed : 0;
+  return parseLocalizedNumber(value) ?? 0;
+}
+
+function sanitizePriceInput(raw: string): string {
+  return raw.replace(/[^\d,.\s\u0660-\u0669-]/g, "");
+}
+
+function normalizePriceInput(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  const parsed = parseLocalizedNumber(trimmed);
+  if (parsed === null) return trimmed;
+  return formatPriceInput(parsed);
 }
 
 interface ProductEditorDialogProps {
@@ -413,16 +438,25 @@ export function ProductEditorDialog({
                       <Label htmlFor={field.id}>{field.label}</Label>
                       <Input
                         id={field.id}
-                        type="number"
-                        min={0}
-                        step="0.01"
+                        type="text"
                         value={form[field.key]}
                         onChange={(event) =>
-                          updateForm(field.key, event.target.value)
+                          updateForm(
+                            field.key,
+                            sanitizePriceInput(event.target.value),
+                          )
+                        }
+                        onBlur={(event) =>
+                          updateForm(
+                            field.key,
+                            normalizePriceInput(event.target.value),
+                          )
                         }
                         dir="ltr"
                         className="font-mono text-base tabular-nums"
                         inputMode="decimal"
+                        placeholder="0"
+                        autoComplete="off"
                       />
                     </div>
                   ))}
